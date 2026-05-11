@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
-  TextInput, ScrollView, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useUserStore } from '../../store/useUserStore';
 import { ExperienceLevel } from '../../types';
+import { HandicapDial, HCP_MIN, HCP_MAX } from '../../components/HandicapDial';
 
 const EXPERIENCE_OPTIONS: { key: ExperienceLevel; label: string; sub: string; emoji: string }[] = [
   { key: 'beginner', label: 'Beginner', sub: 'Playing less than 2 years', emoji: '🌱' },
@@ -22,21 +22,22 @@ export default function SetupScreen() {
 
   const [name, setName] = useState(existing?.name ?? '');
   const [experience, setExperience] = useState<ExperienceLevel>(existing?.experienceLevel ?? 'casual');
-  const [handicap, setHandicap] = useState(existing?.handicap?.toString() ?? '');
   const [noHandicap, setNoHandicap] = useState(false);
-  const [targetHandicap, setTargetHandicap] = useState(existing?.targetHandicap?.toString() ?? '');
-  const [ballSpeed, setBallSpeed] = useState(existing?.ballSpeed?.toString() ?? '');
+  const [handicap, setHandicap] = useState<number>(
+    existing?.handicap != null
+      ? Math.max(HCP_MIN, Math.min(HCP_MAX, Math.round(existing.handicap)))
+      : 18,
+  );
+  const [targetHandicap, setTargetHandicap] = useState<number>(
+    existing?.targetHandicap != null
+      ? Math.max(HCP_MIN, Math.min(HCP_MAX, Math.round(existing.targetHandicap)))
+      : 10,
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   function validate(): boolean {
     const next: Record<string, string> = {};
     if (!name.trim()) next.name = 'Please enter your name';
-    if (!noHandicap) {
-      const hcp = parseFloat(handicap);
-      if (isNaN(hcp) || hcp < 0 || hcp > 54) next.handicap = 'Enter a valid handicap (0–54)';
-    }
-    const target = parseFloat(targetHandicap);
-    if (isNaN(target) || target < 0 || target > 54) next.targetHandicap = 'Enter a valid target (0–54)';
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -46,14 +47,14 @@ export default function SetupScreen() {
     setProfile({
       name: name.trim(),
       experienceLevel: experience,
-      handicap: noHandicap ? 36 : parseFloat(handicap),
-      targetHandicap: parseFloat(targetHandicap),
+      handicap: noHandicap ? 36 : handicap,
+      targetHandicap,
       targetTimeline: '6_months',
       weaknesses: existing?.weaknesses ?? [],
       strengths: existing?.strengths ?? [],
       missTendencies: existing?.missTendencies ?? [],
       goals: existing?.goals ?? [],
-      ballSpeed: ballSpeed ? parseFloat(ballSpeed) : undefined,
+      ballSpeed: existing?.ballSpeed,
       practiceDaysPerWeek: existing?.practiceDaysPerWeek ?? 3,
       sessionLengthMinutes: existing?.sessionLengthMinutes ?? 60,
       facilities: existing?.facilities ?? [],
@@ -66,105 +67,85 @@ export default function SetupScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <ProgressDots current={1} total={4} />
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <ProgressDots current={1} total={4} />
 
-          <Text style={styles.title}>Tell us about{'\n'}yourself</Text>
-          <Text style={styles.subtitle}>We'll use this to build a plan that fits your game.</Text>
+        <Text style={styles.title}>Tell us about{'\n'}yourself</Text>
+        <Text style={styles.subtitle}>We'll use this to build a plan that fits your game.</Text>
 
-          {/* Name */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Your First Name</Text>
-            <TextInput
-              style={[styles.input, errors.name ? styles.inputError : null]}
-              value={name}
-              onChangeText={setName}
-              placeholder="e.g. Jordan"
-              placeholderTextColor={Colors.textLight}
-              returnKeyType="done"
-            />
-            {errors.name && <Text style={styles.error}>{errors.name}</Text>}
+        {/* Name */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Your First Name</Text>
+          <TextInput
+            style={[styles.input, errors.name ? styles.inputError : null]}
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. Jordan"
+            placeholderTextColor={Colors.textLight}
+            returnKeyType="done"
+          />
+          {errors.name && <Text style={styles.error}>{errors.name}</Text>}
+        </View>
+
+        {/* Experience */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Experience Level</Text>
+          <View style={styles.expGrid}>
+            {EXPERIENCE_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.key}
+                style={[styles.expCard, experience === opt.key && styles.expCardActive]}
+                onPress={() => setExperience(opt.key)}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.expEmoji}>{opt.emoji}</Text>
+                <Text style={[styles.expLabel, experience === opt.key && styles.expLabelActive]}>
+                  {opt.label}
+                </Text>
+                <Text style={styles.expSub}>{opt.sub}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
+        </View>
 
-          {/* Experience */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Experience Level</Text>
-            <View style={styles.expGrid}>
-              {EXPERIENCE_OPTIONS.map((opt) => (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[styles.expCard, experience === opt.key && styles.expCardActive]}
-                  onPress={() => setExperience(opt.key)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.expEmoji}>{opt.emoji}</Text>
-                  <Text style={[styles.expLabel, experience === opt.key && styles.expLabelActive]}>{opt.label}</Text>
-                  <Text style={styles.expSub}>{opt.sub}</Text>
-                </TouchableOpacity>
-              ))}
+        {/* Current Handicap */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Current Handicap Index</Text>
+          <Text style={styles.hint}>
+            Drag the dial or tap the buttons. Slide left for + (plus) handicaps.
+          </Text>
+          <TouchableOpacity
+            style={styles.noHcpToggle}
+            onPress={() => setNoHandicap(!noHandicap)}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.checkbox, noHandicap && styles.checkboxActive]}>
+              {noHandicap && <Text style={styles.checkmark}>✓</Text>}
             </View>
-          </View>
-
-          {/* Handicap */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Current Handicap Index</Text>
-            <TouchableOpacity
-              style={[styles.noHcpToggle, noHandicap && styles.noHcpToggleActive]}
-              onPress={() => setNoHandicap(!noHandicap)}
-              activeOpacity={0.75}
-            >
-              <View style={[styles.checkbox, noHandicap && styles.checkboxActive]}>
-                {noHandicap && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-              <Text style={styles.noHcpText}>I don't have an official handicap yet</Text>
-            </TouchableOpacity>
-            {!noHandicap && (
-              <TextInput
-                style={[styles.input, errors.handicap ? styles.inputError : null]}
-                value={handicap}
-                onChangeText={setHandicap}
-                placeholder="e.g. 14.2"
-                placeholderTextColor={Colors.textLight}
-                keyboardType="decimal-pad"
-                returnKeyType="done"
-              />
-            )}
-            {errors.handicap && <Text style={styles.error}>{errors.handicap}</Text>}
-          </View>
-
-          {/* Target */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Target Handicap</Text>
-            <Text style={styles.hint}>Where do you want to get to?</Text>
-            <TextInput
-              style={[styles.input, errors.targetHandicap ? styles.inputError : null]}
-              value={targetHandicap}
-              onChangeText={setTargetHandicap}
-              placeholder="e.g. 8.0"
-              placeholderTextColor={Colors.textLight}
-              keyboardType="decimal-pad"
-              returnKeyType="done"
-            />
-            {errors.targetHandicap && <Text style={styles.error}>{errors.targetHandicap}</Text>}
-          </View>
-
-          {/* Ball Speed (optional) */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Ball Speed — <Text style={styles.optional}>optional</Text></Text>
-            <Text style={styles.hint}>From a launch monitor or Trackman. Helps calibrate distance drills.</Text>
-            <TextInput
-              style={styles.input}
-              value={ballSpeed}
-              onChangeText={setBallSpeed}
-              placeholder="e.g. 145 mph"
-              placeholderTextColor={Colors.textLight}
-              keyboardType="decimal-pad"
-              returnKeyType="done"
+            <Text style={styles.noHcpText}>I don't have an official handicap yet</Text>
+          </TouchableOpacity>
+          <View style={styles.dialWrap}>
+            <HandicapDial
+              value={noHandicap ? 36 : handicap}
+              onChange={setHandicap}
+              disabled={noHandicap}
             />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+
+        {/* Target Handicap */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Target Handicap</Text>
+          <Text style={styles.hint}>Where do you want to get to?</Text>
+          <View style={styles.dialWrap}>
+            <HandicapDial value={targetHandicap} onChange={setTargetHandicap} />
+          </View>
+        </View>
+      </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
@@ -182,7 +163,14 @@ function ProgressDots({ current, total }: { current: number; total: number }) {
   return (
     <View style={dotStyles.row}>
       {Array.from({ length: total }, (_, i) => (
-        <View key={i} style={[dotStyles.dot, i < current && dotStyles.dotActive, i === current - 1 && dotStyles.dotCurrent]} />
+        <View
+          key={i}
+          style={[
+            dotStyles.dot,
+            i < current && dotStyles.dotActive,
+            i === current - 1 && dotStyles.dotCurrent,
+          ]}
+        />
       ))}
       <Text style={dotStyles.label}>Step {current} of {total}</Text>
     </View>
@@ -205,7 +193,6 @@ const styles = StyleSheet.create({
   field: { marginBottom: Spacing.lg, gap: 6 },
   label: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
   hint: { fontSize: FontSize.xs, color: Colors.textLight },
-  optional: { fontWeight: '400', color: Colors.textLight },
   input: {
     backgroundColor: Colors.surface,
     borderWidth: 1.5,
@@ -242,7 +229,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
   },
-  noHcpToggleActive: {},
   checkbox: {
     width: 22,
     height: 22,
@@ -255,6 +241,7 @@ const styles = StyleSheet.create({
   checkboxActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   checkmark: { color: Colors.surface, fontSize: 12, fontWeight: '800' },
   noHcpText: { fontSize: FontSize.sm, color: Colors.textSecondary, flex: 1 },
+  dialWrap: { alignItems: 'center', marginTop: Spacing.xs },
   footer: {
     flexDirection: 'row',
     paddingHorizontal: Spacing.xl,
@@ -265,8 +252,21 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
-  backBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border },
+  backBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
   backText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textSecondary },
-  nextBtn: { flex: 2, backgroundColor: Colors.primary, paddingVertical: 16, alignItems: 'center', borderRadius: Radius.full },
+  nextBtn: {
+    flex: 2,
+    backgroundColor: Colors.primary,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderRadius: Radius.full,
+  },
   nextText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.surface },
 });

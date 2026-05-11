@@ -16,6 +16,7 @@ import { usePracticeStore } from '../../store/usePracticeStore';
 import { useRoundStore } from '../../store/useRoundStore';
 import { WEAKNESS_OPTIONS, GOAL_OPTIONS } from '../../constants/data';
 import { WeaknessArea, GoalType } from '../../types';
+import { HandicapDial, formatHandicap, HCP_MIN, HCP_MAX } from '../../components/HandicapDial';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -26,20 +27,25 @@ export default function ProfileScreen() {
   const rounds = useRoundStore((s) => s.rounds);
 
   const [editingHandicap, setEditingHandicap] = useState(false);
-  const [handicapInput, setHandicapInput] = useState(profile?.handicap?.toString() ?? '');
+  const [draftHandicap, setDraftHandicap] = useState(
+    profile ? Math.max(HCP_MIN, Math.min(HCP_MAX, Math.round(profile.handicap))) : 18,
+  );
   const [apiKeyInput, setApiKeyInput] = useState(profile?.apiKey ?? '');
   const [showApiKey, setShowApiKey] = useState(false);
 
   if (!profile) return null;
-  const safeProfile = profile;
+
+  function openHandicapEditor() {
+    setDraftHandicap(Math.max(HCP_MIN, Math.min(HCP_MAX, Math.round(profile!.handicap))));
+    setEditingHandicap(true);
+  }
 
   function saveHandicap() {
-    const val = parseFloat(handicapInput);
-    if (isNaN(val) || val < 0 || val > 54) {
-      Alert.alert('Invalid handicap', 'Enter a number between 0 and 54.');
-      return;
-    }
-    updateProfile({ handicap: val });
+    updateProfile({ handicap: draftHandicap });
+    setEditingHandicap(false);
+  }
+
+  function cancelHandicap() {
     setEditingHandicap(false);
   }
 
@@ -50,19 +56,17 @@ export default function ProfileScreen() {
   }
 
   function toggleWeakness(key: WeaknessArea) {
-    const current = safeProfile.weaknesses;
-    const next = current.includes(key)
-      ? current.filter((k) => k !== key)
-      : [...current, key];
-    updateProfile({ weaknesses: next });
+    const current = profile.weaknesses;
+    updateProfile({
+      weaknesses: current.includes(key) ? current.filter((k) => k !== key) : [...current, key],
+    });
   }
 
   function toggleGoal(key: GoalType) {
-    const current = safeProfile.goals;
-    const next = current.includes(key)
-      ? current.filter((k) => k !== key)
-      : [...current, key];
-    updateProfile({ goals: next });
+    const current = profile.goals;
+    updateProfile({
+      goals: current.includes(key) ? current.filter((k) => k !== key) : [...current, key],
+    });
   }
 
   function handleReset() {
@@ -97,7 +101,11 @@ export default function ProfileScreen() {
           <View>
             <Text style={styles.userName}>{profile.name}</Text>
             <Text style={styles.userSince}>
-              Member since {new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              Member since{' '}
+              {new Date(profile.createdAt).toLocaleDateString('en-US', {
+                month: 'long',
+                year: 'numeric',
+              })}
             </Text>
           </View>
         </View>
@@ -106,42 +114,26 @@ export default function ProfileScreen() {
         <SectionHeader title="Handicap" />
         <View style={styles.card}>
           {editingHandicap ? (
-            <View style={styles.editRow}>
-              <TextInput
-                style={styles.editInput}
-                value={handicapInput}
-                onChangeText={setHandicapInput}
-                keyboardType="decimal-pad"
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={saveHandicap}
-              />
-              <TouchableOpacity style={styles.saveBtn} onPress={saveHandicap}>
-                <Text style={styles.saveBtnText}>Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => {
-                  setHandicapInput(profile.handicap.toString());
-                  setEditingHandicap(false);
-                }}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
+            <View style={styles.dialSection}>
+              <HandicapDial value={draftHandicap} onChange={setDraftHandicap} />
+              <View style={styles.dialActions}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={cancelHandicap}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={saveHandicap}>
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
             <View style={styles.handicapRow}>
               <View>
-                <Text style={styles.hcpValue}>{profile.handicap}</Text>
-                <Text style={styles.hcpSub}>Target: {profile.targetHandicap}</Text>
+                <Text style={styles.hcpValue}>{formatHandicap(profile.handicap)}</Text>
+                <Text style={styles.hcpSub}>
+                  Target: {formatHandicap(profile.targetHandicap)}
+                </Text>
               </View>
-              <TouchableOpacity
-                style={styles.editBtn}
-                onPress={() => {
-                  setHandicapInput(profile.handicap.toString());
-                  setEditingHandicap(true);
-                }}
-              >
+              <TouchableOpacity style={styles.editBtn} onPress={openHandicapEditor}>
                 <Text style={styles.editBtnText}>Update</Text>
               </TouchableOpacity>
             </View>
@@ -153,8 +145,14 @@ export default function ProfileScreen() {
         <View style={styles.card}>
           <InfoRow label="Practice days/week" value={`${profile.practiceDaysPerWeek} days`} />
           <InfoRow label="Session length" value={`${profile.sessionLengthMinutes} min`} />
-          {profile.ballSpeed && <InfoRow label="Ball speed" value={`${profile.ballSpeed} mph`} />}
-          <InfoRow label="Rounds logged" value={rounds.filter((r) => r.isComplete).length.toString()} isLast />
+          {profile.ballSpeed != null && (
+            <InfoRow label="Ball speed" value={`${profile.ballSpeed} mph`} />
+          )}
+          <InfoRow
+            label="Rounds logged"
+            value={rounds.filter((r) => r.isComplete).length.toString()}
+            isLast
+          />
         </View>
 
         {/* Weaknesses */}
@@ -206,7 +204,8 @@ export default function ProfileScreen() {
         <SectionHeader title="Claude AI Settings" />
         <View style={styles.card}>
           <Text style={styles.apiNote}>
-            Enter your Anthropic API key to enable AI-generated practice plans. Your key is stored locally on your device.
+            Enter your Anthropic API key to enable AI-generated practice plans. Your key is stored
+            locally on your device.
           </Text>
           <View style={styles.apiKeyRow}>
             <TextInput
@@ -221,10 +220,7 @@ export default function ProfileScreen() {
             />
           </View>
           <View style={styles.apiActions}>
-            <TouchableOpacity
-              onPress={() => setShowApiKey(!showApiKey)}
-              style={styles.showKeyBtn}
-            >
+            <TouchableOpacity onPress={() => setShowApiKey(!showApiKey)} style={styles.showKeyBtn}>
               <Text style={styles.showKeyText}>{showApiKey ? 'Hide' : 'Show'} key</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.saveApiBtn} onPress={saveApiKey}>
@@ -251,9 +247,7 @@ export default function ProfileScreen() {
 }
 
 function SectionHeader({ title }: { title: string }) {
-  return (
-    <Text style={headerStyles.title}>{title}</Text>
-  );
+  return <Text style={headerStyles.title}>{title}</Text>;
 }
 
 function InfoRow({ label, value, isLast }: { label: string; value: string; isLast?: boolean }) {
@@ -279,11 +273,7 @@ const headerStyles = StyleSheet.create({
 });
 
 const infoStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.sm,
-  },
+  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Spacing.sm },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
   label: { fontSize: FontSize.base, color: Colors.textSecondary },
   value: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text },
@@ -330,20 +320,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   editBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
-  editRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
-  editInput: {
+  dialSection: { alignItems: 'center', paddingVertical: Spacing.sm, gap: Spacing.md },
+  dialActions: { flexDirection: 'row', gap: Spacing.sm, alignSelf: 'stretch' },
+  saveBtn: {
     flex: 1,
-    fontSize: FontSize.xl,
-    fontWeight: '700',
-    color: Colors.text,
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
-    paddingVertical: 4,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingVertical: 12,
+    alignItems: 'center',
   },
-  saveBtn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 8, paddingHorizontal: 14 },
-  saveBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.surface },
-  cancelBtn: { paddingVertical: 8, paddingHorizontal: 10 },
-  cancelBtnText: { fontSize: FontSize.sm, color: Colors.textSecondary },
+  saveBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.surface },
+  cancelBtn: {
+    flex: 1,
+    borderRadius: Radius.full,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  cancelBtnText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textSecondary },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   chip: {
     flexDirection: 'row',
@@ -373,10 +368,20 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontFamily: 'monospace',
   },
-  apiActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
+  apiActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
   showKeyBtn: { paddingVertical: 4 },
   showKeyText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
-  saveApiBtn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 8, paddingHorizontal: 16 },
+  saveApiBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
   saveApiBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.surface },
   keyStatus: { fontSize: FontSize.xs, color: Colors.success, fontWeight: '600' },
   keyStatusEmpty: { fontSize: FontSize.xs, color: Colors.textLight },

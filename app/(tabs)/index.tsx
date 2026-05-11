@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
+import { formatHandicap } from '../../components/HandicapDial';
 import { useUserStore } from '../../store/useUserStore';
 import { useRoundStore } from '../../store/useRoundStore';
 import { usePracticeStore } from '../../store/usePracticeStore';
@@ -88,7 +89,7 @@ export default function DashboardScreen() {
           </View>
           <View style={styles.hcpBadge}>
             <Text style={styles.hcpLabel}>HCP</Text>
-            <Text style={styles.hcpValue}>{profile?.handicap ?? '—'}</Text>
+            <Text style={styles.hcpValue}>{profile ? formatHandicap(profile.handicap) : '—'}</Text>
           </View>
         </View>
 

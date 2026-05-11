@@ -3,6 +3,7 @@ import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme
 import { useRoundStore } from '../../store/useRoundStore';
 import { useUserStore } from '../../store/useUserStore';
 import { Round } from '../../types';
+import { formatHandicap } from '../../components/HandicapDial';
 
 function avg(nums: number[]): number {
   if (nums.length === 0) return 0;
@@ -102,12 +103,12 @@ export default function ProgressScreen() {
                 <View style={styles.hcpCard}>
                   <View style={styles.hcpRow}>
                     <View style={styles.hcpItem}>
-                      <Text style={styles.hcpNum}>{profile.handicap}</Text>
+                      <Text style={styles.hcpNum}>{formatHandicap(profile.handicap)}</Text>
                       <Text style={styles.hcpSub}>Current</Text>
                     </View>
                     <View style={styles.hcpDivider} />
                     <View style={styles.hcpItem}>
-                      <Text style={[styles.hcpNum, { color: Colors.primary }]}>{profile.targetHandicap}</Text>
+                      <Text style={[styles.hcpNum, { color: Colors.primary }]}>{formatHandicap(profile.targetHandicap)}</Text>
                       <Text style={styles.hcpSub}>Target</Text>
                     </View>
                   </View>
@@ -125,7 +126,9 @@ export default function ProgressScreen() {
                       />
                     </View>
                     <Text style={styles.hcpGap}>
-                      {(profile.handicap - profile.targetHandicap).toFixed(1)} strokes to goal
+                      {profile.handicap > profile.targetHandicap
+                        ? `${Math.abs(profile.handicap - profile.targetHandicap).toFixed(1)} strokes to goal`
+                        : 'Goal reached'}
                     </Text>
                   </View>
                 </View>
