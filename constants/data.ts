@@ -1,4 +1,114 @@
-import { WeaknessOption, GoalOption } from '../types';
+import { WeaknessOption, GoalOption, WeaknessArea } from '../types';
+
+export interface WeeklyFocusEntry {
+  title: string;
+  emoji: string;
+  desc: string;
+  tips: string[];
+}
+
+export const WEEKLY_FOCUS_DATA: Record<WeaknessArea, WeeklyFocusEntry> = {
+  driving: {
+    title: 'Tee Shot Accuracy',
+    emoji: '🏌️',
+    desc: 'Fairways are the foundation of low scores. This week, commit to a specific target on every tee shot and build a reliable pre-shot routine.',
+    tips: [
+      'Set two alignment sticks on the range — one on your target line, one on your toe line',
+      'Pick a specific tree or landmark, not just "the fairway"',
+      'Slow your transition — most bad drives come from an overeager downswing',
+    ],
+  },
+  long_irons: {
+    title: 'Long Iron Confidence',
+    emoji: '⛳',
+    desc: 'Long irons intimidate most golfers. Build trust this week by focusing on making clean contact and sweeping the ball, not digging.',
+    tips: [
+      'Tee the ball slightly for confidence reps before hitting off the turf',
+      'Focus on a shallow attack angle — sweep, don\'t dig',
+      'Keep your head still through impact for solid contact',
+    ],
+  },
+  mid_irons: {
+    title: 'Mid Iron Control',
+    emoji: '🎯',
+    desc: 'Mid irons set up your scoring chances. Work on dialling in exact yardages and consistently finding the centre of the face.',
+    tips: [
+      'Track actual carry distance for each club with a range finder',
+      'Hit 10 balls at a specific flag per session — quality over quantity',
+      'Aim for consistent divots just in front of the ball position',
+    ],
+  },
+  short_irons: {
+    title: 'Short Iron Precision',
+    emoji: '📍',
+    desc: 'With a short iron in hand you should be attacking flags. Dial in your exact distances and sharpen your ball-striking this week.',
+    tips: [
+      'Know your carry distances at 50%, 75%, and 100% swings',
+      'Aim at a specific target — not just the general green',
+      'Work on controlling trajectory: low punch vs high soft shot',
+    ],
+  },
+  wedges: {
+    title: 'Wedge Distance Ladder',
+    emoji: '🔧',
+    desc: 'The scoring zone starts inside 125 yards. Build a reliable distance ladder with each wedge to attack pins with confidence.',
+    tips: [
+      'Create three distances per wedge using 50%, 75%, and full swings',
+      'Practice partial shots from exact yardages — 40, 60, 80 yards',
+      'Focus on consistent spin and trajectory, not just distance',
+    ],
+  },
+  bunkers: {
+    title: 'Sand Game',
+    emoji: '🏖️',
+    desc: 'Bunker shots are one of the quickest skills to improve with focused practice. Build a reliable technique you can trust under pressure.',
+    tips: [
+      'Open the face before gripping — set up with the face aiming right of target',
+      'Focus on a spot 2 inches behind the ball, not the ball itself',
+      'Commit to accelerating through the sand — deceleration is the #1 fault',
+    ],
+  },
+  chipping: {
+    title: 'Short Game Touch',
+    emoji: '🌀',
+    desc: 'Up-and-downs are where rounds are saved. Focus on landing spot control this week and build feel around the green from different lies.',
+    tips: [
+      'Pick a specific landing spot every single chip — never aim at the hole',
+      'Practice from different lies: tight, fluffy, and rough',
+      'Track up-and-down percentage across a session to measure improvement',
+    ],
+  },
+  putting: {
+    title: 'Putting Confidence',
+    emoji: '⛳',
+    desc: 'Putting is nearly 40% of your score. This week lock in your stroke mechanics and build a consistent pre-putt routine that holds up under pressure.',
+    tips: [
+      '3-foot circle drill: place 8 balls around the hole and make all 8 in a row',
+      'Lag putting from 40+ feet — focus on leaving the ball within tap-in range',
+      'Develop a consistent 2-step read ritual: line, then speed',
+    ],
+  },
+  mental: {
+    title: 'Mental Game',
+    emoji: '🧠',
+    desc: 'Your mind is your most powerful club. This week work on staying present, resetting quickly after bad shots, and playing each shot as its own event.',
+    tips: [
+      'Use the same pre-shot routine on every shot, no matter what happened before',
+      '10-second reset rule: after a bad shot, give yourself 10 seconds to feel it, then move on',
+      'Focus on the process (good swing, good target) not the outcome (score)',
+    ],
+  },
+  course_management: {
+    title: 'Play Smarter Golf',
+    emoji: '🗺️',
+    desc: 'The smartest shot isn\'t always the boldest. This week focus on playing to your strengths, avoiding trouble, and turning bogeys into pars.',
+    tips: [
+      'Identify the safe miss side on every hole before you tee off',
+      'Never aim at a flag guarded by a penalty area or deep bunker',
+      'When in doubt, take one extra club — most amateurs are short 80% of the time',
+    ],
+  },
+};
 
 export const WEAKNESS_OPTIONS: WeaknessOption[] = [
   { key: 'driving', label: 'Driver / Tee Shots', icon: '🏌️' },
