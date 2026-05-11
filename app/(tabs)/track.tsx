@@ -447,6 +447,43 @@ function ToggleRow({
   );
 }
 
+function SGStepRow({
+  label,
+  value,
+  unit,
+  step,
+  onDecrement,
+  onIncrement,
+}: {
+  label: string;
+  value: number | undefined;
+  unit: string;
+  step: number;
+  onDecrement: () => void;
+  onIncrement: () => void;
+}) {
+  return (
+    <View style={holeStyles.sgRow}>
+      <Text style={holeStyles.sgLabel}>{label}</Text>
+      <View style={holeStyles.counter}>
+        <TouchableOpacity
+          style={[holeStyles.counterBtn, (!value || value <= 0) && holeStyles.counterBtnDisabled]}
+          onPress={onDecrement}
+          disabled={!value || value <= 0}
+        >
+          <Text style={holeStyles.counterBtnText}>−</Text>
+        </TouchableOpacity>
+        <Text style={holeStyles.sgVal}>
+          {value ? `${value}${unit}` : <Text style={{ color: Colors.textLight }}>—</Text>}
+        </Text>
+        <TouchableOpacity style={holeStyles.counterBtn} onPress={onIncrement}>
+          <Text style={holeStyles.counterBtnText}>+</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 function HoleInputCard({
   hole,
   onUpdate,
@@ -456,6 +493,7 @@ function HoleInputCard({
   onUpdate: (data: Partial<HoleScore>) => void;
   onNext: () => void;
 }) {
+  const [showSG, setShowSG] = useState(false);
   const scoreVsPar = hole.strokes > 0 ? hole.strokes - hole.par : null;
 
   return (
@@ -553,6 +591,65 @@ function HoleInputCard({
         />
       )}
 
+      {/* Strokes Gained inputs (collapsible) */}
+      <TouchableOpacity
+        style={holeStyles.sgToggleRow}
+        onPress={() => setShowSG(!showSG)}
+        activeOpacity={0.7}
+      >
+        <Text style={holeStyles.sgToggleLabel}>Performance Details</Text>
+        <Text style={holeStyles.sgToggleHint}>
+          {showSG ? '▲ hide' : '▼ for Strokes Gained'}
+        </Text>
+      </TouchableOpacity>
+
+      {showSG && (
+        <View style={holeStyles.sgSection}>
+          <Text style={holeStyles.sgSectionNote}>
+            Optional. Used to calculate Strokes Gained across all 4 categories.
+          </Text>
+
+          <SGStepRow
+            label="Approach Distance"
+            value={hole.approachDistanceYards}
+            unit=" yds"
+            step={5}
+            onDecrement={() => onUpdate({ approachDistanceYards: Math.max(5, (hole.approachDistanceYards ?? 5) - 5) })}
+            onIncrement={() => onUpdate({ approachDistanceYards: (hole.approachDistanceYards ?? 0) + 5 })}
+          />
+
+          {hole.approachDistanceYards && hole.approachDistanceYards > 0 && (
+            <View style={holeStyles.sgRow}>
+              <Text style={holeStyles.sgLabel}>Approach Lie</Text>
+              <View style={holeStyles.lieRow}>
+                {(['fairway', 'rough', 'sand', 'recovery'] as const).map((lie) => (
+                  <TouchableOpacity
+                    key={lie}
+                    style={[holeStyles.lieSeg, hole.approachLie === lie && holeStyles.lieSegActive]}
+                    onPress={() => onUpdate({ approachLie: lie })}
+                  >
+                    <Text style={[holeStyles.lieText, hole.approachLie === lie && holeStyles.lieTextActive]}>
+                      {lie === 'fairway' ? 'FW' : lie === 'rough' ? 'Rough' : lie === 'sand' ? 'Sand' : 'Rec'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {hole.putts > 0 && (
+            <SGStepRow
+              label="First Putt Distance"
+              value={hole.firstPuttDistanceFeet}
+              unit=" ft"
+              step={1}
+              onDecrement={() => onUpdate({ firstPuttDistanceFeet: Math.max(1, (hole.firstPuttDistanceFeet ?? 1) - 1) })}
+              onIncrement={() => onUpdate({ firstPuttDistanceFeet: (hole.firstPuttDistanceFeet ?? 0) + 1 })}
+            />
+          )}
+        </View>
+      )}
+
       {hole.holeNumber < 18 && (
         <TouchableOpacity style={holeStyles.nextBtn} onPress={onNext} activeOpacity={0.85}>
           <Text style={holeStyles.nextBtnText}>Next Hole →</Text>
@@ -636,6 +733,46 @@ const holeStyles = StyleSheet.create({
   toggleBtnNo: { backgroundColor: Colors.error + '30', borderColor: Colors.error },
   toggleText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
   toggleTextActive: { color: Colors.text },
+  sgToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  sgToggleLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
+  sgToggleHint: { fontSize: FontSize.xs, color: Colors.primary },
+  sgSection: {
+    backgroundColor: Colors.background,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    marginBottom: Spacing.sm,
+  },
+  sgSectionNote: { fontSize: FontSize.xs, color: Colors.textLight, marginBottom: Spacing.sm, lineHeight: 17 },
+  sgRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  sgLabel: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.text, flex: 1 },
+  sgVal: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, minWidth: 60, textAlign: 'center' },
+  lieRow: { flexDirection: 'row', gap: 4 },
+  lieSeg: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  lieSegActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  lieText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textSecondary },
+  lieTextActive: { color: Colors.background },
   nextBtn: {
     marginTop: Spacing.xl,
     backgroundColor: Colors.primary,

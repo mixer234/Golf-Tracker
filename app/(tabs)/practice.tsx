@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,18 +24,80 @@ function todayIndex(): number {
   return day === 0 ? 6 : day - 1;
 }
 
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 export default function PracticeScreen() {
   const profile = useUserStore((s) => s.profile);
   const updateClub = useUserStore((s) => s.updateClub);
   const rounds = useRoundStore((s) => s.rounds);
-  const { currentPlan, isGenerating, generationError, setPlan, setGenerating, setGenerationError, markDrillComplete } =
-    usePracticeStore();
+  const {
+    currentPlan, isGenerating, generationError, setPlan, setGenerating,
+    setGenerationError, markDrillComplete,
+    activeSessionDay, activeSessionStartTime, activeDrillIndex,
+    startSession, nextDrill, endSession, cancelSession,
+  } = usePracticeStore();
 
   const [selectedDayIndex, setSelectedDayIndex] = useState(todayIndex());
   const [expandedDrillId, setExpandedDrillId] = useState<string | null>(null);
   const [showBag, setShowBag] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [completedInSession, setCompletedInSession] = useState<string[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const bag: ClubEntry[] = profile?.bag ?? DEFAULT_BAG;
+
+  // Timer for active session
+  useEffect(() => {
+    if (activeSessionDay && activeSessionStartTime) {
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds(Math.floor((Date.now() - activeSessionStartTime) / 1000));
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+      setElapsedSeconds(0);
+      setCompletedInSession([]);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [activeSessionDay, activeSessionStartTime]);
+
+  // Derive session drill info
+  const sessionDayPlan = activeSessionDay
+    ? currentPlan?.days.find((d) => d.day === activeSessionDay)
+    : null;
+  const sessionDrills = sessionDayPlan?.drills ?? [];
+  const currentSessionDrill = sessionDrills[activeDrillIndex] ?? null;
+  const isSessionActive = !!activeSessionDay && !!activeSessionStartTime;
+  const isLastDrill = activeDrillIndex >= sessionDrills.length - 1;
+
+  function handleCompleteDrill() {
+    if (!currentSessionDrill) return;
+    const updated = [...completedInSession, currentSessionDrill.id];
+    setCompletedInSession(updated);
+    if (isLastDrill) {
+      endSession(updated, sessionDrills.length);
+    } else {
+      nextDrill();
+    }
+  }
+
+  function handleSkipDrill() {
+    if (isLastDrill) {
+      endSession(completedInSession, sessionDrills.length);
+    } else {
+      nextDrill();
+    }
+  }
+
+  function handleCancelSession() {
+    Alert.alert('End Session?', 'Your progress so far will be saved.', [
+      { text: 'Keep Going', style: 'cancel' },
+      { text: 'End Session', onPress: () => endSession(completedInSession, sessionDrills.length) },
+    ]);
+  }
 
   const planDays = currentPlan?.days ?? [];
   const selectedDayName = DAYS[selectedDayIndex];
@@ -65,6 +127,103 @@ export default function PracticeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+
+      {/* ── Active Session Mode ────────────────────────────────────────────── */}
+      {isSessionActive && currentSessionDrill && (
+        <View style={styles.sessionOverlay}>
+          {/* Session header */}
+          <View style={styles.sessionHeader}>
+            <View>
+              <Text style={styles.sessionDay}>{activeSessionDay}</Text>
+              <Text style={styles.sessionProgress}>
+                Drill {activeDrillIndex + 1} of {sessionDrills.length}
+              </Text>
+            </View>
+            <View style={styles.timerBadge}>
+              <Text style={styles.timerText}>{formatTime(elapsedSeconds)}</Text>
+            </View>
+          </View>
+
+          {/* Progress bar */}
+          <View style={styles.sessionProgressBar}>
+            <View style={[styles.sessionProgressFill, {
+              width: `${(activeDrillIndex / sessionDrills.length) * 100}%`,
+            }]} />
+          </View>
+
+          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+            <View style={styles.sessionCard}>
+              {/* Drill title */}
+              <View style={styles.sessionDrillHeader}>
+                <View style={[styles.diffDot, {
+                  backgroundColor: currentSessionDrill.difficulty === 'beginner' ? Colors.success
+                    : currentSessionDrill.difficulty === 'intermediate' ? Colors.warning
+                    : Colors.error,
+                }]} />
+                <Text style={styles.sessionDrillName}>{currentSessionDrill.name}</Text>
+              </View>
+              <Text style={styles.sessionDrillDesc}>{currentSessionDrill.description}</Text>
+
+              {/* Duration + Equipment */}
+              <View style={styles.sessionMeta}>
+                <View style={styles.sessionMetaChip}>
+                  <Text style={styles.sessionMetaText}>⏱ {currentSessionDrill.duration} min</Text>
+                </View>
+                {currentSessionDrill.equipment.length > 0 && (
+                  <View style={styles.sessionMetaChip}>
+                    <Text style={styles.sessionMetaText}>🎒 {currentSessionDrill.equipment.join(', ')}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Goal */}
+              {currentSessionDrill.focusPoints.length > 0 && (
+                <View style={styles.sessionSection}>
+                  <Text style={styles.sessionSectionTitle}>GOALS & FOCUS</Text>
+                  {currentSessionDrill.focusPoints.map((p, i) => (
+                    <View key={i} style={styles.sessionBulletRow}>
+                      <View style={styles.sessionBullet} />
+                      <Text style={styles.sessionBulletText}>{p}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Instructions */}
+              <View style={styles.sessionSection}>
+                <Text style={styles.sessionSectionTitle}>INSTRUCTIONS</Text>
+                {currentSessionDrill.instructions.map((step, i) => (
+                  <View key={i} style={styles.sessionStepRow}>
+                    <View style={styles.sessionStepNum}>
+                      <Text style={styles.sessionStepNumText}>{i + 1}</Text>
+                    </View>
+                    <Text style={styles.sessionStepText}>{step}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Actions */}
+          <View style={styles.sessionActions}>
+            <TouchableOpacity style={styles.sessionSkipBtn} onPress={handleSkipDrill} activeOpacity={0.75}>
+              <Text style={styles.sessionSkipText}>{isLastDrill ? 'Finish' : 'Skip →'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sessionDoneBtn} onPress={handleCompleteDrill} activeOpacity={0.85}>
+              <Text style={styles.sessionDoneText}>
+                ✓  {isLastDrill ? 'Complete Session' : 'Done, Next Drill'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.sessionCancelRow} onPress={handleCancelSession}>
+            <Text style={styles.sessionCancelText}>End session early</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── Normal view (hidden when session active) ──────────────────────── */}
+      {!isSessionActive && (
+        <>
       <View style={styles.header}>
         <Text style={styles.title}>Practice Plan</Text>
         {currentPlan && (
@@ -157,6 +316,16 @@ export default function PracticeScreen() {
                   </View>
                 </View>
 
+                {dayPlan.drills.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.startSessionBtn}
+                    onPress={() => startSession(selectedDayName)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.startSessionText}>▶  Start Practice Session</Text>
+                  </TouchableOpacity>
+                )}
+
                 {dayPlan.drills.map((drill) => (
                   <DrillCard
                     key={drill.id}
@@ -221,7 +390,9 @@ export default function PracticeScreen() {
           </ScrollView>
         </>
       )}
-    </SafeAreaView>
+    </>
+    )}
+  </SafeAreaView>
   );
 }
 
@@ -515,4 +686,222 @@ const styles = StyleSheet.create({
   bagBtnText: { fontSize: FontSize.lg, color: Colors.text, fontWeight: '300', lineHeight: 22 },
   bagYards: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, minWidth: 72, textAlign: 'center' },
   bagUnit: { fontSize: FontSize.xs, fontWeight: '400', color: Colors.textSecondary },
+
+  // ── Session mode ────────────────────────────────────────────────────────────
+  sessionOverlay: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  sessionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  sessionDay: {
+    fontSize: FontSize.xl,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  sessionProgress: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  timerBadge: {
+    backgroundColor: Colors.primaryPale,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.primary + '40',
+  },
+  timerText: {
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+    color: Colors.primary,
+    fontVariant: ['tabular-nums'],
+  },
+  sessionProgressBar: {
+    height: 4,
+    backgroundColor: Colors.borderLight,
+    marginHorizontal: Spacing.lg,
+    borderRadius: Radius.full,
+    overflow: 'hidden',
+    marginBottom: Spacing.md,
+  },
+  sessionProgressFill: {
+    height: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+  },
+  sessionCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    marginHorizontal: Spacing.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow.md,
+  },
+  sessionDrillHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  diffDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    flexShrink: 0,
+  },
+  sessionDrillName: {
+    fontSize: FontSize.xl,
+    fontWeight: '800',
+    color: Colors.text,
+    flex: 1,
+  },
+  sessionDrillDesc: {
+    fontSize: FontSize.base,
+    color: Colors.textSecondary,
+    lineHeight: 22,
+    marginBottom: Spacing.md,
+  },
+  sessionMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  sessionMetaChip: {
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: Radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  sessionMetaText: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  sessionSection: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    paddingTop: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  sessionSectionTitle: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  sessionBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+  sessionBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+    marginTop: 7,
+    flexShrink: 0,
+  },
+  sessionBulletText: {
+    fontSize: FontSize.sm,
+    color: Colors.text,
+    lineHeight: 22,
+    flex: 1,
+  },
+  sessionStepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+  sessionStepNum: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.primaryPale,
+    borderWidth: 1,
+    borderColor: Colors.primary + '40',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  sessionStepNumText: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  sessionStepText: {
+    fontSize: FontSize.sm,
+    color: Colors.text,
+    lineHeight: 22,
+    flex: 1,
+  },
+  sessionActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  sessionSkipBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    alignItems: 'center',
+  },
+  sessionSkipText: {
+    fontSize: FontSize.base,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  sessionDoneBtn: {
+    flex: 2,
+    paddingVertical: 14,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+  },
+  sessionDoneText: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.background,
+  },
+  sessionCancelRow: {
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    paddingBottom: Spacing.lg,
+  },
+  sessionCancelText: {
+    fontSize: FontSize.sm,
+    color: Colors.textLight,
+    textDecorationLine: 'underline',
+  },
+  startSessionBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  startSessionText: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.background,
+  },
 });

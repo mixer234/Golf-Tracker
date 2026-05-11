@@ -93,6 +93,10 @@ export interface HoleScore {
   penaltyStrokes?: number;
   upAndDown?: boolean;
   sandSave?: boolean;
+  // Strokes Gained inputs
+  approachDistanceYards?: number;
+  approachLie?: 'fairway' | 'rough' | 'sand' | 'recovery';
+  firstPuttDistanceFeet?: number;
 }
 
 export interface Round {
@@ -113,6 +117,12 @@ export interface Round {
   upAndDownAttempts: number;
   scoreDifferential?: number;
   notes?: string;
+  // Strokes Gained (per round totals)
+  sgPutting?: number;
+  sgApproach?: number;
+  sgAroundGreen?: number;
+  sgOffTee?: number;
+  sgTotal?: number;
   isComplete: boolean;
 }
 
@@ -143,6 +153,15 @@ export interface PracticePlan {
   focusAreas: WeaknessArea[];
   days: DailyPlan[];
   aiGenerated: boolean;
+}
+
+export interface PracticeSession {
+  id: string;
+  date: string;
+  day: DayOfWeek;
+  drillsCompleted: string[];
+  totalDrills: number;
+  durationSeconds: number;
 }
 
 export interface WeaknessOption {

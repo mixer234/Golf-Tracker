@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Round, HoleScore } from '../types';
 import { calcScoreDifferential } from '../utils/whs';
+import { calcRoundSG } from '../utils/strokesGained';
 
 interface RoundState {
   rounds: Round[];
@@ -108,7 +109,18 @@ export const useRoundStore = create<RoundState>()(
             current.slopeRating
           );
         }
-        const completed: Round = { ...current, ...stats, scoreDifferential, isComplete: true };
+        const sg = calcRoundSG(current.holes);
+        const completed: Round = {
+          ...current,
+          ...stats,
+          scoreDifferential,
+          sgPutting: sg?.sgPutting,
+          sgApproach: sg?.sgApproach,
+          sgAroundGreen: sg?.sgAroundGreen,
+          sgOffTee: sg?.sgOffTee,
+          sgTotal: sg?.sgTotal,
+          isComplete: true,
+        };
         set((state) => ({
           rounds: [completed, ...state.rounds],
           currentRound: null,

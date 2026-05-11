@@ -5,6 +5,7 @@ import { useUserStore } from '../../store/useUserStore';
 import { Round } from '../../types';
 import { formatHandicap } from '../../components/HandicapDial';
 import { calcHandicapIndex } from '../../utils/whs';
+import { calcSGAverages, SGAverages } from '../../utils/strokesGained';
 
 function avg(nums: number[]): number {
   if (nums.length === 0) return 0;
@@ -58,6 +59,7 @@ export default function ProgressScreen() {
     .filter((r) => r.scoreDifferential !== undefined)
     .map((r) => r.scoreDifferential as number);
   const calculatedHcp = calcHandicapIndex(differentials);
+  const sgAverages = calcSGAverages(completed);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -121,6 +123,38 @@ export default function ProgressScreen() {
                 </View>
               </View>
             )}
+
+            {/* Strokes Gained */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Strokes Gained vs. Scratch</Text>
+              {sgAverages ? (
+                <View style={styles.sgCard}>
+                  <Text style={styles.sgNote}>
+                    Average per round over {sgAverages.roundCount} tracked round{sgAverages.roundCount > 1 ? 's' : ''}
+                  </Text>
+                  <SGBar label="Off the Tee" value={sgAverages.sgOffTee} />
+                  <SGBar label="Approach" value={sgAverages.sgApproach} />
+                  <SGBar label="Around Green" value={sgAverages.sgAroundGreen} />
+                  <SGBar label="Putting" value={sgAverages.sgPutting} />
+                  <View style={styles.sgTotalRow}>
+                    <Text style={styles.sgTotalLabel}>TOTAL SG</Text>
+                    <Text style={[
+                      styles.sgTotalValue,
+                      sgAverages.sgTotal > 0 ? { color: Colors.success } : { color: Colors.error },
+                    ]}>
+                      {sgAverages.sgTotal > 0 ? '+' : ''}{sgAverages.sgTotal}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={[styles.sgCard, styles.sgEmpty]}>
+                  <Text style={styles.sgEmptyTitle}>Not enough data yet</Text>
+                  <Text style={styles.sgEmptyText}>
+                    Enter Approach Distance and First Putt Distance in the Performance Details section while tracking rounds to unlock Strokes Gained analysis.
+                  </Text>
+                </View>
+              )}
+            </View>
 
             {/* Score Differential Chart */}
             {differentials.length >= 3 && (
@@ -269,6 +303,68 @@ function StatRow({ label, value, isLast }: { label: string; value: string; isLas
   );
 }
 
+function SGBar({ label, value }: { label: string; value: number }) {
+  const isPositive = value > 0;
+  const isNeutral = Math.abs(value) < 0.1;
+  const barColor = isNeutral ? Colors.border : isPositive ? Colors.success : Colors.error;
+  // Scale: ±4 strokes = full bar width
+  const pct = Math.min(100, Math.abs(value) / 4 * 100);
+
+  return (
+    <View style={sgStyles.row}>
+      <Text style={sgStyles.label}>{label}</Text>
+      <View style={sgStyles.barWrap}>
+        <View style={sgStyles.track}>
+          <View style={sgStyles.centerLine} />
+          {isPositive ? (
+            <View style={[sgStyles.fill, sgStyles.fillRight, { width: `${pct / 2}%`, backgroundColor: barColor }]} />
+          ) : (
+            <View style={[sgStyles.fill, sgStyles.fillLeft, { width: `${pct / 2}%`, backgroundColor: barColor }]} />
+          )}
+        </View>
+      </View>
+      <Text style={[sgStyles.value, { color: barColor }]}>
+        {isNeutral ? '0.0' : `${isPositive ? '+' : ''}${value.toFixed(1)}`}
+      </Text>
+    </View>
+  );
+}
+
+const sgStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: Spacing.sm,
+  },
+  label: { fontSize: FontSize.sm, color: Colors.textSecondary, width: 110 },
+  barWrap: { flex: 1 },
+  track: {
+    height: 8,
+    backgroundColor: Colors.borderLight,
+    borderRadius: Radius.full,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    position: 'relative',
+  },
+  centerLine: {
+    position: 'absolute',
+    left: '50%',
+    width: 1,
+    height: '100%',
+    backgroundColor: Colors.border,
+    zIndex: 1,
+  },
+  fill: {
+    position: 'absolute',
+    height: '100%',
+    borderRadius: Radius.full,
+  },
+  fillRight: { left: '50%' },
+  fillLeft: { right: '50%' },
+  value: { fontSize: FontSize.sm, fontWeight: '700', width: 44, textAlign: 'right' },
+});
+
 function ScoreChart({ rounds }: { rounds: Round[] }) {
   const scores = rounds.map((r) => r.totalScore);
   const min = Math.min(...scores) - 2;
@@ -401,6 +497,29 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     ...Shadow.sm,
   },
+  sgCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow.sm,
+  },
+  sgEmpty: { alignItems: 'center', paddingVertical: Spacing.lg },
+  sgEmptyTitle: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textSecondary, marginBottom: 6 },
+  sgEmptyText: { fontSize: FontSize.sm, color: Colors.textLight, textAlign: 'center', lineHeight: 20 },
+  sgNote: { fontSize: FontSize.xs, color: Colors.textLight, marginBottom: Spacing.sm },
+  sgTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: Spacing.sm,
+    marginTop: Spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  sgTotalLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 0.6 },
+  sgTotalValue: { fontSize: FontSize.lg, fontWeight: '800' },
   chartNote: {
     fontSize: FontSize.xs,
     color: Colors.textLight,
