@@ -140,7 +140,7 @@ export default function GoalsScreen() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={Colors.surface} />
+            <ActivityIndicator color={Colors.background} />
           ) : (
             <Text style={styles.doneText}>Let's Go 🏌️</Text>
           )}

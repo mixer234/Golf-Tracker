@@ -25,7 +25,8 @@ function formatRecentRounds(rounds: Round[]): string {
     .slice(0, 5)
     .map((r) => {
       const date = new Date(r.date).toLocaleDateString();
-      const score = r.scoreToPar >= 0 ? `+${r.scoreToPar}` : `${r.scoreToPar}`;
+      const stp = r.scoreToPar;
+      const score = stp === 0 ? 'E' : stp > 0 ? `+${stp}` : String(stp);
       const udLine = r.upAndDownAttempts > 0
         ? `, ${Math.round((r.upAndDowns / r.upAndDownAttempts) * 100)}% U&D`
         : '';
