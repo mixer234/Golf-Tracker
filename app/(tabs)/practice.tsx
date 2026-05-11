@@ -14,7 +14,8 @@ import { useUserStore } from '../../store/useUserStore';
 import { useRoundStore } from '../../store/useRoundStore';
 import { usePracticeStore } from '../../store/usePracticeStore';
 import { generatePracticePlan } from '../../services/ai';
-import { DailyPlan, Drill, DayOfWeek } from '../../types';
+import { DailyPlan, Drill, DayOfWeek, ClubEntry } from '../../types';
+import { DEFAULT_BAG } from '../../store/useUserStore';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -25,12 +26,16 @@ function todayIndex(): number {
 
 export default function PracticeScreen() {
   const profile = useUserStore((s) => s.profile);
+  const updateClub = useUserStore((s) => s.updateClub);
   const rounds = useRoundStore((s) => s.rounds);
   const { currentPlan, isGenerating, generationError, setPlan, setGenerating, setGenerationError, markDrillComplete } =
     usePracticeStore();
 
   const [selectedDayIndex, setSelectedDayIndex] = useState(todayIndex());
   const [expandedDrillId, setExpandedDrillId] = useState<string | null>(null);
+  const [showBag, setShowBag] = useState(false);
+
+  const bag: ClubEntry[] = profile?.bag ?? DEFAULT_BAG;
 
   const planDays = currentPlan?.days ?? [];
   const selectedDayName = DAYS[selectedDayIndex];
@@ -176,6 +181,43 @@ export default function PracticeScreen() {
             <TouchableOpacity style={styles.regenerateButton} onPress={handleGenerate} activeOpacity={0.75}>
               <Text style={styles.regenerateText}>↻  Regenerate Plan</Text>
             </TouchableOpacity>
+
+            {/* My Bag */}
+            <TouchableOpacity
+              style={styles.bagHeader}
+              onPress={() => setShowBag(!showBag)}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.bagTitle}>🏌️ My Bag</Text>
+              <Text style={styles.bagChevron}>{showBag ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
+            {showBag && (
+              <View style={styles.bagCard}>
+                <Text style={styles.bagHint}>
+                  Set your carry distances. Used to personalise practice drills and club recommendations.
+                </Text>
+                {bag.map((entry) => (
+                  <View key={entry.club} style={styles.bagRow}>
+                    <Text style={styles.bagClub}>{entry.club}</Text>
+                    <View style={styles.bagCounter}>
+                      <TouchableOpacity
+                        style={styles.bagBtn}
+                        onPress={() => updateClub(entry.club, Math.max(0, entry.carryYards - 5))}
+                      >
+                        <Text style={styles.bagBtnText}>−</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.bagYards}>{entry.carryYards} <Text style={styles.bagUnit}>yds</Text></Text>
+                      <TouchableOpacity
+                        style={styles.bagBtn}
+                        onPress={() => updateClub(entry.club, entry.carryYards + 5)}
+                      >
+                        <Text style={styles.bagBtnText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </ScrollView>
         </>
       )}
@@ -424,4 +466,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   regenerateText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.primary },
+  bagHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  bagTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
+  bagChevron: { fontSize: FontSize.xs, color: Colors.textLight },
+  bagCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xxl,
+  },
+  bagHint: {
+    fontSize: FontSize.xs,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+    lineHeight: 18,
+  },
+  bagRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  bagClub: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text, flex: 1 },
+  bagCounter: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  bagBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bagBtnText: { fontSize: FontSize.lg, color: Colors.text, fontWeight: '300', lineHeight: 22 },
+  bagYards: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, minWidth: 72, textAlign: 'center' },
+  bagUnit: { fontSize: FontSize.xs, fontWeight: '400', color: Colors.textSecondary },
 });

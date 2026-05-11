@@ -48,7 +48,7 @@ export default function TabLayout() {
         name="progress"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} label="Progress" emoji="📈" />
+            <TabIcon focused={focused} label="Stats" emoji="📈" />
           ),
         }}
       />

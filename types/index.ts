@@ -56,6 +56,11 @@ export type DayOfWeek =
 
 export type ShotShape = 'draw' | 'fade' | 'straight' | 'varies';
 
+export interface ClubEntry {
+  club: string;
+  carryYards: number;
+}
+
 export interface UserProfile {
   name: string;
   experienceLevel: ExperienceLevel;
@@ -69,6 +74,7 @@ export interface UserProfile {
   ballSpeed?: number;
   avgDrivingDistance?: number;
   shotShape?: ShotShape;
+  bag?: ClubEntry[];
   practiceDaysPerWeek: number;
   sessionLengthMinutes: number;
   facilities: PracticeFacility[];

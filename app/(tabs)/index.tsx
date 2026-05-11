@@ -379,13 +379,12 @@ export default function DashboardScreen() {
 
         {/* ── Quick stats row ───────────────────────────── */}
         <View style={styles.statsRow}>
-          <StatBox
-            value={roundsThisMonth(rounds).toString()}
-            label="Rounds this month"
-            accent={false}
-          />
-          <StatBox value={avgScore(rounds)} label="Avg score" accent={false} />
+          <StatBox value={roundsThisMonth(rounds).toString()} label="Rounds this month" />
+          <StatBox value={avgScore(rounds)} label="Avg score (last 5)" />
         </View>
+
+        {/* ── Trend insight ─────────────────────────────── */}
+        <TrendInsightCard rounds={rounds} />
 
         {/* ── This Week Calendar ────────────────────────── */}
         <WeekCalendar profile={profile} plan={currentPlan} />
@@ -494,11 +493,67 @@ export default function DashboardScreen() {
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
 
-function StatBox({ value, label, accent }: { value: string; label: string; accent: boolean }) {
+function StatBox({ value, label }: { value: string; label: string }) {
   return (
     <View style={statStyles.box}>
-      <Text style={[statStyles.value, accent && statStyles.valueAccent]}>{value}</Text>
+      <Text style={statStyles.value}>{value}</Text>
       <Text style={statStyles.label}>{label}</Text>
+    </View>
+  );
+}
+
+function TrendInsightCard({ rounds }: { rounds: Round[] }) {
+  const completed = rounds.filter((r) => r.isComplete && r.totalScore > 0);
+  if (completed.length < 4) return null;
+
+  const recent = completed.slice(0, 4);
+  const older = completed.slice(4, 8);
+  if (older.length < 2) return null;
+
+  const recentGir = recent.reduce((s, r) => s + r.greensInRegulation, 0) / (recent.length * 18);
+  const olderGir = older.reduce((s, r) => s + r.greensInRegulation, 0) / (older.length * 18);
+  const recentPutts = recent.reduce((s, r) => s + r.totalPutts, 0) / recent.length;
+  const olderPutts = older.reduce((s, r) => s + r.totalPutts, 0) / older.length;
+  const recentScore = recent.reduce((s, r) => s + r.totalScore, 0) / recent.length;
+  const olderScore = older.reduce((s, r) => s + r.totalScore, 0) / older.length;
+
+  const girDelta = Math.round((recentGir - olderGir) * 18 * 10) / 10;
+  const puttsDelta = Math.round((recentPutts - olderPutts) * 10) / 10;
+  const scoreDelta = Math.round((recentScore - olderScore) * 10) / 10;
+
+  let emoji = '📊';
+  let insight = '';
+  let isPositive = false;
+
+  if (Math.abs(scoreDelta) >= 1) {
+    isPositive = scoreDelta < 0;
+    insight = scoreDelta < 0
+      ? `Scoring avg down ${Math.abs(scoreDelta)} strokes vs. your previous 4 rounds.`
+      : `Scoring avg up ${scoreDelta} strokes vs. previous 4 rounds — time to focus.`;
+    emoji = scoreDelta < 0 ? '📉' : '📈';
+  } else if (Math.abs(girDelta) >= 1) {
+    isPositive = girDelta > 0;
+    insight = girDelta > 0
+      ? `GIR up ${girDelta} greens/round — your approach game is trending up.`
+      : `GIR down ${Math.abs(girDelta)} greens/round — approach accuracy needs attention.`;
+    emoji = girDelta > 0 ? '🎯' : '⚠️';
+  } else if (Math.abs(puttsDelta) >= 1) {
+    isPositive = puttsDelta < 0;
+    insight = puttsDelta < 0
+      ? `Putting strokes down ${Math.abs(puttsDelta)}/round — the flat stick is improving.`
+      : `Putts up ${puttsDelta}/round vs. recent average — focus on lag putting.`;
+    emoji = puttsDelta < 0 ? '✅' : '⛳';
+  } else {
+    return null;
+  }
+
+  return (
+    <View style={[trendStyles.card, isPositive ? trendStyles.cardGood : trendStyles.cardCaution]}>
+      <Text style={trendStyles.emoji}>{emoji}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={trendStyles.label}>TREND ALERT</Text>
+        <Text style={trendStyles.text}>{insight}</Text>
+      </View>
     </View>
   );
 }
@@ -769,8 +824,25 @@ const statStyles = StyleSheet.create({
     ...Shadow.sm,
   },
   value: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
-  valueAccent: { color: Colors.primary },
   label: { fontSize: FontSize.xs, color: Colors.textSecondary, textAlign: 'center', marginTop: 2 },
+});
+
+// Trend insight card
+const trendStyles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+  },
+  cardGood: { backgroundColor: Colors.success + '15', borderColor: Colors.success + '40' },
+  cardCaution: { backgroundColor: Colors.warning + '15', borderColor: Colors.warning + '40' },
+  emoji: { fontSize: 20, marginTop: 1 },
+  label: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 0.6, marginBottom: 2 },
+  text: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
 });
 
 // Round rows
