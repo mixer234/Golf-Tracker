@@ -14,6 +14,7 @@ interface RoundState {
   discardCurrentRound: () => void;
   deleteRound: (id: string) => void;
   clearLastCompleted: () => void;
+  updateRoundNotes: (id: string, notes: string) => void;
 }
 
 function generateId(): string {
@@ -118,6 +119,14 @@ export const useRoundStore = create<RoundState>()(
       deleteRound: (id) =>
         set((state) => ({ rounds: state.rounds.filter((r) => r.id !== id) })),
       clearLastCompleted: () => set({ lastCompletedRound: null }),
+      updateRoundNotes: (id, notes) =>
+        set((state) => ({
+          rounds: state.rounds.map((r) => r.id === id ? { ...r, notes } : r),
+          lastCompletedRound:
+            state.lastCompletedRound?.id === id
+              ? { ...state.lastCompletedRound, notes }
+              : state.lastCompletedRound,
+        })),
     }),
     {
       name: 'round-store',

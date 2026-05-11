@@ -106,6 +106,7 @@ export interface Round {
   upAndDowns: number;
   upAndDownAttempts: number;
   scoreDifferential?: number;
+  notes?: string;
   isComplete: boolean;
 }
 

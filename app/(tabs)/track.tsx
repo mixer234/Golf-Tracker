@@ -44,9 +44,10 @@ function buildRoundSummary(r: Round): { headline: string; highlights: string[] }
 }
 
 export default function TrackScreen() {
-  const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted } =
+  const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted, updateRoundNotes } =
     useRoundStore();
   const [showNewRound, setShowNewRound] = useState(false);
+  const [notesDraft, setNotesDraft] = useState(lastCompletedRound?.notes ?? '');
   const [courseName, setCourseName] = useState('');
   const [courseRating, setCourseRating] = useState('');
   const [slopeRating, setSlopeRating] = useState('');
@@ -236,6 +237,20 @@ export default function TrackScreen() {
                     </View>
                   ))}
                 </View>
+                <View style={styles.notesSection}>
+                  <Text style={styles.notesLabel}>Round Notes</Text>
+                  <TextInput
+                    style={styles.notesInput}
+                    value={notesDraft}
+                    onChangeText={setNotesDraft}
+                    onBlur={() => updateRoundNotes(lastCompletedRound.id, notesDraft.trim())}
+                    placeholder="How did it go? Key takeaways, course conditions, things to work on…"
+                    placeholderTextColor={Colors.textLight}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                  />
+                </View>
               </View>
             );
           })()}
@@ -282,6 +297,9 @@ export default function TrackScreen() {
                           Differential: {round.scoreDifferential > 0 ? '+' : ''}{round.scoreDifferential}
                         </Text>
                       )}
+                      {round.notes ? (
+                        <Text style={styles.historyNotes} numberOfLines={1}>📝 {round.notes}</Text>
+                      ) : null}
                     </View>
                     <View style={styles.historyScores}>
                       <Text style={styles.historyTotal}>{round.totalScore}</Text>
@@ -736,6 +754,31 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   highlightText: { fontSize: FontSize.sm, color: Colors.textSecondary, flex: 1, lineHeight: 20 },
+  notesSection: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  notesLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: Spacing.sm,
+  },
+  notesInput: {
+    backgroundColor: Colors.background,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    fontSize: FontSize.sm,
+    color: Colors.text,
+    minHeight: 90,
+    lineHeight: 20,
+  },
   noRoundHero: { alignItems: 'center', marginBottom: Spacing.xl, paddingTop: Spacing.lg },
   noRoundEmoji: { fontSize: 64, marginBottom: Spacing.md },
   noRoundTitle: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.sm },
@@ -769,6 +812,7 @@ const styles = StyleSheet.create({
   historyDate: { fontSize: FontSize.sm, color: Colors.textSecondary },
   historyStats: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2 },
   historyDiff: { fontSize: FontSize.xs, color: Colors.accent, marginTop: 2, fontWeight: '600' },
+  historyNotes: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2, fontStyle: 'italic' },
   historyScores: { alignItems: 'flex-end' },
   historyTotal: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
   historyPar: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
