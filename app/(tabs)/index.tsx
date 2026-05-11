@@ -533,7 +533,7 @@ const heroStyles = StyleSheet.create({
   colNum: {
     fontSize: FontSize.xxxl,
     fontWeight: '800',
-    color: Colors.surface,
+    color: Colors.background,
     letterSpacing: -1,
   },
   colNumTarget: { color: Colors.primaryLight },
@@ -627,7 +627,7 @@ const calStyles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.text,
   },
-  todayNum: { color: Colors.surface, fontWeight: '800' },
+  todayNum: { color: Colors.background, fontWeight: '800' },
   dot: {
     width: 6,
     height: 6,
@@ -783,10 +783,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: Spacing.md,
   },
-  practiceTheme: { fontSize: FontSize.md, fontWeight: '700', color: Colors.surface, marginBottom: 4 },
+  practiceTheme: { fontSize: FontSize.md, fontWeight: '700', color: Colors.background, marginBottom: 4 },
   practiceDur: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.75)' },
   practiceProgress: { alignItems: 'center' },
-  progressNum: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.surface },
+  progressNum: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.background },
   progressLabel: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.7)' },
   progressBar: {
     height: 6,
@@ -815,6 +815,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
   },
-  genBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.surface },
+  genBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
   errorText: { color: Colors.error, textAlign: 'center', marginBottom: Spacing.md, fontSize: FontSize.sm },
 });

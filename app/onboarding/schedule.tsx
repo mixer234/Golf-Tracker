@@ -230,5 +230,5 @@ const styles = StyleSheet.create({
   backBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border },
   backText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textSecondary },
   nextBtn: { flex: 2, backgroundColor: Colors.primary, paddingVertical: 16, alignItems: 'center', borderRadius: Radius.full },
-  nextText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.surface },
+  nextText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
 });

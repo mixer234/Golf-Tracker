@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: FontSize.xxxl,
     fontWeight: '800',
-    color: Colors.surface,
+    color: Colors.background,
     letterSpacing: -1,
     marginBottom: Spacing.sm,
   },

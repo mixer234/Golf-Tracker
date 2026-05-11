@@ -4,6 +4,7 @@ import { useRoundStore } from '../../store/useRoundStore';
 import { useUserStore } from '../../store/useUserStore';
 import { Round } from '../../types';
 import { formatHandicap } from '../../components/HandicapDial';
+import { calcHandicapIndex } from '../../utils/whs';
 
 function avg(nums: number[]): number {
   if (nums.length === 0) return 0;
@@ -29,7 +30,15 @@ function fwPct(rounds: Round[]): string {
 function avgPutts(rounds: Round[]): string {
   const completed = rounds.filter((r) => r.isComplete && r.totalPutts > 0);
   if (completed.length === 0) return '—';
-  return (avg(completed.map((r) => r.totalPutts))).toFixed(1);
+  return avg(completed.map((r) => r.totalPutts)).toFixed(1);
+}
+
+function udPct(rounds: Round[]): string {
+  const withAttempts = rounds.filter((r) => r.isComplete && r.upAndDownAttempts > 0);
+  if (withAttempts.length === 0) return '—';
+  const made = withAttempts.reduce((s, r) => s + r.upAndDowns, 0);
+  const attempts = withAttempts.reduce((s, r) => s + r.upAndDownAttempts, 0);
+  return `${Math.round((made / attempts) * 100)}%`;
 }
 
 export default function ProgressScreen() {
@@ -44,6 +53,11 @@ export default function ProgressScreen() {
   const prevAvg =
     completed.length > 5 ? avg(completed.slice(5, 10).map((r) => r.totalScore)) : null;
   const trend = recentAvg && prevAvg ? recentAvg - prevAvg : null;
+
+  const differentials = completed
+    .filter((r) => r.scoreDifferential !== undefined)
+    .map((r) => r.scoreDifferential as number);
+  const calculatedHcp = calcHandicapIndex(differentials);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -84,6 +98,18 @@ export default function ProgressScreen() {
                 value={avgPutts(completed)}
                 sub="Per round"
               />
+              <StatCard
+                label="Up & Down"
+                value={udPct(completed)}
+                sub="Scrambling %"
+              />
+              {calculatedHcp !== null && (
+                <StatCard
+                  label="WHS Index"
+                  value={formatHandicap(calculatedHcp)}
+                  sub={`From ${differentials.length} rounds`}
+                />
+              )}
             </View>
 
             {/* Score Chart */}
@@ -93,6 +119,21 @@ export default function ProgressScreen() {
                 <View style={styles.chartCard}>
                   <ScoreChart rounds={[...last10].reverse()} />
                 </View>
+              </View>
+            )}
+
+            {/* Score Differential Chart */}
+            {differentials.length >= 3 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Score Differentials</Text>
+                <View style={styles.chartCard}>
+                  <DifferentialChart
+                    rounds={[...completed].reverse().filter((r) => r.scoreDifferential !== undefined)}
+                  />
+                </View>
+                <Text style={styles.chartNote}>
+                  WHS Handicap Index uses the lowest {Math.min(8, Math.ceil(differentials.length * 0.4))} of your last {Math.min(20, differentials.length)} differentials
+                </Text>
               </View>
             )}
 
@@ -106,9 +147,22 @@ export default function ProgressScreen() {
                       <Text style={styles.hcpNum}>{formatHandicap(profile.handicap)}</Text>
                       <Text style={styles.hcpSub}>Current</Text>
                     </View>
+                    {calculatedHcp !== null && (
+                      <>
+                        <View style={styles.hcpDivider} />
+                        <View style={styles.hcpItem}>
+                          <Text style={[styles.hcpNum, { color: Colors.accent }]}>
+                            {formatHandicap(calculatedHcp)}
+                          </Text>
+                          <Text style={styles.hcpSub}>WHS Calc</Text>
+                        </View>
+                      </>
+                    )}
                     <View style={styles.hcpDivider} />
                     <View style={styles.hcpItem}>
-                      <Text style={[styles.hcpNum, { color: Colors.primary }]}>{formatHandicap(profile.targetHandicap)}</Text>
+                      <Text style={[styles.hcpNum, { color: Colors.primary }]}>
+                        {formatHandicap(profile.targetHandicap)}
+                      </Text>
                       <Text style={styles.hcpSub}>Target</Text>
                     </View>
                   </View>
@@ -149,12 +203,23 @@ export default function ProgressScreen() {
                   value={Math.max(...completed.map((r) => r.totalScore)).toString()}
                 />
                 <StatRow
-                  label="Total Rounds Under Par"
+                  label="Rounds Under Par"
                   value={completed.filter((r) => r.scoreToPar < 0).length.toString()}
                 />
+                <StatRow label="Avg Putts" value={avgPutts(completed)} />
                 <StatRow
-                  label="Avg Putts per Round"
-                  value={avgPutts(completed)}
+                  label="Total Penalties"
+                  value={completed.reduce((s, r) => s + (r.totalPenalties ?? 0), 0).toString()}
+                />
+                {differentials.length > 0 && (
+                  <StatRow
+                    label="Best Differential"
+                    value={Math.min(...differentials).toFixed(1)}
+                  />
+                )}
+                <StatRow
+                  label="Scrambling %"
+                  value={udPct(completed)}
                   isLast
                 />
               </View>
@@ -220,13 +285,58 @@ function ScoreChart({ rounds }: { rounds: Round[] }) {
           return (
             <View key={round.id} style={chartStyles.barContainer}>
               <Text style={chartStyles.barLabel}>{round.totalScore}</Text>
-              <View style={[chartStyles.bar, { height: Math.max(8, barHeight), backgroundColor: isLast ? Colors.primary : Colors.primaryLight }]} />
+              <View style={[
+                chartStyles.bar,
+                { height: Math.max(8, barHeight), backgroundColor: isLast ? Colors.primary : Colors.primaryMid },
+              ]} />
               <Text style={chartStyles.barDate}>
                 {new Date(round.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
               </Text>
             </View>
           );
         })}
+      </View>
+    </View>
+  );
+}
+
+function DifferentialChart({ rounds }: { rounds: Round[] }) {
+  const diffs = rounds
+    .filter((r) => r.scoreDifferential !== undefined)
+    .map((r) => r.scoreDifferential as number);
+  if (diffs.length === 0) return null;
+
+  const min = Math.min(...diffs) - 1;
+  const max = Math.max(...diffs) + 1;
+  const range = max - min;
+  const chartHeight = 100;
+  const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+
+  return (
+    <View style={chartStyles.container}>
+      <View style={chartStyles.chart}>
+        {rounds
+          .filter((r) => r.scoreDifferential !== undefined)
+          .map((round, i) => {
+            const diff = round.scoreDifferential as number;
+            const barHeight = range > 0 ? ((diff - min) / range) * chartHeight : chartHeight / 2;
+            const isBelowAvg = diff < avgDiff;
+            return (
+              <View key={round.id} style={chartStyles.barContainer}>
+                <Text style={[chartStyles.barLabel, { fontSize: 9 }]}>{diff.toFixed(1)}</Text>
+                <View style={[
+                  chartStyles.bar,
+                  {
+                    height: Math.max(8, barHeight),
+                    backgroundColor: isBelowAvg ? Colors.accent : Colors.border,
+                  },
+                ]} />
+                <Text style={chartStyles.barDate}>
+                  {new Date(round.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                </Text>
+              </View>
+            );
+          })}
       </View>
     </View>
   );
@@ -248,6 +358,8 @@ const cardStyles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
     ...Shadow.sm,
   },
   value: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text },
@@ -285,12 +397,22 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
     ...Shadow.sm,
+  },
+  chartNote: {
+    fontSize: FontSize.xs,
+    color: Colors.textLight,
+    marginTop: 6,
+    textAlign: 'center',
   },
   hcpCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
     ...Shadow.sm,
   },
   hcpRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md },
@@ -315,6 +437,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
     ...Shadow.sm,
   },
 });

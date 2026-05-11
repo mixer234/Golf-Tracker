@@ -2,11 +2,12 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Round, HoleScore } from '../types';
+import { calcScoreDifferential } from '../utils/whs';
 
 interface RoundState {
   rounds: Round[];
   currentRound: Round | null;
-  startRound: (courseName: string) => void;
+  startRound: (courseName: string, courseRating?: number, slopeRating?: number) => void;
   updateHole: (holeNumber: number, data: Partial<HoleScore>) => void;
   completeRound: () => void;
   discardCurrentRound: () => void;
@@ -25,6 +26,9 @@ function buildEmptyHoles(): HoleScore[] {
     putts: 0,
     fairwayHit: undefined,
     greenInRegulation: false,
+    penaltyStrokes: 0,
+    upAndDown: undefined,
+    sandSave: undefined,
   }));
 }
 
@@ -36,6 +40,11 @@ function calcRoundStats(holes: HoleScore[]) {
   const par45 = completed.filter((h) => h.par === 4 || h.par === 5);
   const fairwaysHit = par45.filter((h) => h.fairwayHit === true).length;
   const greensInRegulation = completed.filter((h) => h.greenInRegulation).length;
+  const totalPenalties = completed.reduce((sum, h) => sum + (h.penaltyStrokes ?? 0), 0);
+  const missedGreen = completed.filter((h) => !h.greenInRegulation);
+  const upAndDowns = missedGreen.filter((h) => h.upAndDown === true).length;
+  const upAndDownAttempts = missedGreen.filter((h) => h.upAndDown !== undefined).length;
+
   return {
     totalScore,
     scoreToPar: totalScore - totalPar,
@@ -43,6 +52,9 @@ function calcRoundStats(holes: HoleScore[]) {
     fairwaysHit,
     fairwaysTotal: par45.length,
     greensInRegulation,
+    totalPenalties,
+    upAndDowns,
+    upAndDownAttempts,
   };
 }
 
@@ -51,11 +63,13 @@ export const useRoundStore = create<RoundState>()(
     (set, get) => ({
       rounds: [],
       currentRound: null,
-      startRound: (courseName) => {
+      startRound: (courseName, courseRating, slopeRating) => {
         const round: Round = {
           id: generateId(),
           date: new Date().toISOString(),
           courseName,
+          courseRating,
+          slopeRating,
           holes: buildEmptyHoles(),
           totalScore: 0,
           scoreToPar: 0,
@@ -63,6 +77,9 @@ export const useRoundStore = create<RoundState>()(
           fairwaysHit: 0,
           fairwaysTotal: 0,
           greensInRegulation: 0,
+          totalPenalties: 0,
+          upAndDowns: 0,
+          upAndDownAttempts: 0,
           isComplete: false,
         };
         set({ currentRound: round });
@@ -79,7 +96,15 @@ export const useRoundStore = create<RoundState>()(
         const current = get().currentRound;
         if (!current) return;
         const stats = calcRoundStats(current.holes);
-        const completed: Round = { ...current, ...stats, isComplete: true };
+        let scoreDifferential: number | undefined;
+        if (current.courseRating && current.slopeRating && stats.totalScore > 0) {
+          scoreDifferential = calcScoreDifferential(
+            stats.totalScore,
+            current.courseRating,
+            current.slopeRating
+          );
+        }
+        const completed: Round = { ...current, ...stats, scoreDifferential, isComplete: true };
         set((state) => ({
           rounds: [completed, ...state.rounds],
           currentRound: null,

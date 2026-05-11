@@ -9,6 +9,8 @@ import {
   TextInput,
   Modal,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useRoundStore } from '../../store/useRoundStore';
@@ -19,6 +21,8 @@ export default function TrackScreen() {
     useRoundStore();
   const [showNewRound, setShowNewRound] = useState(false);
   const [courseName, setCourseName] = useState('');
+  const [courseRating, setCourseRating] = useState('');
+  const [slopeRating, setSlopeRating] = useState('');
   const [selectedHole, setSelectedHole] = useState(1);
 
   function handleStartRound() {
@@ -26,21 +30,24 @@ export default function TrackScreen() {
       Alert.alert('Course name required', 'Enter the course name to start tracking.');
       return;
     }
-    startRound(courseName.trim());
+    const cr = parseFloat(courseRating);
+    const sr = parseInt(slopeRating, 10);
+    startRound(
+      courseName.trim(),
+      !isNaN(cr) && cr > 50 && cr < 90 ? cr : undefined,
+      !isNaN(sr) && sr >= 55 && sr <= 155 ? sr : undefined
+    );
     setShowNewRound(false);
     setCourseName('');
+    setCourseRating('');
+    setSlopeRating('');
     setSelectedHole(1);
   }
 
   function handleCompleteRound() {
     Alert.alert('Complete Round?', 'This will save your round and update your stats.', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Complete',
-        onPress: () => {
-          completeRound();
-        },
-      },
+      { text: 'Complete', onPress: () => completeRound() },
     ]);
   }
 
@@ -59,12 +66,15 @@ export default function TrackScreen() {
         <>
           {/* Active Round Header */}
           <View style={styles.roundHeader}>
-            <View>
-              <Text style={styles.courseName}>{currentRound.courseName}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.courseName} numberOfLines={1}>{currentRound.courseName}</Text>
               <Text style={styles.roundSubtitle}>
                 {new Date(currentRound.date).toLocaleDateString('en-US', {
-                  weekday: 'short', month: 'short', day: 'numeric'
+                  weekday: 'short', month: 'short', day: 'numeric',
                 })}
+                {currentRound.courseRating && currentRound.slopeRating
+                  ? ` · ${currentRound.courseRating} / ${currentRound.slopeRating}`
+                  : ''}
               </Text>
             </View>
             <View style={styles.roundActions}>
@@ -84,6 +94,8 @@ export default function TrackScreen() {
               const total = played.reduce((s, h) => s + h.strokes, 0);
               const par = played.reduce((s, h) => s + h.par, 0);
               const diff = total - par;
+              const putts = played.reduce((s, h) => s + h.putts, 0);
+              const penalties = played.reduce((s, h) => s + (h.penaltyStrokes ?? 0), 0);
               return (
                 <>
                   <View style={styles.scoreBox}>
@@ -91,7 +103,10 @@ export default function TrackScreen() {
                     <Text style={styles.scoreBoxLabel}>Score</Text>
                   </View>
                   <View style={styles.scoreBox}>
-                    <Text style={[styles.scoreBoxVal, diff < 0 ? { color: Colors.success } : diff > 0 ? { color: Colors.error } : {}]}>
+                    <Text style={[
+                      styles.scoreBoxVal,
+                      diff < 0 ? { color: Colors.success } : diff > 0 ? { color: Colors.error } : {},
+                    ]}>
                       {total ? (diff > 0 ? `+${diff}` : diff === 0 ? 'E' : diff) : '—'}
                     </Text>
                     <Text style={styles.scoreBoxLabel}>vs Par</Text>
@@ -101,9 +116,15 @@ export default function TrackScreen() {
                     <Text style={styles.scoreBoxLabel}>Holes</Text>
                   </View>
                   <View style={styles.scoreBox}>
-                    <Text style={styles.scoreBoxVal}>{played.reduce((s, h) => s + h.putts, 0) || '—'}</Text>
+                    <Text style={styles.scoreBoxVal}>{putts || '—'}</Text>
                     <Text style={styles.scoreBoxLabel}>Putts</Text>
                   </View>
+                  {penalties > 0 && (
+                    <View style={styles.scoreBox}>
+                      <Text style={[styles.scoreBoxVal, { color: Colors.warning }]}>{penalties}</Text>
+                      <Text style={styles.scoreBoxLabel}>Penalty</Text>
+                    </View>
+                  )}
                 </>
               );
             })()}
@@ -147,15 +168,12 @@ export default function TrackScreen() {
             })}
           </ScrollView>
 
-          {/* Hole Input */}
           {currentHole && (
             <ScrollView style={styles.holeInputArea} showsVerticalScrollIndicator={false}>
               <HoleInputCard
                 hole={currentHole}
                 onUpdate={(data) => updateHole(selectedHole, data)}
-                onNext={() => {
-                  if (selectedHole < 18) setSelectedHole(selectedHole + 1);
-                }}
+                onNext={() => { if (selectedHole < 18) setSelectedHole(selectedHole + 1); }}
               />
             </ScrollView>
           )}
@@ -182,18 +200,28 @@ export default function TrackScreen() {
               <Text style={styles.historyTitle}>Round History</Text>
               {rounds.map((round) => {
                 const sign = round.scoreToPar >= 0 ? '+' : '';
+                const udPct = round.upAndDownAttempts > 0
+                  ? Math.round((round.upAndDowns / round.upAndDownAttempts) * 100)
+                  : null;
                 return (
                   <View key={round.id} style={styles.historyRow}>
-                    <View>
+                    <View style={{ flex: 1 }}>
                       <Text style={styles.historyCourse}>{round.courseName}</Text>
                       <Text style={styles.historyDate}>
                         {new Date(round.date).toLocaleDateString('en-US', {
-                          weekday: 'short', month: 'short', day: 'numeric'
+                          weekday: 'short', month: 'short', day: 'numeric',
                         })}
                       </Text>
                       <Text style={styles.historyStats}>
-                        {round.greensInRegulation} GIR • {round.fairwaysHit}/{round.fairwaysTotal} FW • {round.totalPutts} putts
+                        {round.greensInRegulation} GIR · {round.fairwaysHit}/{round.fairwaysTotal} FW · {round.totalPutts} putts
+                        {udPct !== null ? ` · ${udPct}% U&D` : ''}
+                        {round.totalPenalties > 0 ? ` · ${round.totalPenalties} pen` : ''}
                       </Text>
+                      {round.scoreDifferential !== undefined && (
+                        <Text style={styles.historyDiff}>
+                          Differential: {round.scoreDifferential > 0 ? '+' : ''}{round.scoreDifferential}
+                        </Text>
+                      )}
                     </View>
                     <View style={styles.historyScores}>
                       <Text style={styles.historyTotal}>{round.totalScore}</Text>
@@ -215,31 +243,129 @@ export default function TrackScreen() {
       {/* New Round Modal */}
       <Modal visible={showNewRound} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowNewRound(false)}>
-              <Text style={styles.modalCancel}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>New Round</Text>
-            <TouchableOpacity onPress={handleStartRound}>
-              <Text style={styles.modalStart}>Start</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.modalContent}>
-            <Text style={styles.inputLabel}>Course Name</Text>
-            <TextInput
-              style={styles.textInput}
-              value={courseName}
-              onChangeText={setCourseName}
-              placeholder="e.g. Pebble Beach"
-              placeholderTextColor={Colors.textLight}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={handleStartRound}
-            />
-          </View>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowNewRound(false)}>
+                <Text style={styles.modalCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>New Round</Text>
+              <TouchableOpacity onPress={handleStartRound}>
+                <Text style={styles.modalStart}>Start</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalContent}>
+              <Text style={styles.inputLabel}>Course Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={courseName}
+                onChangeText={setCourseName}
+                placeholder="e.g. Pebble Beach"
+                placeholderTextColor={Colors.textLight}
+                autoFocus
+                returnKeyType="next"
+              />
+
+              <Text style={[styles.inputLabel, { marginTop: Spacing.lg }]}>
+                Course Rating & Slope{' '}
+                <Text style={styles.inputOptional}>(optional — enables handicap differential)</Text>
+              </Text>
+              <View style={styles.ratingRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputSublabel}>Course Rating</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={courseRating}
+                    onChangeText={setCourseRating}
+                    placeholder="72.1"
+                    placeholderTextColor={Colors.textLight}
+                    keyboardType="decimal-pad"
+                    returnKeyType="next"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputSublabel}>Slope Rating</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={slopeRating}
+                    onChangeText={setSlopeRating}
+                    placeholder="113"
+                    placeholderTextColor={Colors.textLight}
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                    onSubmitEditing={handleStartRound}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
+  );
+}
+
+function Counter({
+  value,
+  onDecrement,
+  onIncrement,
+  min = 0,
+  formatVal,
+}: {
+  value: number;
+  onDecrement: () => void;
+  onIncrement: () => void;
+  min?: number;
+  formatVal?: (v: number) => string;
+}) {
+  return (
+    <View style={holeStyles.counter}>
+      <TouchableOpacity
+        style={[holeStyles.counterBtn, value <= min && holeStyles.counterBtnDisabled]}
+        onPress={onDecrement}
+        disabled={value <= min}
+      >
+        <Text style={holeStyles.counterBtnText}>−</Text>
+      </TouchableOpacity>
+      <Text style={holeStyles.counterVal}>{formatVal ? formatVal(value) : (value || '—')}</Text>
+      <TouchableOpacity style={holeStyles.counterBtn} onPress={onIncrement}>
+        <Text style={holeStyles.counterBtnText}>+</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function ToggleRow({
+  label,
+  value,
+  onYes,
+  onNo,
+}: {
+  label: string;
+  value: boolean | undefined;
+  onYes: () => void;
+  onNo: () => void;
+}) {
+  return (
+    <View style={holeStyles.row}>
+      <Text style={holeStyles.rowLabel}>{label}</Text>
+      <View style={holeStyles.toggle}>
+        <TouchableOpacity
+          style={[holeStyles.toggleBtn, value === true && holeStyles.toggleBtnYes]}
+          onPress={onYes}
+        >
+          <Text style={[holeStyles.toggleText, value === true && holeStyles.toggleTextActive]}>Yes</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[holeStyles.toggleBtn, value === false && holeStyles.toggleBtnNo]}
+          onPress={onNo}
+        >
+          <Text style={[holeStyles.toggleText, value === false && holeStyles.toggleTextActive]}>No</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
@@ -252,10 +378,24 @@ function HoleInputCard({
   onUpdate: (data: Partial<HoleScore>) => void;
   onNext: () => void;
 }) {
+  const scoreVsPar = hole.strokes > 0 ? hole.strokes - hole.par : null;
+
   return (
     <View style={holeStyles.card}>
       <View style={holeStyles.cardHeader}>
         <Text style={holeStyles.holeLabel}>Hole {hole.holeNumber}</Text>
+        {scoreVsPar !== null && (
+          <View style={[
+            holeStyles.scoreBadge,
+            scoreVsPar < 0 ? holeStyles.scoreBadgeUnder
+              : scoreVsPar === 0 ? holeStyles.scoreBadgeEven
+              : holeStyles.scoreBadgeOver,
+          ]}>
+            <Text style={holeStyles.scoreBadgeText}>
+              {scoreVsPar === 0 ? 'Par' : scoreVsPar < 0 ? scoreVsPar : `+${scoreVsPar}`}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Par */}
@@ -278,82 +418,62 @@ function HoleInputCard({
       {/* Strokes */}
       <View style={holeStyles.row}>
         <Text style={holeStyles.rowLabel}>Strokes</Text>
-        <View style={holeStyles.counter}>
-          <TouchableOpacity
-            style={holeStyles.counterBtn}
-            onPress={() => onUpdate({ strokes: Math.max(0, hole.strokes - 1) })}
-          >
-            <Text style={holeStyles.counterBtnText}>−</Text>
-          </TouchableOpacity>
-          <Text style={holeStyles.counterVal}>{hole.strokes || '—'}</Text>
-          <TouchableOpacity
-            style={holeStyles.counterBtn}
-            onPress={() => onUpdate({ strokes: hole.strokes + 1 })}
-          >
-            <Text style={holeStyles.counterBtnText}>+</Text>
-          </TouchableOpacity>
-        </View>
+        <Counter
+          value={hole.strokes}
+          onDecrement={() => onUpdate({ strokes: Math.max(0, hole.strokes - 1) })}
+          onIncrement={() => onUpdate({ strokes: hole.strokes + 1 })}
+        />
       </View>
 
       {/* Putts */}
       <View style={holeStyles.row}>
         <Text style={holeStyles.rowLabel}>Putts</Text>
-        <View style={holeStyles.counter}>
-          <TouchableOpacity
-            style={holeStyles.counterBtn}
-            onPress={() => onUpdate({ putts: Math.max(0, hole.putts - 1) })}
-          >
-            <Text style={holeStyles.counterBtnText}>−</Text>
-          </TouchableOpacity>
-          <Text style={holeStyles.counterVal}>{hole.putts}</Text>
-          <TouchableOpacity
-            style={holeStyles.counterBtn}
-            onPress={() => onUpdate({ putts: hole.putts + 1 })}
-          >
-            <Text style={holeStyles.counterBtnText}>+</Text>
-          </TouchableOpacity>
-        </View>
+        <Counter
+          value={hole.putts}
+          onDecrement={() => onUpdate({ putts: Math.max(0, hole.putts - 1) })}
+          onIncrement={() => onUpdate({ putts: hole.putts + 1 })}
+          formatVal={(v) => String(v)}
+        />
+      </View>
+
+      {/* Penalties */}
+      <View style={holeStyles.row}>
+        <Text style={holeStyles.rowLabel}>Penalty Strokes</Text>
+        <Counter
+          value={hole.penaltyStrokes ?? 0}
+          onDecrement={() => onUpdate({ penaltyStrokes: Math.max(0, (hole.penaltyStrokes ?? 0) - 1) })}
+          onIncrement={() => onUpdate({ penaltyStrokes: (hole.penaltyStrokes ?? 0) + 1 })}
+          formatVal={(v) => String(v)}
+        />
       </View>
 
       {/* Fairway (par 4/5 only) */}
       {(hole.par === 4 || hole.par === 5) && (
-        <View style={holeStyles.row}>
-          <Text style={holeStyles.rowLabel}>Fairway Hit</Text>
-          <View style={holeStyles.toggle}>
-            <TouchableOpacity
-              style={[holeStyles.toggleBtn, hole.fairwayHit === true && holeStyles.toggleBtnYes]}
-              onPress={() => onUpdate({ fairwayHit: true })}
-            >
-              <Text style={[holeStyles.toggleText, hole.fairwayHit === true && holeStyles.toggleTextActive]}>Yes</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[holeStyles.toggleBtn, hole.fairwayHit === false && holeStyles.toggleBtnNo]}
-              onPress={() => onUpdate({ fairwayHit: false })}
-            >
-              <Text style={[holeStyles.toggleText, hole.fairwayHit === false && holeStyles.toggleTextActive]}>No</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <ToggleRow
+          label="Fairway Hit"
+          value={hole.fairwayHit}
+          onYes={() => onUpdate({ fairwayHit: true })}
+          onNo={() => onUpdate({ fairwayHit: false })}
+        />
       )}
 
       {/* GIR */}
-      <View style={holeStyles.row}>
-        <Text style={holeStyles.rowLabel}>Green in Regulation</Text>
-        <View style={holeStyles.toggle}>
-          <TouchableOpacity
-            style={[holeStyles.toggleBtn, hole.greenInRegulation && holeStyles.toggleBtnYes]}
-            onPress={() => onUpdate({ greenInRegulation: true })}
-          >
-            <Text style={[holeStyles.toggleText, hole.greenInRegulation && holeStyles.toggleTextActive]}>Yes</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[holeStyles.toggleBtn, !hole.greenInRegulation && holeStyles.toggleBtnNo]}
-            onPress={() => onUpdate({ greenInRegulation: false })}
-          >
-            <Text style={[holeStyles.toggleText, !hole.greenInRegulation && holeStyles.toggleTextActive]}>No</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <ToggleRow
+        label="Green in Regulation"
+        value={hole.greenInRegulation ? true : hole.greenInRegulation === false ? false : undefined}
+        onYes={() => onUpdate({ greenInRegulation: true, upAndDown: undefined })}
+        onNo={() => onUpdate({ greenInRegulation: false })}
+      />
+
+      {/* Up & Down (only when GIR = false and strokes > 0) */}
+      {hole.greenInRegulation === false && hole.strokes > 0 && (
+        <ToggleRow
+          label="Up & Down"
+          value={hole.upAndDown}
+          onYes={() => onUpdate({ upAndDown: true })}
+          onNo={() => onUpdate({ upAndDown: false })}
+        />
+      )}
 
       {hole.holeNumber < 18 && (
         <TouchableOpacity style={holeStyles.nextBtn} onPress={onNext} activeOpacity={0.85}>
@@ -370,10 +490,26 @@ const holeStyles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
     ...Shadow.md,
   },
-  cardHeader: { marginBottom: Spacing.lg },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
   holeLabel: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
+  scoreBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+  },
+  scoreBadgeUnder: { backgroundColor: Colors.success + '25' },
+  scoreBadgeEven: { backgroundColor: Colors.border },
+  scoreBadgeOver: { backgroundColor: Colors.error + '25' },
+  scoreBadgeText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -395,7 +531,7 @@ const holeStyles = StyleSheet.create({
   },
   segActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   segText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textSecondary },
-  segTextActive: { color: Colors.surface },
+  segTextActive: { color: Colors.background },
   counter: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   counterBtn: {
     width: 36,
@@ -404,7 +540,10 @@ const holeStyles = StyleSheet.create({
     backgroundColor: Colors.surfaceSecondary,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
+  counterBtnDisabled: { opacity: 0.3 },
   counterBtnText: { fontSize: FontSize.xl, color: Colors.text, fontWeight: '300', lineHeight: 24 },
   counterVal: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text, minWidth: 32, textAlign: 'center' },
   toggle: { flexDirection: 'row', gap: 6 },
@@ -415,10 +554,10 @@ const holeStyles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.border,
   },
-  toggleBtnYes: { backgroundColor: Colors.success, borderColor: Colors.success },
-  toggleBtnNo: { backgroundColor: Colors.error, borderColor: Colors.error },
+  toggleBtnYes: { backgroundColor: Colors.success + '30', borderColor: Colors.success },
+  toggleBtnNo: { backgroundColor: Colors.error + '30', borderColor: Colors.error },
   toggleText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
-  toggleTextActive: { color: Colors.surface },
+  toggleTextActive: { color: Colors.text },
   nextBtn: {
     marginTop: Spacing.xl,
     backgroundColor: Colors.primary,
@@ -426,7 +565,7 @@ const holeStyles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  nextBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.surface },
+  nextBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
 });
 
 const styles = StyleSheet.create({
@@ -456,7 +595,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     backgroundColor: Colors.primary,
   },
-  completeText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.surface },
+  completeText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.background },
   scoreSummary: {
     flexDirection: 'row',
     paddingHorizontal: Spacing.lg,
@@ -469,7 +608,8 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     padding: Spacing.sm,
     alignItems: 'center',
-    ...Shadow.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   scoreBoxVal: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
   scoreBoxLabel: { fontSize: FontSize.xs, color: Colors.textSecondary },
@@ -486,9 +626,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   holeChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  holeChipDone: { backgroundColor: Colors.primaryPale, borderColor: Colors.primaryLight },
+  holeChipDone: { backgroundColor: Colors.primaryPale, borderColor: Colors.primaryMid },
   holeNum: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary },
-  holeNumActive: { color: Colors.surface },
+  holeNumActive: { color: Colors.background },
   holeScore: { fontSize: FontSize.xs, fontWeight: '700' },
   under: { color: Colors.success },
   even: { color: Colors.textSecondary },
@@ -498,14 +638,20 @@ const styles = StyleSheet.create({
   noRoundHero: { alignItems: 'center', marginBottom: Spacing.xxl },
   noRoundEmoji: { fontSize: 64, marginBottom: Spacing.md },
   noRoundTitle: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.sm },
-  noRoundText: { fontSize: FontSize.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: Spacing.xl },
+  noRoundText: {
+    fontSize: FontSize.base,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: Spacing.xl,
+  },
   startButton: {
     backgroundColor: Colors.primary,
     borderRadius: Radius.full,
     paddingVertical: 16,
     paddingHorizontal: Spacing.xxl,
   },
-  startButtonText: { fontSize: FontSize.md, fontWeight: '700', color: Colors.surface },
+  startButtonText: { fontSize: FontSize.md, fontWeight: '700', color: Colors.background },
   historySection: { gap: Spacing.sm },
   historyTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, marginBottom: Spacing.xs },
   historyRow: {
@@ -515,11 +661,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     padding: Spacing.md,
-    ...Shadow.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   historyCourse: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text },
   historyDate: { fontSize: FontSize.sm, color: Colors.textSecondary },
   historyStats: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2 },
+  historyDiff: { fontSize: FontSize.xs, color: Colors.accent, marginTop: 2, fontWeight: '600' },
   historyScores: { alignItems: 'flex-end' },
   historyTotal: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
   historyPar: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
@@ -535,8 +683,11 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
   modalCancel: { fontSize: FontSize.base, color: Colors.textSecondary },
   modalStart: { fontSize: FontSize.base, fontWeight: '700', color: Colors.primary },
-  modalContent: { padding: Spacing.xl },
-  inputLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text, marginBottom: 8 },
+  modalContent: { padding: Spacing.xl, gap: 4 },
+  inputLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text, marginBottom: 6 },
+  inputOptional: { fontSize: FontSize.xs, color: Colors.textLight, fontWeight: '400' },
+  inputSublabel: { fontSize: FontSize.xs, color: Colors.textSecondary, marginBottom: 4, fontWeight: '500' },
+  ratingRow: { flexDirection: 'row', gap: Spacing.md },
   textInput: {
     backgroundColor: Colors.surface,
     borderWidth: 1.5,

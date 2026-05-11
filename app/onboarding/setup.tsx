@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  checkmark: { color: Colors.surface, fontSize: 12, fontWeight: '800' },
+  checkmark: { color: Colors.background, fontSize: 12, fontWeight: '800' },
   noHcpText: { fontSize: FontSize.sm, color: Colors.textSecondary, flex: 1 },
   dialWrap: { alignItems: 'center', marginTop: Spacing.xs },
   footer: {
@@ -268,5 +268,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: Radius.full,
   },
-  nextText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.surface },
+  nextText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
 });

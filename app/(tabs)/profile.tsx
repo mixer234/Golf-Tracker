@@ -300,8 +300,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.surface },
-  userName: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.surface },
+  avatarText: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.background },
+  userName: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.background },
   userSince: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.7)' },
   card: {
     backgroundColor: Colors.surface,
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
   },
-  saveBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.surface },
+  saveBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
   cancelBtn: {
     flex: 1,
     borderRadius: Radius.full,
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
-  saveApiBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.surface },
+  saveApiBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.background },
   keyStatus: { fontSize: FontSize.xs, color: Colors.success, fontWeight: '600' },
   keyStatusEmpty: { fontSize: FontSize.xs, color: Colors.textLight },
   resetText: { fontSize: FontSize.base, color: Colors.error, fontWeight: '600', textAlign: 'center', paddingVertical: 4 },

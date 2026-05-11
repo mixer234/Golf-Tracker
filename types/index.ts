@@ -54,6 +54,8 @@ export type DayOfWeek =
   | 'Saturday'
   | 'Sunday';
 
+export type ShotShape = 'draw' | 'fade' | 'straight' | 'varies';
+
 export interface UserProfile {
   name: string;
   experienceLevel: ExperienceLevel;
@@ -65,6 +67,8 @@ export interface UserProfile {
   missTendencies: MissTendency[];
   goals: GoalType[];
   ballSpeed?: number;
+  avgDrivingDistance?: number;
+  shotShape?: ShotShape;
   practiceDaysPerWeek: number;
   sessionLengthMinutes: number;
   facilities: PracticeFacility[];
@@ -80,12 +84,17 @@ export interface HoleScore {
   putts: number;
   fairwayHit?: boolean;
   greenInRegulation: boolean;
+  penaltyStrokes?: number;
+  upAndDown?: boolean;
+  sandSave?: boolean;
 }
 
 export interface Round {
   id: string;
   date: string;
   courseName: string;
+  courseRating?: number;
+  slopeRating?: number;
   holes: HoleScore[];
   totalScore: number;
   scoreToPar: number;
@@ -93,6 +102,10 @@ export interface Round {
   fairwaysHit: number;
   fairwaysTotal: number;
   greensInRegulation: number;
+  totalPenalties: number;
+  upAndDowns: number;
+  upAndDownAttempts: number;
+  scoreDifferential?: number;
   isComplete: boolean;
 }
 

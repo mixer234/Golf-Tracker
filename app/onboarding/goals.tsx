@@ -239,5 +239,5 @@ const styles = StyleSheet.create({
   backText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textSecondary },
   doneBtn: { flex: 2, backgroundColor: Colors.primary, paddingVertical: 16, alignItems: 'center', borderRadius: Radius.full },
   doneBtnDisabled: { backgroundColor: Colors.textLight },
-  doneText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.surface },
+  doneText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
 });

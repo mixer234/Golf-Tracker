@@ -302,7 +302,7 @@ const drillStyles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
   },
-  checkmark: { color: Colors.surface, fontSize: 14, fontWeight: '700' },
+  checkmark: { color: Colors.background, fontSize: 14, fontWeight: '700' },
   info: { flex: 1 },
   name: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, marginBottom: 2 },
   nameCompleted: { textDecorationLine: 'line-through', color: Colors.textSecondary },
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   dayChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   dayChipEmpty: { opacity: 0.5 },
   dayChipText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
-  dayChipTextActive: { color: Colors.surface },
+  dayChipTextActive: { color: Colors.background },
   todayDot: {
     width: 4,
     height: 4,
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     marginTop: Spacing.sm,
   },
-  generateButtonText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.surface },
+  generateButtonText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
   loadingState: {
     flex: 1,
     alignItems: 'center',
