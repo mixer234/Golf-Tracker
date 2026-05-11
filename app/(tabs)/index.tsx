@@ -122,7 +122,24 @@ function roundsThisMonth(rounds: Round[]): number {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function HandicapHeroCard({ profile }: { profile: UserProfile }) {
+function getHandicapCoachingLine(profile: UserProfile, rounds: Round[]): string {
+  const completed = rounds.filter((r) => r.isComplete && r.totalScore > 0).slice(0, 5);
+  if (completed.length === 0) return 'Start tracking rounds to see your progress.';
+
+  const avgPutts = completed.reduce((s, r) => s + r.totalPutts, 0) / completed.length;
+  const girPct = completed.reduce((s, r) => s + r.greensInRegulation, 0) / (completed.length * 18);
+  const udAttempts = completed.reduce((s, r) => s + r.upAndDownAttempts, 0);
+  const udMade = completed.reduce((s, r) => s + r.upAndDowns, 0);
+  const udPct = udAttempts > 0 ? udMade / udAttempts : null;
+
+  if (avgPutts > 34) return `Averaging ${avgPutts.toFixed(1)} putts — reducing 3-putts could cut 2–3 strokes per round.`;
+  if (girPct < 0.33) return `You're hitting ${Math.round(girPct * 18)} greens per round — focus on approach accuracy to unlock lower scores.`;
+  if (udPct !== null && udPct < 0.4) return `${Math.round(udPct * 100)}% scrambling — improving short game touch could save 3–4 shots per round.`;
+  if (girPct > 0.5) return `Strong ball striking — ${Math.round(girPct * 18)} GIR per round puts you in the top tier. Now convert those chances.`;
+  return `${completed.length} recent rounds analysed. Keep logging to sharpen your insights.`;
+}
+
+function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: Round[] }) {
   const gap = profile.handicap - profile.targetHandicap;
   const achieved = gap <= 0;
   const absGap = Math.abs(Math.round(gap));
@@ -178,6 +195,12 @@ function HandicapHeroCard({ profile }: { profile: UserProfile }) {
           </Text>
         </View>
       )}
+
+      {/* Coaching insight */}
+      <View style={heroStyles.insightRow}>
+        <Text style={heroStyles.insightIcon}>💡</Text>
+        <Text style={heroStyles.insightText}>{getHandicapCoachingLine(profile, rounds)}</Text>
+      </View>
     </View>
   );
 }
@@ -352,7 +375,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* ── Handicap Hero ─────────────────────────────── */}
-        <HandicapHeroCard profile={profile} />
+        <HandicapHeroCard profile={profile} rounds={rounds} />
 
         {/* ── Quick stats row ───────────────────────────── */}
         <View style={styles.statsRow}>
@@ -482,7 +505,8 @@ function StatBox({ value, label, accent }: { value: string; label: string; accen
 
 function RoundRow({ round }: { round: Round }) {
   const date = new Date(round.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const sign = round.scoreToPar > 0 ? '+' : '';
+  const stp = round.scoreToPar;
+  const parLabel = stp === 0 ? 'E' : stp > 0 ? `+${stp}` : String(stp);
   return (
     <View style={roundStyles.row}>
       <View style={roundStyles.left}>
@@ -494,11 +518,11 @@ function RoundRow({ round }: { round: Round }) {
         <Text
           style={[
             roundStyles.par,
-            round.scoreToPar < 0 && roundStyles.under,
-            round.scoreToPar > 0 && roundStyles.over,
+            stp < 0 && roundStyles.under,
+            stp > 0 && roundStyles.over,
           ]}
         >
-          {sign}{round.scoreToPar}
+          {parLabel}
         </Text>
       </View>
     </View>
@@ -573,6 +597,22 @@ const heroStyles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     textAlign: 'right',
   },
+  insightRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.15)',
+  },
+  insightIcon: { fontSize: 13 },
+  insightText: {
+    fontSize: FontSize.xs,
+    color: 'rgba(255,255,255,0.75)',
+    flex: 1,
+    lineHeight: 18,
+  },
 });
 
 // Week calendar
@@ -582,6 +622,8 @@ const calStyles = StyleSheet.create({
     borderRadius: Radius.xl,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
     ...Shadow.sm,
   },
   headerRow: {
@@ -633,7 +675,7 @@ const calStyles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
-  dotToday: { backgroundColor: Colors.surface },
+  dotToday: { backgroundColor: Colors.primaryLight },
   dotFuture: { backgroundColor: Colors.primaryLight },
   dotDone: { backgroundColor: Colors.success },
   dotMissed: { backgroundColor: Colors.warning },
@@ -657,6 +699,8 @@ const focusStyles = StyleSheet.create({
     borderRadius: Radius.xl,
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
     borderLeftWidth: 4,
     borderLeftColor: Colors.primary,
     ...Shadow.sm,
@@ -720,6 +764,8 @@ const statStyles = StyleSheet.create({
     borderRadius: Radius.md,
     padding: Spacing.md,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
     ...Shadow.sm,
   },
   value: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
@@ -736,6 +782,8 @@ const roundStyles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
     ...Shadow.sm,
   },
   left: { flex: 1 },
@@ -774,7 +822,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    ...Shadow.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow.sm,
   },
   practiceCard: { backgroundColor: Colors.primary },
   practiceTop: {
@@ -795,7 +845,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     overflow: 'hidden',
   },
-  progressFill: { height: '100%', backgroundColor: Colors.surface, borderRadius: Radius.full },
+  progressFill: { height: '100%', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: Radius.full },
   cardCta: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
   loadingText: { textAlign: 'center', color: Colors.textSecondary, marginTop: Spacing.sm },
   emptyCard: { alignItems: 'center', paddingVertical: Spacing.xl },

@@ -26,7 +26,12 @@ function formatRecentRounds(rounds: Round[]): string {
     .map((r) => {
       const date = new Date(r.date).toLocaleDateString();
       const score = r.scoreToPar >= 0 ? `+${r.scoreToPar}` : `${r.scoreToPar}`;
-      return `- ${date} at ${r.courseName}: ${r.totalScore} (${score}), ${r.greensInRegulation}/18 GIR, ${r.fairwaysHit}/${r.fairwaysTotal} FW, ${r.totalPutts} putts`;
+      const udLine = r.upAndDownAttempts > 0
+        ? `, ${Math.round((r.upAndDowns / r.upAndDownAttempts) * 100)}% U&D`
+        : '';
+      const penLine = r.totalPenalties > 0 ? `, ${r.totalPenalties} penalties` : '';
+      const diffLine = r.scoreDifferential !== undefined ? `, differential ${r.scoreDifferential}` : '';
+      return `- ${date} at ${r.courseName}: ${r.totalScore} (${score}), ${r.greensInRegulation}/18 GIR, ${r.fairwaysHit}/${r.fairwaysTotal} FW, ${r.totalPutts} putts${udLine}${penLine}${diffLine}`;
     })
     .join('\n');
 }

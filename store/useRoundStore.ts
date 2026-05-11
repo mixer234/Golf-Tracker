@@ -7,11 +7,13 @@ import { calcScoreDifferential } from '../utils/whs';
 interface RoundState {
   rounds: Round[];
   currentRound: Round | null;
+  lastCompletedRound: Round | null;
   startRound: (courseName: string, courseRating?: number, slopeRating?: number) => void;
   updateHole: (holeNumber: number, data: Partial<HoleScore>) => void;
   completeRound: () => void;
   discardCurrentRound: () => void;
   deleteRound: (id: string) => void;
+  clearLastCompleted: () => void;
 }
 
 function generateId(): string {
@@ -63,6 +65,7 @@ export const useRoundStore = create<RoundState>()(
     (set, get) => ({
       rounds: [],
       currentRound: null,
+      lastCompletedRound: null,
       startRound: (courseName, courseRating, slopeRating) => {
         const round: Round = {
           id: generateId(),
@@ -108,11 +111,13 @@ export const useRoundStore = create<RoundState>()(
         set((state) => ({
           rounds: [completed, ...state.rounds],
           currentRound: null,
+          lastCompletedRound: completed,
         }));
       },
       discardCurrentRound: () => set({ currentRound: null }),
       deleteRound: (id) =>
         set((state) => ({ rounds: state.rounds.filter((r) => r.id !== id) })),
+      clearLastCompleted: () => set({ lastCompletedRound: null }),
     }),
     {
       name: 'round-store',

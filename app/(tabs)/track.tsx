@@ -14,10 +14,37 @@ import {
 } from 'react-native';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useRoundStore } from '../../store/useRoundStore';
-import { HoleScore } from '../../types';
+import { HoleScore, Round } from '../../types';
+import { formatHandicap } from '../../components/HandicapDial';
+
+function buildRoundSummary(r: Round): { headline: string; highlights: string[] } {
+  const stp = r.scoreToPar;
+  const parStr = stp === 0 ? 'Even par' : stp < 0 ? `${Math.abs(stp)} under par` : `${stp} over par`;
+  const headline = `${r.totalScore} — ${parStr}`;
+
+  const highlights: string[] = [];
+  const girPct = Math.round((r.greensInRegulation / 18) * 100);
+  highlights.push(`${r.greensInRegulation}/18 greens in regulation (${girPct}%)`);
+  if (r.fairwaysTotal > 0) {
+    const fwPct = Math.round((r.fairwaysHit / r.fairwaysTotal) * 100);
+    highlights.push(`${r.fairwaysHit}/${r.fairwaysTotal} fairways hit (${fwPct}%)`);
+  }
+  highlights.push(`${r.totalPutts} total putts`);
+  if (r.upAndDownAttempts > 0) {
+    const udPct = Math.round((r.upAndDowns / r.upAndDownAttempts) * 100);
+    highlights.push(`${udPct}% scrambling (${r.upAndDowns}/${r.upAndDownAttempts} up & downs)`);
+  }
+  if (r.totalPenalties > 0) {
+    highlights.push(`${r.totalPenalties} penalty stroke${r.totalPenalties > 1 ? 's' : ''}`);
+  }
+  if (r.scoreDifferential !== undefined) {
+    highlights.push(`Score differential: ${r.scoreDifferential > 0 ? '+' : ''}${r.scoreDifferential}`);
+  }
+  return { headline, highlights };
+}
 
 export default function TrackScreen() {
-  const { rounds, currentRound, startRound, updateHole, completeRound, discardCurrentRound } =
+  const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted } =
     useRoundStore();
   const [showNewRound, setShowNewRound] = useState(false);
   const [courseName, setCourseName] = useState('');
@@ -180,6 +207,39 @@ export default function TrackScreen() {
         </>
       ) : (
         <ScrollView contentContainerStyle={styles.noRoundContent} showsVerticalScrollIndicator={false}>
+          {/* Post-round summary — shown immediately after completing a round */}
+          {lastCompletedRound && (() => {
+            const { headline, highlights } = buildRoundSummary(lastCompletedRound);
+            const stp = lastCompletedRound.scoreToPar;
+            return (
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryHeader}>
+                  <View>
+                    <Text style={styles.summaryOverline}>ROUND COMPLETE</Text>
+                    <Text style={styles.summaryCourse}>{lastCompletedRound.courseName}</Text>
+                  </View>
+                  <TouchableOpacity onPress={clearLastCompleted} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Text style={styles.summaryClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={[
+                  styles.summaryHeadline,
+                  stp < 0 ? { color: Colors.success } : stp > 0 ? { color: Colors.error } : { color: Colors.text },
+                ]}>
+                  {headline}
+                </Text>
+                <View style={styles.summaryHighlights}>
+                  {highlights.map((h, i) => (
+                    <View key={i} style={styles.highlightRow}>
+                      <View style={styles.highlightBullet} />
+                      <Text style={styles.highlightText}>{h}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            );
+          })()}
+
           <View style={styles.noRoundHero}>
             <Text style={styles.noRoundEmoji}>⛳</Text>
             <Text style={styles.noRoundTitle}>Track a Round</Text>
@@ -634,8 +694,49 @@ const styles = StyleSheet.create({
   even: { color: Colors.textSecondary },
   over: { color: Colors.error },
   holeInputArea: { flex: 1 },
-  noRoundContent: { padding: Spacing.xl },
-  noRoundHero: { alignItems: 'center', marginBottom: Spacing.xxl },
+  noRoundContent: { padding: Spacing.lg },
+  summaryCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    marginBottom: Spacing.lg,
+    ...Shadow.md,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: Spacing.sm,
+  },
+  summaryOverline: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.primary,
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  summaryCourse: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
+  summaryClose: { fontSize: FontSize.base, color: Colors.textLight, fontWeight: '600' },
+  summaryHeadline: {
+    fontSize: FontSize.xl,
+    fontWeight: '800',
+    marginBottom: Spacing.md,
+    letterSpacing: -0.5,
+  },
+  summaryHighlights: { gap: 8 },
+  highlightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  highlightBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+    marginTop: 6,
+    flexShrink: 0,
+  },
+  highlightText: { fontSize: FontSize.sm, color: Colors.textSecondary, flex: 1, lineHeight: 20 },
+  noRoundHero: { alignItems: 'center', marginBottom: Spacing.xl, paddingTop: Spacing.lg },
   noRoundEmoji: { fontSize: 64, marginBottom: Spacing.md },
   noRoundTitle: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.sm },
   noRoundText: {
