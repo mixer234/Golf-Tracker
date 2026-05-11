@@ -14,7 +14,7 @@ import { useUserStore } from '../../store/useUserStore';
 import { useRoundStore } from '../../store/useRoundStore';
 import { usePracticeStore } from '../../store/usePracticeStore';
 import { generatePracticePlan } from '../../services/ai';
-import { DailyPlan, Drill, DayOfWeek, ClubEntry } from '../../types';
+import { Drill, DayOfWeek, ClubEntry } from '../../types';
 import { DEFAULT_BAG } from '../../store/useUserStore';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -38,7 +38,7 @@ export default function PracticeScreen() {
     currentPlan, isGenerating, generationError, setPlan, setGenerating,
     setGenerationError, markDrillComplete,
     activeSessionDay, activeSessionStartTime, activeDrillIndex,
-    startSession, nextDrill, endSession, cancelSession,
+    startSession, nextDrill, endSession,
   } = usePracticeStore();
 
   const [selectedDayIndex, setSelectedDayIndex] = useState(todayIndex());
@@ -78,7 +78,11 @@ export default function PracticeScreen() {
     const updated = [...completedInSession, currentSessionDrill.id];
     setCompletedInSession(updated);
     if (isLastDrill) {
-      endSession(updated, sessionDrills.length);
+      Alert.alert(
+        'Session Complete! 🎯',
+        `You nailed ${updated.length} of ${sessionDrills.length} drill${sessionDrills.length > 1 ? 's' : ''}. Great work!`,
+        [{ text: 'Done', onPress: () => endSession(updated, sessionDrills.length) }],
+      );
     } else {
       nextDrill();
     }
@@ -86,7 +90,11 @@ export default function PracticeScreen() {
 
   function handleSkipDrill() {
     if (isLastDrill) {
-      endSession(completedInSession, sessionDrills.length);
+      Alert.alert(
+        'Session Finished',
+        `Completed ${completedInSession.length} of ${sessionDrills.length} drills.`,
+        [{ text: 'Done', onPress: () => endSession(completedInSession, sessionDrills.length) }],
+      );
     } else {
       nextDrill();
     }

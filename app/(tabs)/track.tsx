@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,6 @@ import {
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useRoundStore } from '../../store/useRoundStore';
 import { HoleScore, Round } from '../../types';
-import { formatHandicap } from '../../components/HandicapDial';
 
 function buildRoundSummary(r: Round): { headline: string; highlights: string[] } {
   const stp = r.scoreToPar;
@@ -38,7 +37,8 @@ function buildRoundSummary(r: Round): { headline: string; highlights: string[] }
     highlights.push(`${r.totalPenalties} penalty stroke${r.totalPenalties > 1 ? 's' : ''}`);
   }
   if (r.scoreDifferential !== undefined) {
-    highlights.push(`Score differential: ${r.scoreDifferential > 0 ? '+' : ''}${r.scoreDifferential}`);
+    const diff = r.scoreDifferential.toFixed(1);
+    highlights.push(`Score differential: ${r.scoreDifferential > 0 ? '+' : ''}${diff}`);
   }
   return { headline, highlights };
 }
@@ -48,6 +48,11 @@ export default function TrackScreen() {
     useRoundStore();
   const [showNewRound, setShowNewRound] = useState(false);
   const [notesDraft, setNotesDraft] = useState(lastCompletedRound?.notes ?? '');
+
+  // Sync draft whenever a new round is completed
+  useEffect(() => {
+    setNotesDraft(lastCompletedRound?.notes ?? '');
+  }, [lastCompletedRound?.id]);
   const [courseName, setCourseName] = useState('');
   const [courseRating, setCourseRating] = useState('');
   const [slopeRating, setSlopeRating] = useState('');
@@ -274,7 +279,8 @@ export default function TrackScreen() {
             <View style={styles.historySection}>
               <Text style={styles.historyTitle}>Round History</Text>
               {rounds.map((round) => {
-                const sign = round.scoreToPar >= 0 ? '+' : '';
+                const stp = round.scoreToPar;
+                const parLabel = stp === 0 ? 'E' : stp > 0 ? `+${stp}` : String(stp);
                 const udPct = round.upAndDownAttempts > 0
                   ? Math.round((round.upAndDowns / round.upAndDownAttempts) * 100)
                   : null;
@@ -294,7 +300,7 @@ export default function TrackScreen() {
                       </Text>
                       {round.scoreDifferential !== undefined && (
                         <Text style={styles.historyDiff}>
-                          Differential: {round.scoreDifferential > 0 ? '+' : ''}{round.scoreDifferential}
+                          Differential: {round.scoreDifferential > 0 ? '+' : ''}{round.scoreDifferential.toFixed(1)}
                         </Text>
                       )}
                       {round.notes ? (
@@ -305,9 +311,9 @@ export default function TrackScreen() {
                       <Text style={styles.historyTotal}>{round.totalScore}</Text>
                       <Text style={[
                         styles.historyPar,
-                        round.scoreToPar < 0 ? { color: Colors.success } : round.scoreToPar > 0 ? { color: Colors.error } : {},
+                        stp < 0 ? { color: Colors.success } : stp > 0 ? { color: Colors.error } : {},
                       ]}>
-                        {sign}{round.scoreToPar}
+                        {parLabel}
                       </Text>
                     </View>
                   </View>
@@ -576,7 +582,7 @@ function HoleInputCard({
       {/* GIR */}
       <ToggleRow
         label="Green in Regulation"
-        value={hole.greenInRegulation ? true : hole.greenInRegulation === false ? false : undefined}
+        value={hole.greenInRegulation}
         onYes={() => onUpdate({ greenInRegulation: true, upAndDown: undefined })}
         onNo={() => onUpdate({ greenInRegulation: false })}
       />

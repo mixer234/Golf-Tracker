@@ -371,20 +371,21 @@ function ScoreChart({ rounds }: { rounds: Round[] }) {
   const max = Math.max(...scores) + 2;
   const range = max - min;
   const chartHeight = 120;
+  const best = Math.min(...scores);
 
   return (
     <View style={chartStyles.container}>
       <View style={chartStyles.chart}>
         {rounds.map((round, i) => {
-          const barHeight = range > 0 ? ((round.totalScore - min) / range) * chartHeight : chartHeight / 2;
+          // Invert: lower score (better) = taller bar
+          const barHeight = range > 0 ? ((max - round.totalScore) / range) * chartHeight : chartHeight / 2;
+          const isBest = round.totalScore === best;
           const isLast = i === rounds.length - 1;
+          const barColor = isBest ? Colors.accent : isLast ? Colors.primary : Colors.primaryMid;
           return (
             <View key={round.id} style={chartStyles.barContainer}>
               <Text style={chartStyles.barLabel}>{round.totalScore}</Text>
-              <View style={[
-                chartStyles.bar,
-                { height: Math.max(8, barHeight), backgroundColor: isLast ? Colors.primary : Colors.primaryMid },
-              ]} />
+              <View style={[chartStyles.bar, { height: Math.max(8, barHeight), backgroundColor: barColor }]} />
               <Text style={chartStyles.barDate}>
                 {new Date(round.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
               </Text>
@@ -392,6 +393,7 @@ function ScoreChart({ rounds }: { rounds: Round[] }) {
           );
         })}
       </View>
+      <Text style={chartStyles.chartHint}>Taller bar = better round</Text>
     </View>
   );
 }
@@ -407,6 +409,7 @@ function DifferentialChart({ rounds }: { rounds: Round[] }) {
   const range = max - min;
   const chartHeight = 100;
   const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+  const bestDiff = Math.min(...diffs);
 
   return (
     <View style={chartStyles.container}>
@@ -415,8 +418,10 @@ function DifferentialChart({ rounds }: { rounds: Round[] }) {
           .filter((r) => r.scoreDifferential !== undefined)
           .map((round, i) => {
             const diff = round.scoreDifferential as number;
-            const barHeight = range > 0 ? ((diff - min) / range) * chartHeight : chartHeight / 2;
+            // Invert: lower differential (better) = taller bar
+            const barHeight = range > 0 ? ((max - diff) / range) * chartHeight : chartHeight / 2;
             const isBelowAvg = diff < avgDiff;
+            const isBest = diff === bestDiff;
             return (
               <View key={round.id} style={chartStyles.barContainer}>
                 <Text style={[chartStyles.barLabel, { fontSize: 9 }]}>{diff.toFixed(1)}</Text>
@@ -424,7 +429,7 @@ function DifferentialChart({ rounds }: { rounds: Round[] }) {
                   chartStyles.bar,
                   {
                     height: Math.max(8, barHeight),
-                    backgroundColor: isBelowAvg ? Colors.accent : Colors.border,
+                    backgroundColor: isBest ? Colors.accent : isBelowAvg ? Colors.primaryMid : Colors.surfaceElevated,
                   },
                 ]} />
                 <Text style={chartStyles.barDate}>
@@ -445,6 +450,7 @@ const chartStyles = StyleSheet.create({
   bar: { width: '100%', borderRadius: 4 },
   barLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text },
   barDate: { fontSize: 9, color: Colors.textLight, textAlign: 'center' },
+  chartHint: { fontSize: FontSize.xs, color: Colors.textLight, textAlign: 'center', marginTop: 6 },
 });
 
 const cardStyles = StyleSheet.create({
