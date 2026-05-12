@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,9 @@ import {
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useRoundStore } from '../../store/useRoundStore';
 import { HoleScore, Round, RoundType, MissDirection } from '../../types';
+import EmptyRounds from '../../components/empty-states/EmptyRounds';
+import { useToast } from '../../hooks/useToast';
+import { Linking } from 'react-native';
 
 function buildRoundSummary(r: Round): { headline: string; highlights: string[] } {
   const stp = r.scoreToPar;
@@ -44,8 +47,10 @@ function buildRoundSummary(r: Round): { headline: string; highlights: string[] }
 }
 
 export default function TrackScreen() {
-  const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted, updateRoundNotes, updateRound } =
+  const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted, updateRoundNotes, updateRound, verifySave } =
     useRoundStore();
+  const { showToast } = useToast();
+  const saveAttemptsRef = useRef(0);
   const [showNewRound, setShowNewRound] = useState(false);
   const [notesDraft, setNotesDraft] = useState(lastCompletedRound?.notes ?? '');
 
@@ -93,10 +98,58 @@ export default function TrackScreen() {
     setSelectedHole(1);
   }
 
+  async function attemptVerifySave(roundId: string, attempt: number) {
+    // Give Zustand persist a moment to flush to AsyncStorage
+    await new Promise((r) => setTimeout(r, 400));
+    const saved = await verifySave(roundId);
+
+    if (saved) {
+      showToast({ type: 'success', title: 'Round saved', message: '', duration: 3000 });
+      saveAttemptsRef.current = 0;
+      return;
+    }
+
+    console.error(`[Track] Round save verification failed (attempt ${attempt})`);
+
+    if (attempt >= 3) {
+      showToast({
+        type: 'error',
+        title: "Round didn't save",
+        message: "Still having trouble saving. Your round data is held in memory — please don't close the app.",
+        action: {
+          label: 'Contact Support',
+          onPress: () =>
+            Linking.openURL('mailto:support@golftracker.app?subject=Round%20Save%20Issue'),
+        },
+      });
+    } else {
+      showToast({
+        type: 'error',
+        title: "Round didn't save",
+        message: 'Your round data is safe. Tap to try saving again.',
+        action: {
+          label: 'Retry',
+          onPress: () => attemptVerifySave(roundId, attempt + 1),
+        },
+      });
+    }
+  }
+
   function handleCompleteRound() {
     Alert.alert('Complete Round?', 'This will save your round and update your stats.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Complete', onPress: () => completeRound() },
+      {
+        text: 'Complete',
+        onPress: () => {
+          completeRound();
+          // currentRound ID captured before completeRound clears it
+          const roundId = currentRound?.id;
+          if (roundId) {
+            saveAttemptsRef.current = 1;
+            attemptVerifySave(roundId, 1);
+          }
+        },
+      },
     ]);
   }
 
@@ -238,7 +291,7 @@ export default function TrackScreen() {
                 <View style={styles.summaryHeader}>
                   <View>
                     <Text style={styles.summaryOverline}>ROUND COMPLETE</Text>
-                    <Text style={styles.summaryCourse}>{lastCompletedRound.courseName}</Text>
+                    <Text style={styles.summaryCourse} numberOfLines={1}>{lastCompletedRound.courseName}</Text>
                   </View>
                   <TouchableOpacity onPress={clearLastCompleted} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Text style={styles.summaryClose}>✕</Text>
@@ -302,12 +355,9 @@ export default function TrackScreen() {
             );
           })()}
 
-          <View style={styles.noRoundHero}>
-            <Text style={styles.noRoundEmoji}>⛳</Text>
-            <Text style={styles.noRoundTitle}>Track a Round</Text>
-            <Text style={styles.noRoundText}>
-              Record every hole with score, putts, fairways, and greens to build your performance data.
-            </Text>
+          {rounds.length === 0 ? (
+            <EmptyRounds onPress={() => setShowNewRound(true)} />
+          ) : (
             <TouchableOpacity
               style={styles.startButton}
               onPress={() => setShowNewRound(true)}
@@ -315,7 +365,7 @@ export default function TrackScreen() {
             >
               <Text style={styles.startButtonText}>Start New Round</Text>
             </TouchableOpacity>
-          </View>
+          )}
 
           {rounds.length > 0 && (
             <View style={styles.historySection}>
@@ -329,20 +379,25 @@ export default function TrackScreen() {
                 return (
                   <View key={round.id} style={styles.historyRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.historyCourse}>{round.courseName}</Text>
+                      <Text style={styles.historyCourse} numberOfLines={1}>{round.courseName}</Text>
                       <Text style={styles.historyDate}>
                         {new Date(round.date).toLocaleDateString('en-US', {
                           weekday: 'short', month: 'short', day: 'numeric',
                         })}
                       </Text>
-                      <Text style={styles.historyStats}>
-                        {round.greensInRegulation} GIR · {round.fairwaysHit}/{round.fairwaysTotal} FW · {round.totalPutts} putts
-                        {udPct !== null ? ` · ${udPct}% U&D` : ''}
-                        {round.totalPenalties > 0 ? ` · ${round.totalPenalties} pen` : ''}
+                      <Text style={styles.historyStats} numberOfLines={1}>
+                        {round.greensInRegulation}/18 GIR · {round.fairwaysHit}/{round.fairwaysTotal} FW · {round.totalPutts} putts
                       </Text>
+                      {(udPct !== null || round.totalPenalties > 0) && (
+                        <Text style={styles.historyStats} numberOfLines={1}>
+                          {udPct !== null ? `${udPct}% scrambling` : ''}
+                          {udPct !== null && round.totalPenalties > 0 ? ' · ' : ''}
+                          {round.totalPenalties > 0 ? `${round.totalPenalties} pen` : ''}
+                        </Text>
+                      )}
                       {round.scoreDifferential !== undefined && (
-                        <Text style={styles.historyDiff}>
-                          Differential: {round.scoreDifferential > 0 ? '+' : ''}{round.scoreDifferential.toFixed(1)}
+                        <Text style={styles.historyDiff} numberOfLines={1}>
+                          Diff: {round.scoreDifferential > 0 ? '+' : ''}{round.scoreDifferential.toFixed(1)}
                         </Text>
                       )}
                       {round.notes ? (
@@ -515,38 +570,34 @@ function ToggleRow({
   );
 }
 
-function SGStepRow({
+function SGInputRow({
   label,
   value,
   unit,
-  step,
-  onDecrement,
-  onIncrement,
+  onChangeValue,
 }: {
   label: string;
   value: number | undefined;
   unit: string;
-  step: number;
-  onDecrement: () => void;
-  onIncrement: () => void;
+  onChangeValue: (v: number | undefined) => void;
 }) {
   return (
     <View style={holeStyles.sgRow}>
       <Text style={holeStyles.sgLabel}>{label}</Text>
-      <View style={holeStyles.counter}>
-        <TouchableOpacity
-          style={[holeStyles.counterBtn, (!value || value <= 0) && holeStyles.counterBtnDisabled]}
-          onPress={onDecrement}
-          disabled={!value || value <= 0}
-        >
-          <Text style={holeStyles.counterBtnText}>−</Text>
-        </TouchableOpacity>
-        <Text style={holeStyles.sgVal}>
-          {value ? `${value}${unit}` : <Text style={{ color: Colors.textLight }}>—</Text>}
-        </Text>
-        <TouchableOpacity style={holeStyles.counterBtn} onPress={onIncrement}>
-          <Text style={holeStyles.counterBtnText}>+</Text>
-        </TouchableOpacity>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <TextInput
+          style={holeStyles.sgInput}
+          value={value !== undefined ? String(value) : ''}
+          onChangeText={(t) => {
+            const n = parseInt(t, 10);
+            onChangeValue(t === '' ? undefined : isNaN(n) ? undefined : n);
+          }}
+          keyboardType="number-pad"
+          placeholder="—"
+          placeholderTextColor={Colors.textLight}
+          maxLength={4}
+        />
+        <Text style={holeStyles.sgUnit}>{unit}</Text>
       </View>
     </View>
   );
@@ -657,7 +708,7 @@ function HoleInputCard({
 
       {/* Penalties */}
       <View style={holeStyles.row}>
-        <Text style={holeStyles.rowLabel}>Penalty Strokes</Text>
+        <Text style={holeStyles.rowLabel}>Penalties</Text>
         <Counter
           value={hole.penaltyStrokes ?? 0}
           onDecrement={() => onUpdate({ penaltyStrokes: Math.max(0, (hole.penaltyStrokes ?? 0) - 1) })}
@@ -678,7 +729,7 @@ function HoleInputCard({
 
       {/* GIR */}
       <ToggleRow
-        label="Green in Regulation"
+        label="Green in Reg."
         value={hole.greenInRegulation}
         onYes={() => onUpdate({ greenInRegulation: true, upAndDown: undefined })}
         onNo={() => onUpdate({ greenInRegulation: false })}
@@ -712,13 +763,11 @@ function HoleInputCard({
             Optional. Used to calculate Strokes Gained across all 4 categories.
           </Text>
 
-          <SGStepRow
+          <SGInputRow
             label="Approach Distance"
             value={hole.approachDistanceYards}
-            unit=" yds"
-            step={5}
-            onDecrement={() => onUpdate({ approachDistanceYards: Math.max(5, (hole.approachDistanceYards ?? 5) - 5) })}
-            onIncrement={() => onUpdate({ approachDistanceYards: (hole.approachDistanceYards ?? 0) + 5 })}
+            unit="yds"
+            onChangeValue={(v) => onUpdate({ approachDistanceYards: v })}
           />
 
           {hole.approachDistanceYards && hole.approachDistanceYards > 0 && (
@@ -741,23 +790,19 @@ function HoleInputCard({
           )}
 
           {hole.putts > 0 && (
-            <SGStepRow
-              label="First Putt Distance"
+            <SGInputRow
+              label="First Putt"
               value={hole.firstPuttDistanceFeet}
-              unit=" ft"
-              step={1}
-              onDecrement={() => onUpdate({ firstPuttDistanceFeet: Math.max(1, (hole.firstPuttDistanceFeet ?? 1) - 1) })}
-              onIncrement={() => onUpdate({ firstPuttDistanceFeet: (hole.firstPuttDistanceFeet ?? 0) + 1 })}
+              unit="ft"
+              onChangeValue={(v) => onUpdate({ firstPuttDistanceFeet: v })}
             />
           )}
 
-          <SGStepRow
+          <SGInputRow
             label="Proximity to Hole"
             value={hole.proximityFeet}
-            unit=" ft"
-            step={1}
-            onDecrement={() => onUpdate({ proximityFeet: Math.max(1, (hole.proximityFeet ?? 1) - 1) })}
-            onIncrement={() => onUpdate({ proximityFeet: (hole.proximityFeet ?? 0) + 1 })}
+            unit="ft"
+            onChangeValue={(v) => onUpdate({ proximityFeet: v })}
           />
 
           <View style={[holeStyles.sgRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 8 }]}>
@@ -810,7 +855,7 @@ const holeStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
   },
-  rowLabel: { fontSize: FontSize.base, fontWeight: '500', color: Colors.text },
+  rowLabel: { fontSize: FontSize.base, fontWeight: '500', color: Colors.text, flexShrink: 1 },
   segmented: { flexDirection: 'row', gap: 6 },
   seg: {
     width: 44,
@@ -877,8 +922,21 @@ const holeStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
   },
-  sgLabel: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.text, flex: 1 },
-  sgVal: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, minWidth: 60, textAlign: 'center' },
+  sgLabel: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.text, flex: 1, flexShrink: 1 },
+  sgInput: {
+    backgroundColor: Colors.background,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: Radius.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.text,
+    minWidth: 60,
+    textAlign: 'center',
+  },
+  sgUnit: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
   lieRow: { flexDirection: 'row', gap: 4 },
   lieSeg: {
     paddingHorizontal: 8,

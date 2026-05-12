@@ -10,6 +10,8 @@ import { useRoundStore } from '../../store/useRoundStore';
 import { GOAL_OPTIONS } from '../../constants/data';
 import { GoalType, TargetTimeline } from '../../types';
 import { generatePracticePlan } from '../../services/ai';
+import { useToast } from '../../hooks/useToast';
+import { checkConnectivity } from '../../hooks/useNetworkStatus';
 
 const TIMELINE_OPTIONS: { key: TargetTimeline; label: string; sub: string }[] = [
   { key: '3_months', label: '3 months', sub: 'Aggressive' },
@@ -28,6 +30,7 @@ export default function GoalsScreen() {
   const setGenerating = usePracticeStore((s) => s.setGenerating);
   const setGenerationError = usePracticeStore((s) => s.setGenerationError);
 
+  const { showToast } = useToast();
   const [selectedGoals, setSelectedGoals] = useState<GoalType[]>(profile?.goals ?? []);
   const [timeline, setTimeline] = useState<TargetTimeline>(profile?.targetTimeline ?? '6_months');
   const [loading, setLoading] = useState(false);
@@ -53,11 +56,30 @@ export default function GoalsScreen() {
     if (profile.apiKey) {
       setLoading(true);
       setGenerating(true);
+
+      const connected = await checkConnectivity();
+      if (!connected) {
+        showToast({
+          type: 'warning',
+          title: 'No internet connection',
+          message: "Your profile is saved. Generate your plan from the Practice tab when you're back online.",
+        });
+        setLoading(false);
+        setGenerating(false);
+        router.replace('/(tabs)');
+        return;
+      }
+
       try {
         const plan = await generatePracticePlan(finalProfile, rounds, profile.apiKey);
         setPlan(plan);
       } catch (err: any) {
-        setGenerationError(err.message ?? 'Could not generate plan');
+        console.error('[Onboarding] AI generation failed:', err);
+        showToast({
+          type: 'error',
+          title: "Couldn't generate your plan",
+          message: "No worries — you can generate it from the Practice tab.",
+        });
       } finally {
         setLoading(false);
         setGenerating(false);

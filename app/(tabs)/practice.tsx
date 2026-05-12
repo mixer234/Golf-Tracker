@@ -14,10 +14,150 @@ import { useUserStore } from '../../store/useUserStore';
 import { useRoundStore } from '../../store/useRoundStore';
 import { usePracticeStore } from '../../store/usePracticeStore';
 import { generatePracticePlan } from '../../services/ai';
-import { Drill, DayOfWeek, ClubEntry } from '../../types';
+import { Drill, DayOfWeek, ClubEntry, UserProfile, PracticePlan, WeaknessArea } from '../../types';
 import { DEFAULT_BAG } from '../../store/useUserStore';
+import { WEEKLY_FOCUS_DATA } from '../../constants/data';
+import EmptyPracticePlan from '../../components/empty-states/EmptyPracticePlan';
+import { useHydration } from '../../hooks/useHydration';
+import SkeletonPractice from '../../components/skeletons/SkeletonPractice';
+import { useToast } from '../../hooks/useToast';
+import { checkConnectivity } from '../../hooks/useNetworkStatus';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// ── Week calendar helpers ────────────────────────────────────────────────────
+
+const DAY_LETTERS: { name: DayOfWeek; letter: string }[] = [
+  { name: 'Monday', letter: 'M' }, { name: 'Tuesday', letter: 'T' },
+  { name: 'Wednesday', letter: 'W' }, { name: 'Thursday', letter: 'T' },
+  { name: 'Friday', letter: 'F' }, { name: 'Saturday', letter: 'S' },
+  { name: 'Sunday', letter: 'S' },
+];
+
+function getISOWeek(date: Date): number {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+function isSameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function getWeekDays() {
+  const today = new Date();
+  const dow = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  monday.setHours(0, 0, 0, 0);
+  return DAY_LETTERS.map(({ name, letter }, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return { date: d, dayName: name, letter };
+  });
+}
+
+const DEFAULT_PRACTICE_DAYS: Record<number, DayOfWeek[]> = {
+  1: ['Wednesday'], 2: ['Tuesday', 'Saturday'], 3: ['Monday', 'Wednesday', 'Saturday'],
+  4: ['Monday', 'Wednesday', 'Friday', 'Saturday'], 5: ['Monday', 'Tuesday', 'Wednesday', 'Friday', 'Saturday'],
+  6: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  7: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+};
+
+function getPracticeDays(profile: UserProfile, plan: PracticePlan | null): Set<DayOfWeek> {
+  if (plan && plan.days.length > 0) return new Set(plan.days.map((d) => d.day));
+  const count = Math.min(7, Math.max(1, profile.practiceDaysPerWeek ?? 3));
+  return new Set(DEFAULT_PRACTICE_DAYS[count] ?? DEFAULT_PRACTICE_DAYS[3]);
+}
+
+const DEFAULT_FOCUS_ROTATION: WeaknessArea[] = [
+  'putting', 'chipping', 'driving', 'mid_irons', 'course_management',
+  'wedges', 'short_irons', 'mental', 'long_irons', 'bunkers',
+];
+
+function getWeeklyFocusArea(profile: UserProfile, plan: PracticePlan | null, weekNum: number): WeaknessArea {
+  if (plan && plan.focusAreas.length > 0) return plan.focusAreas[weekNum % plan.focusAreas.length];
+  if (profile.weaknesses.length > 0) return profile.weaknesses[weekNum % profile.weaknesses.length];
+  return DEFAULT_FOCUS_ROTATION[weekNum % DEFAULT_FOCUS_ROTATION.length];
+}
+
+function WeekCalendar({ profile, plan }: { profile: UserProfile; plan: PracticePlan | null }) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const weekDays = getWeekDays();
+  const practiceDays = getPracticeDays(profile, plan);
+  const weekNum = getISOWeek(today);
+
+  return (
+    <View style={calStyles.card}>
+      <View style={calStyles.headerRow}>
+        <Text style={calStyles.title}>This Week</Text>
+        <View style={calStyles.pill}><Text style={calStyles.pillText}>Wk {weekNum}</Text></View>
+      </View>
+      <View style={calStyles.days}>
+        {weekDays.map(({ date, dayName, letter }) => {
+          const isToday = isSameDay(date, today);
+          const isPast = date < today;
+          const isPractice = practiceDays.has(dayName);
+          const planDay = plan?.days.find((d) => d.day === dayName);
+          const hasDone = isPast && isPractice && (planDay?.completedDrillIds.length ?? 0) > 0;
+          const isMissed = isPast && isPractice && !hasDone;
+          return (
+            <View key={dayName} style={calStyles.dayCol}>
+              <Text style={[calStyles.letter, isPast && !isToday && calStyles.faded]}>{letter}</Text>
+              <View style={[calStyles.circle, isToday && calStyles.todayCircle, isPractice && !isToday && calStyles.practiceCircle]}>
+                <Text style={[calStyles.dateNum, isToday && calStyles.todayNum, isPast && !isToday && calStyles.faded]}>
+                  {date.getDate()}
+                </Text>
+              </View>
+              {hasDone ? <View style={[calStyles.dot, { backgroundColor: Colors.success }]} />
+                : isMissed ? <View style={[calStyles.dot, { backgroundColor: Colors.warning }]} />
+                : isPractice ? <View style={[calStyles.dot, { backgroundColor: Colors.primary }]} />
+                : <View style={calStyles.dot} />}
+            </View>
+          );
+        })}
+      </View>
+      <View style={calStyles.legend}>
+        {[{ color: Colors.primary, label: 'Practice' }, { color: Colors.success, label: 'Done' }, { color: Colors.warning, label: 'Missed' }].map(({ color, label }) => (
+          <View key={label} style={calStyles.legendItem}>
+            <View style={[calStyles.legendDot, { backgroundColor: color }]} />
+            <Text style={calStyles.legendText}>{label}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function WeeklyFocusCard({ profile, plan }: { profile: UserProfile; plan: PracticePlan | null }) {
+  const weekNum = getISOWeek(new Date());
+  const area = getWeeklyFocusArea(profile, plan, weekNum);
+  const focus = WEEKLY_FOCUS_DATA[area];
+  return (
+    <View style={focusStyles.card}>
+      <View style={focusStyles.headerRow}>
+        <Text style={focusStyles.overline}>WEEKLY FOCUS</Text>
+        <View style={calStyles.pill}><Text style={calStyles.pillText}>Week {weekNum}</Text></View>
+      </View>
+      <View style={focusStyles.titleRow}>
+        <Text style={focusStyles.emoji}>{focus.emoji}</Text>
+        <Text style={focusStyles.title} numberOfLines={1}>{focus.title}</Text>
+      </View>
+      <Text style={focusStyles.desc} numberOfLines={3}>{focus.desc}</Text>
+      <View style={focusStyles.tips}>
+        {focus.tips.map((tip, i) => (
+          <View key={i} style={focusStyles.tipRow}>
+            <View style={focusStyles.bullet} />
+            <Text style={focusStyles.tipText} numberOfLines={2}>{tip}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 function todayIndex(): number {
   const day = new Date().getDay();
@@ -47,6 +187,7 @@ export default function PracticeScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [completedInSession, setCompletedInSession] = useState<string[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { showToast } = useToast();
 
   const bag: ClubEntry[] = profile?.bag ?? DEFAULT_BAG;
 
@@ -115,22 +256,49 @@ export default function PracticeScreen() {
     if (!profile?.apiKey) {
       Alert.alert(
         'API Key Required',
-        'Add your Claude API key in Profile → Settings to generate personalized practice plans.',
+        'Add your Claude API key in Profile to generate personalised practice plans.',
         [{ text: 'OK' }]
       );
       return;
     }
+
+    const connected = await checkConnectivity();
+    if (!connected) {
+      showToast({
+        type: 'warning',
+        title: 'No internet connection',
+        message: 'Check your connection and try again.',
+        action: { label: 'Retry', onPress: handleGenerate },
+      });
+      return;
+    }
+
     setGenerating(true);
     setGenerationError(null);
     try {
       const plan = await generatePracticePlan(profile, rounds, profile.apiKey);
       setPlan(plan);
     } catch (err: any) {
-      setGenerationError(err.message ?? 'Failed to generate plan');
-      Alert.alert('Generation Failed', err.message ?? 'Please check your API key and try again.');
+      console.error('[Practice] AI generation failed:', err);
+      showToast({
+        type: 'error',
+        title: "Couldn't generate your plan",
+        message: 'Something went wrong with the AI. Tap to try again.',
+        action: { label: 'Retry', onPress: handleGenerate },
+      });
     } finally {
       setGenerating(false);
     }
+  }
+
+  const hydrated = useHydration();
+
+  if (!hydrated) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <SkeletonPractice />
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -170,16 +338,16 @@ export default function PracticeScreen() {
                 }]} />
                 <Text style={styles.sessionDrillName}>{currentSessionDrill.name}</Text>
               </View>
-              <Text style={styles.sessionDrillDesc}>{currentSessionDrill.description}</Text>
+              <Text style={styles.sessionDrillDesc} numberOfLines={3}>{currentSessionDrill.description}</Text>
 
               {/* Duration + Equipment */}
               <View style={styles.sessionMeta}>
                 <View style={styles.sessionMetaChip}>
-                  <Text style={styles.sessionMetaText}>⏱ {currentSessionDrill.duration} min</Text>
+                  <Text style={styles.sessionMetaText} numberOfLines={1}>⏱ {currentSessionDrill.duration} min</Text>
                 </View>
                 {currentSessionDrill.equipment.length > 0 && (
-                  <View style={styles.sessionMetaChip}>
-                    <Text style={styles.sessionMetaText}>🎒 {currentSessionDrill.equipment.join(', ')}</Text>
+                  <View style={[styles.sessionMetaChip, { flexShrink: 1 }]}>
+                    <Text style={styles.sessionMetaText} numberOfLines={1}>🎒 {currentSessionDrill.equipment.join(', ')}</Text>
                   </View>
                 )}
               </View>
@@ -240,21 +408,7 @@ export default function PracticeScreen() {
       </View>
 
       {!currentPlan && !isGenerating ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>🎯</Text>
-          <Text style={styles.emptyTitle}>No practice plan yet</Text>
-          <Text style={styles.emptyText}>
-            {profile?.apiKey
-              ? 'Generate a personalized weekly plan based on your handicap, weaknesses, and goals.'
-              : 'Add your Claude API key in Profile to unlock AI-generated practice plans.'}
-          </Text>
-          {generationError && <Text style={styles.errorText}>⚠️ {generationError}</Text>}
-          <TouchableOpacity style={styles.generateButton} onPress={handleGenerate} activeOpacity={0.85}>
-            <Text style={styles.generateButtonText}>
-              {profile?.apiKey ? 'Generate My Plan' : 'Set Up in Profile'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <EmptyPracticePlan onPress={handleGenerate} />
       ) : isGenerating ? (
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={Colors.primary} />
@@ -294,6 +448,8 @@ export default function PracticeScreen() {
           </ScrollView>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+            <WeekCalendar profile={profile!} plan={currentPlan} />
+            <WeeklyFocusCard profile={profile!} plan={currentPlan} />
             {dayPlan ? (
               <>
                 <View style={styles.dayHeader}>
@@ -443,7 +599,7 @@ function DrillCard({
           <Text style={[drillStyles.name, isCompleted && drillStyles.nameCompleted]}>
             {drill.name}
           </Text>
-          <Text style={drillStyles.description}>{drill.description}</Text>
+          <Text style={drillStyles.description} numberOfLines={2}>{drill.description}</Text>
           <View style={drillStyles.meta}>
             <Text style={drillStyles.duration}>{drill.duration} min</Text>
             <View style={[drillStyles.diffBadge, { backgroundColor: difficultyColor + '20' }]}>
@@ -491,6 +647,42 @@ function DrillCard({
   );
 }
 
+const calStyles = StyleSheet.create({
+  card: { backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border, ...Shadow.sm },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  title: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
+  pill: { backgroundColor: Colors.primaryPale, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 3 },
+  pillText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  days: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm },
+  dayCol: { flex: 1, alignItems: 'center', gap: 4 },
+  letter: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary },
+  faded: { opacity: 0.35 },
+  circle: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  todayCircle: { backgroundColor: Colors.primary },
+  practiceCircle: { borderWidth: 1.5, borderColor: Colors.primaryLight },
+  dateNum: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text },
+  todayNum: { color: Colors.background, fontWeight: '800' },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'transparent' },
+  legend: { flexDirection: 'row', gap: Spacing.md, paddingTop: Spacing.xs, borderTopWidth: 1, borderTopColor: Colors.borderLight },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 7, height: 7, borderRadius: 4 },
+  legendText: { fontSize: FontSize.xs, color: Colors.textLight },
+});
+
+const focusStyles = StyleSheet.create({
+  card: { backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 4, borderLeftColor: Colors.primary, ...Shadow.sm },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
+  overline: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 0.8 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
+  emoji: { fontSize: 24 },
+  title: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text, flex: 1 },
+  desc: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.sm },
+  tips: { gap: 6 },
+  tipRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
+  bullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.primary, marginTop: 6, flexShrink: 0 },
+  tipText: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 19, flex: 1 },
+});
+
 const drillStyles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
@@ -527,7 +719,7 @@ const drillStyles = StyleSheet.create({
   info: { flex: 1 },
   name: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, marginBottom: 2 },
   nameCompleted: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  description: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.xs },
+  description: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.xs, flexShrink: 1 },
   meta: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   duration: { fontSize: FontSize.xs, color: Colors.textLight, fontWeight: '600' },
   diffBadge: { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2 },

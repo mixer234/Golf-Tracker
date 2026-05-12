@@ -99,8 +99,8 @@ export default function ProfileScreen() {
             <Text style={styles.avatarText}>{profile.name.charAt(0).toUpperCase()}</Text>
           </View>
           <View>
-            <Text style={styles.userName}>{profile.name}</Text>
-            <Text style={styles.userSince}>
+            <Text style={styles.userName} numberOfLines={1}>{profile.name}</Text>
+            <Text style={styles.userSince} numberOfLines={1}>
               Member since{' '}
               {new Date(profile.createdAt).toLocaleDateString('en-US', {
                 month: 'long',
@@ -143,7 +143,7 @@ export default function ProfileScreen() {
         {/* Practice Preferences */}
         <SectionHeader title="Practice Info" />
         <View style={styles.card}>
-          <InfoRow label="Practice days/week" value={`${profile.practiceDaysPerWeek} days`} />
+          <InfoRow label="Practice days/wk" value={`${profile.practiceDaysPerWeek} days`} />
           <InfoRow label="Session length" value={`${profile.sessionLengthMinutes} min`} />
           {profile.ballSpeed != null && (
             <InfoRow label="Ball speed" value={`${profile.ballSpeed} mph`} />
@@ -253,8 +253,8 @@ function SectionHeader({ title }: { title: string }) {
 function InfoRow({ label, value, isLast }: { label: string; value: string; isLast?: boolean }) {
   return (
     <View style={[infoStyles.row, !isLast && infoStyles.border]}>
-      <Text style={infoStyles.label}>{label}</Text>
-      <Text style={infoStyles.value}>{value}</Text>
+      <Text style={infoStyles.label} numberOfLines={1}>{label}</Text>
+      <Text style={infoStyles.value} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
@@ -275,8 +275,8 @@ const headerStyles = StyleSheet.create({
 const infoStyles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Spacing.sm },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
-  label: { fontSize: FontSize.base, color: Colors.textSecondary },
-  value: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text },
+  label: { fontSize: FontSize.base, color: Colors.textSecondary, flex: 1, marginRight: 8 },
+  value: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text, flexShrink: 0 },
 });
 
 const styles = StyleSheet.create({

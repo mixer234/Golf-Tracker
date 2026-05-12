@@ -17,6 +17,7 @@ interface RoundState {
   deleteRound: (id: string) => void;
   clearLastCompleted: () => void;
   updateRoundNotes: (id: string, notes: string) => void;
+  verifySave: (roundId: string) => Promise<boolean>;
 }
 
 function generateId(): string {
@@ -149,6 +150,19 @@ export const useRoundStore = create<RoundState>()(
               ? { ...state.lastCompletedRound, notes }
               : state.lastCompletedRound,
         })),
+
+      verifySave: async (roundId: string): Promise<boolean> => {
+        try {
+          const raw = await AsyncStorage.getItem('round-store');
+          if (!raw) return false;
+          const parsed = JSON.parse(raw);
+          const rounds: Round[] = parsed?.state?.rounds ?? [];
+          return rounds.some((r) => r.id === roundId);
+        } catch (err) {
+          console.error('[useRoundStore] verifySave failed:', err);
+          return false;
+        }
+      },
     }),
     {
       name: 'round-store',
