@@ -174,7 +174,7 @@ export default function TrackScreen() {
           <View style={styles.roundHeader}>
             <View style={{ flex: 1 }}>
               <Text style={styles.courseName} numberOfLines={1}>{currentRound.courseName}</Text>
-              <Text style={styles.roundSubtitle}>
+              <Text style={styles.roundSubtitle} numberOfLines={1}>
                 {new Date(currentRound.date).toLocaleDateString('en-US', {
                   weekday: 'short', month: 'short', day: 'numeric',
                 })}

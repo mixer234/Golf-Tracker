@@ -140,7 +140,7 @@ function WeeklyFocusCard({ profile, plan }: { profile: UserProfile; plan: Practi
   return (
     <View style={focusStyles.card}>
       <View style={focusStyles.headerRow}>
-        <Text style={focusStyles.overline}>WEEKLY FOCUS</Text>
+        <Text style={focusStyles.overline} numberOfLines={1}>WEEKLY FOCUS</Text>
         <View style={calStyles.pill}><Text style={calStyles.pillText}>Week {weekNum}</Text></View>
       </View>
       <View style={focusStyles.titleRow}>
@@ -410,7 +410,7 @@ export default function PracticeScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Practice Plan</Text>
         {currentPlan && (
-          <Text style={styles.subtitle}>Week of {new Date(currentPlan.weekOf).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
+          <Text style={styles.subtitle} numberOfLines={1}>Week of {new Date(currentPlan.weekOf).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
         )}
       </View>
 
@@ -460,17 +460,17 @@ export default function PracticeScreen() {
             {dayPlan ? (
               <>
                 <View style={styles.dayHeader}>
-                  <View>
-                    <Text style={styles.dayTitle}>{dayPlan.day}</Text>
-                    <Text style={styles.dayTheme}>{dayPlan.theme}</Text>
+                  <View style={{ flex: 1, marginRight: Spacing.sm }}>
+                    <Text style={styles.dayTitle} numberOfLines={1}>{dayPlan.day}</Text>
+                    <Text style={styles.dayTheme} numberOfLines={2}>{dayPlan.theme}</Text>
                   </View>
                   <View style={styles.durationBadge}>
-                    <Text style={styles.durationText}>{dayPlan.duration} min</Text>
+                    <Text style={styles.durationText} numberOfLines={1}>{dayPlan.duration} min</Text>
                   </View>
                 </View>
 
                 <View style={styles.progressRow}>
-                  <Text style={styles.progressLabel}>
+                  <Text style={styles.progressLabel} numberOfLines={1}>
                     {dayPlan.completedDrillIds.length}/{dayPlan.drills.length} drills completed
                   </Text>
                   <View style={styles.progressTrack}>

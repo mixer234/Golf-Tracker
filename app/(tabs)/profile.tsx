@@ -104,7 +104,7 @@ export default function ProfileScreen() {
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{profile.name.charAt(0).toUpperCase()}</Text>
           </View>
-          <View>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.userName} numberOfLines={1}>{profile.name}</Text>
             <Text style={styles.userSince} numberOfLines={1}>
               Member since{' '}

@@ -160,7 +160,7 @@ export default function ProgressScreen() {
               <StatCard
                 label="GIR %"
                 value={girPct(completed)}
-                sub="Greens in regulation"
+                sub="Greens in reg."
               />
               <StatCard
                 label="FW %"
@@ -175,7 +175,7 @@ export default function ProgressScreen() {
               <StatCard
                 label="Up & Down"
                 value={udPct(completed)}
-                sub="Scrambling %"
+                sub="Scrambling"
               />
               {calculatedHcp !== null && (
                 <StatCard
@@ -441,11 +441,11 @@ function StatCard({
   const trendIcon = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
   return (
     <View style={cardStyles.card}>
-      <Text style={cardStyles.value} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      <Text style={cardStyles.value} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
       <Text style={cardStyles.label} numberOfLines={1}>{label}</Text>
       <Text style={cardStyles.sub} numberOfLines={1}>{sub}</Text>
       {trend && trendValue && (
-        <Text style={[cardStyles.trend, { color: trendColor }]}>
+        <Text style={[cardStyles.trend, { color: trendColor }]} numberOfLines={1}>
           {trendIcon} {trendValue}
         </Text>
       )}
