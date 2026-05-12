@@ -156,6 +156,12 @@ export default function ProgressScreen() {
               )}
             </View>
 
+            {/* Scoring by Par Type */}
+            {completed.length >= 2 && <ParTypeSection rounds={completed} />}
+
+            {/* Round Segments */}
+            {completed.length >= 2 && <SegmentSection rounds={completed} />}
+
             {/* Score Differential Chart */}
             {differentials.length >= 3 && (
               <View style={styles.section}>
@@ -262,6 +268,87 @@ export default function ProgressScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function ParTypeSection({ rounds }: { rounds: Round[] }) {
+  const parTypes = [3, 4, 5] as const;
+  const data = parTypes.map((par) => {
+    const holes = rounds.flatMap((r) => r.holes.filter((h) => h.par === par && h.strokes > 0));
+    if (holes.length === 0) return { par, avgScore: null, avgVsPar: null, count: 0 };
+    const avgScore = holes.reduce((s, h) => s + h.strokes, 0) / holes.length;
+    const avgVsPar = avgScore - par;
+    return { par, avgScore, avgVsPar, count: holes.length };
+  });
+
+  if (data.every((d) => d.avgScore === null)) return null;
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Scoring by Par Type</Text>
+      <View style={[styles.chartCard, { flexDirection: 'row', gap: Spacing.sm }]}>
+        {data.map(({ par, avgScore, avgVsPar }) => {
+          if (avgScore === null) return null;
+          const color = avgVsPar! < 0 ? Colors.success : avgVsPar! > 0.3 ? Colors.error : Colors.textSecondary;
+          return (
+            <View key={par} style={parStyles.col}>
+              <Text style={parStyles.parLabel}>Par {par}</Text>
+              <Text style={[parStyles.score, { color }]}>{avgScore.toFixed(2)}</Text>
+              <Text style={[parStyles.vsPar, { color }]}>
+                {avgVsPar! >= 0 ? '+' : ''}{avgVsPar!.toFixed(2)}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const parStyles = StyleSheet.create({
+  col: { flex: 1, alignItems: 'center', gap: 4 },
+  parLabel: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600' },
+  score: { fontSize: FontSize.xl, fontWeight: '800' },
+  vsPar: { fontSize: FontSize.sm, fontWeight: '700' },
+});
+
+function SegmentSection({ rounds }: { rounds: Round[] }) {
+  const segments = [
+    { label: 'Front 9', range: [1, 9] as [number, number] },
+    { label: 'Mid 6', range: [7, 12] as [number, number] },
+    { label: 'Back 9', range: [10, 18] as [number, number] },
+  ];
+
+  const data = segments.map(({ label, range }) => {
+    const holes = rounds.flatMap((r) =>
+      r.holes.filter((h) => h.holeNumber >= range[0] && h.holeNumber <= range[1] && h.strokes > 0)
+    );
+    if (holes.length === 0) return { label, avgVsPar: null };
+    const avgVsPar = holes.reduce((s, h) => s + (h.strokes - h.par), 0) / rounds.length;
+    return { label, avgVsPar };
+  });
+
+  if (data.every((d) => d.avgVsPar === null)) return null;
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Round Segments</Text>
+      <View style={[styles.chartCard, { flexDirection: 'row', gap: Spacing.sm }]}>
+        {data.map(({ label, avgVsPar }) => {
+          if (avgVsPar === null) return null;
+          const color = avgVsPar < 0 ? Colors.success : avgVsPar > 1 ? Colors.error : Colors.textSecondary;
+          return (
+            <View key={label} style={parStyles.col}>
+              <Text style={parStyles.parLabel}>{label}</Text>
+              <Text style={[parStyles.score, { color, fontSize: FontSize.lg }]}>
+                {avgVsPar >= 0 ? '+' : ''}{avgVsPar.toFixed(1)}
+              </Text>
+              <Text style={parStyles.vsPar}>avg vs par</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 

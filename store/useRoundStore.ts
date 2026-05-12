@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Round, HoleScore } from '../types';
+import { Round, HoleScore, RoundType } from '../types';
 import { calcScoreDifferential } from '../utils/whs';
 import { calcRoundSG } from '../utils/strokesGained';
 
@@ -9,7 +9,8 @@ interface RoundState {
   rounds: Round[];
   currentRound: Round | null;
   lastCompletedRound: Round | null;
-  startRound: (courseName: string, courseRating?: number, slopeRating?: number) => void;
+  startRound: (courseName: string, courseRating?: number, slopeRating?: number, roundType?: RoundType) => void;
+  updateRound: (id: string, updates: Partial<Round>) => void;
   updateHole: (holeNumber: number, data: Partial<HoleScore>) => void;
   completeRound: () => void;
   discardCurrentRound: () => void;
@@ -68,13 +69,14 @@ export const useRoundStore = create<RoundState>()(
       rounds: [],
       currentRound: null,
       lastCompletedRound: null,
-      startRound: (courseName, courseRating, slopeRating) => {
+      startRound: (courseName, courseRating, slopeRating, roundType) => {
         const round: Round = {
           id: generateId(),
           date: new Date().toISOString(),
           courseName,
           courseRating,
           slopeRating,
+          roundType,
           holes: buildEmptyHoles(),
           totalScore: 0,
           scoreToPar: 0,
@@ -89,6 +91,14 @@ export const useRoundStore = create<RoundState>()(
         };
         set({ currentRound: round });
       },
+      updateRound: (id, updates) =>
+        set((state) => ({
+          rounds: state.rounds.map((r) => r.id === id ? { ...r, ...updates } : r),
+          lastCompletedRound:
+            state.lastCompletedRound?.id === id
+              ? { ...state.lastCompletedRound, ...updates }
+              : state.lastCompletedRound,
+        })),
       updateHole: (holeNumber, data) => {
         const current = get().currentRound;
         if (!current) return;

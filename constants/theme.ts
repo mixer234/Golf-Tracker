@@ -15,7 +15,7 @@ export const Colors = {
   border: '#1f2e20',
   borderLight: '#162118',
   success: '#22c55e',
-  error: '#f87171',
+  error: '#ef4444',
   warning: '#fbbf24',
   info: '#60a5fa',
   overlay: 'rgba(0,0,0,0.75)',
@@ -42,21 +42,21 @@ export const Shadow = {
   sm: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 4,
     elevation: 2,
   },
   md: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.45,
     shadowRadius: 10,
     elevation: 4,
   },
   lg: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.55,
     shadowRadius: 20,
     elevation: 8,
   },
@@ -71,4 +71,6 @@ export const FontSize = {
   xl: 24,
   xxl: 30,
   xxxl: 38,
+  display: 64,
 };
+

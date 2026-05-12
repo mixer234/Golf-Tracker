@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useRoundStore } from '../../store/useRoundStore';
-import { HoleScore, Round } from '../../types';
+import { HoleScore, Round, RoundType, MissDirection } from '../../types';
 
 function buildRoundSummary(r: Round): { headline: string; highlights: string[] } {
   const stp = r.scoreToPar;
@@ -44,7 +44,7 @@ function buildRoundSummary(r: Round): { headline: string; highlights: string[] }
 }
 
 export default function TrackScreen() {
-  const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted, updateRoundNotes } =
+  const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted, updateRoundNotes, updateRound } =
     useRoundStore();
   const [showNewRound, setShowNewRound] = useState(false);
   const [notesDraft, setNotesDraft] = useState(lastCompletedRound?.notes ?? '');
@@ -56,7 +56,21 @@ export default function TrackScreen() {
   const [courseName, setCourseName] = useState('');
   const [courseRating, setCourseRating] = useState('');
   const [slopeRating, setSlopeRating] = useState('');
+  const [roundType, setRoundType] = useState<RoundType>('casual');
   const [selectedHole, setSelectedHole] = useState(1);
+
+  // Mental ratings for post-round debrief
+  const [mentalCommitment, setMentalCommitment] = useState(lastCompletedRound?.mentalCommitment ?? 0);
+  const [mentalControl, setMentalControl] = useState(lastCompletedRound?.mentalControl ?? 0);
+  const [mentalDecisions, setMentalDecisions] = useState(lastCompletedRound?.mentalDecisions ?? 0);
+  const [mentalEnergy, setMentalEnergy] = useState(lastCompletedRound?.mentalEnergy ?? 0);
+
+  useEffect(() => {
+    setMentalCommitment(lastCompletedRound?.mentalCommitment ?? 0);
+    setMentalControl(lastCompletedRound?.mentalControl ?? 0);
+    setMentalDecisions(lastCompletedRound?.mentalDecisions ?? 0);
+    setMentalEnergy(lastCompletedRound?.mentalEnergy ?? 0);
+  }, [lastCompletedRound?.id]);
 
   function handleStartRound() {
     if (!courseName.trim()) {
@@ -68,12 +82,14 @@ export default function TrackScreen() {
     startRound(
       courseName.trim(),
       !isNaN(cr) && cr > 50 && cr < 90 ? cr : undefined,
-      !isNaN(sr) && sr >= 55 && sr <= 155 ? sr : undefined
+      !isNaN(sr) && sr >= 55 && sr <= 155 ? sr : undefined,
+      roundType
     );
     setShowNewRound(false);
     setCourseName('');
     setCourseRating('');
     setSlopeRating('');
+    setRoundType('casual');
     setSelectedHole(1);
   }
 
@@ -243,6 +259,32 @@ export default function TrackScreen() {
                   ))}
                 </View>
                 <View style={styles.notesSection}>
+                  <Text style={styles.notesLabel}>Mental Game</Text>
+                  {([
+                    { label: 'Commitment', value: mentalCommitment, set: setMentalCommitment, key: 'mentalCommitment' },
+                    { label: 'Emotional Control', value: mentalControl, set: setMentalControl, key: 'mentalControl' },
+                    { label: 'Decision Making', value: mentalDecisions, set: setMentalDecisions, key: 'mentalDecisions' },
+                    { label: 'Energy / Focus', value: mentalEnergy, set: setMentalEnergy, key: 'mentalEnergy' },
+                  ] as const).map(({ label, value, set, key }) => (
+                    <View key={key} style={styles.mentalRow}>
+                      <Text style={styles.mentalLabel}>{label}</Text>
+                      <View style={styles.mentalDots}>
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <TouchableOpacity
+                            key={n}
+                            style={[styles.mentalDot, n <= value && styles.mentalDotActive]}
+                            onPress={() => {
+                              set(n);
+                              updateRound(lastCompletedRound.id, { [key]: n });
+                            }}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={[styles.notesSection, { borderTopWidth: 0, marginTop: 0 }]}>
                   <Text style={styles.notesLabel}>Round Notes</Text>
                   <TextInput
                     style={styles.notesInput}
@@ -351,6 +393,26 @@ export default function TrackScreen() {
                 autoFocus
                 returnKeyType="next"
               />
+
+              <Text style={[styles.inputLabel, { marginTop: Spacing.lg }]}>Round Type</Text>
+              <View style={styles.roundTypeRow}>
+                {([
+                  { key: 'casual', label: 'Casual' },
+                  { key: 'competitive', label: 'Competitive' },
+                  { key: 'tournament', label: 'Tournament' },
+                ] as { key: RoundType; label: string }[]).map((opt) => (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[styles.roundTypeChip, roundType === opt.key && styles.roundTypeChipActive]}
+                    onPress={() => setRoundType(opt.key)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.roundTypeText, roundType === opt.key && styles.roundTypeTextActive]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
               <Text style={[styles.inputLabel, { marginTop: Spacing.lg }]}>
                 Course Rating & Slope{' '}
@@ -486,6 +548,41 @@ function SGStepRow({
           <Text style={holeStyles.counterBtnText}>+</Text>
         </TouchableOpacity>
       </View>
+    </View>
+  );
+}
+
+const MISS_GRID: { dir: MissDirection; label: string }[][] = [
+  [{ dir: 'long-left', label: '↖' }, { dir: 'long', label: '↑' }, { dir: 'long-right', label: '↗' }],
+  [{ dir: 'left', label: '←' }, { dir: 'center', label: '◎' }, { dir: 'right', label: '→' }],
+  [{ dir: 'short-left', label: '↙' }, { dir: 'short', label: '↓' }, { dir: 'short-right', label: '↘' }],
+];
+
+function MissGrid({ value, onSelect }: { value: MissDirection | undefined; onSelect: (d: MissDirection) => void }) {
+  return (
+    <View style={{ gap: 4 }}>
+      {MISS_GRID.map((row, ri) => (
+        <View key={ri} style={{ flexDirection: 'row', gap: 4 }}>
+          {row.map(({ dir, label }) => {
+            const isCenter = dir === 'center';
+            const isActive = value === dir;
+            return (
+              <TouchableOpacity
+                key={dir}
+                style={[
+                  holeStyles.missCell,
+                  isCenter && holeStyles.missCellCenter,
+                  isActive && (isCenter ? holeStyles.missCellCenterActive : holeStyles.missCellActive),
+                ]}
+                onPress={() => onSelect(dir)}
+                activeOpacity={0.7}
+              >
+                <Text style={[holeStyles.missCellText, isActive && holeStyles.missCellTextActive]}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 }
@@ -653,6 +750,20 @@ function HoleInputCard({
               onIncrement={() => onUpdate({ firstPuttDistanceFeet: (hole.firstPuttDistanceFeet ?? 0) + 1 })}
             />
           )}
+
+          <SGStepRow
+            label="Proximity to Hole"
+            value={hole.proximityFeet}
+            unit=" ft"
+            step={1}
+            onDecrement={() => onUpdate({ proximityFeet: Math.max(1, (hole.proximityFeet ?? 1) - 1) })}
+            onIncrement={() => onUpdate({ proximityFeet: (hole.proximityFeet ?? 0) + 1 })}
+          />
+
+          <View style={[holeStyles.sgRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 8 }]}>
+            <Text style={holeStyles.sgLabel}>Miss Direction</Text>
+            <MissGrid value={hole.missDirection} onSelect={(dir) => onUpdate({ missDirection: dir })} />
+          </View>
         </View>
       )}
 
@@ -787,6 +898,21 @@ const holeStyles = StyleSheet.create({
     alignItems: 'center',
   },
   nextBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  missCell: {
+    width: 44,
+    height: 36,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  missCellCenter: { borderColor: Colors.textLight },
+  missCellActive: { backgroundColor: Colors.error + '30', borderColor: Colors.error },
+  missCellCenterActive: { backgroundColor: Colors.success + '25', borderColor: Colors.success },
+  missCellText: { fontSize: FontSize.md, color: Colors.textSecondary },
+  missCellTextActive: { color: Colors.text },
 });
 
 const styles = StyleSheet.create({
@@ -985,4 +1111,34 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     color: Colors.text,
   },
+  roundTypeRow: { flexDirection: 'row', gap: Spacing.sm },
+  roundTypeChip: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  roundTypeChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryPale },
+  roundTypeText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
+  roundTypeTextActive: { color: Colors.primary },
+  mentalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  mentalLabel: { fontSize: FontSize.sm, color: Colors.textSecondary, flex: 1 },
+  mentalDots: { flexDirection: 'row', gap: 8 },
+  mentalDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+  mentalDotActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
 });

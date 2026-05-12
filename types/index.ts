@@ -43,6 +43,13 @@ export type MissTendency =
 
 export type TargetTimeline = '3_months' | '6_months' | '1_year' | 'no_rush';
 
+export type MissDirection =
+  | 'long-left' | 'long' | 'long-right'
+  | 'left' | 'center' | 'right'
+  | 'short-left' | 'short' | 'short-right';
+
+export type RoundType = 'casual' | 'competitive' | 'tournament';
+
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export type DayOfWeek =
@@ -97,6 +104,8 @@ export interface HoleScore {
   approachDistanceYards?: number;
   approachLie?: 'fairway' | 'rough' | 'sand' | 'recovery';
   firstPuttDistanceFeet?: number;
+  proximityFeet?: number;
+  missDirection?: MissDirection;
 }
 
 export interface Round {
@@ -117,6 +126,11 @@ export interface Round {
   upAndDownAttempts: number;
   scoreDifferential?: number;
   notes?: string;
+  roundType?: RoundType;
+  mentalCommitment?: number;
+  mentalControl?: number;
+  mentalDecisions?: number;
+  mentalEnergy?: number;
   // Strokes Gained (per round totals)
   sgPutting?: number;
   sgApproach?: number;

@@ -610,10 +610,10 @@ const heroStyles = StyleSheet.create({
     marginBottom: 2,
   },
   colNum: {
-    fontSize: FontSize.xxxl,
+    fontSize: FontSize.display,
     fontWeight: '800',
     color: Colors.background,
-    letterSpacing: -1,
+    letterSpacing: -2,
   },
   colNumTarget: { color: Colors.primaryLight },
   middle: { flex: 1, alignItems: 'center' },
