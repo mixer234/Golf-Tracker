@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useRoundStore } from '../../store/useRoundStore';
 import { useUserStore } from '../../store/useUserStore';
@@ -43,6 +44,7 @@ function udPct(rounds: Round[]): string {
 }
 
 export default function ProgressScreen() {
+  const router = useRouter();
   const rounds = useRoundStore((s) => s.rounds);
   const profile = useUserStore((s) => s.profile);
 
@@ -126,11 +128,18 @@ export default function ProgressScreen() {
 
             {/* Strokes Gained */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Strokes Gained vs. Scratch</Text>
+              <View style={styles.sectionRow}>
+                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Strokes Gained vs. Scratch</Text>
+                {sgAverages && (
+                  <TouchableOpacity onPress={() => router.push('/sg')} activeOpacity={0.7}>
+                    <Text style={styles.sectionLink}>Full Analysis →</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
               {sgAverages ? (
-                <View style={styles.sgCard}>
+                <TouchableOpacity style={styles.sgCard} onPress={() => router.push('/sg')} activeOpacity={0.85}>
                   <Text style={styles.sgNote}>
-                    Average per round over {sgAverages.roundCount} tracked round{sgAverages.roundCount > 1 ? 's' : ''}
+                    Average per round · {sgAverages.roundCount} round{sgAverages.roundCount > 1 ? 's' : ''}
                   </Text>
                   <SGBar label="Off the Tee" value={sgAverages.sgOffTee} />
                   <SGBar label="Approach" value={sgAverages.sgApproach} />
@@ -145,14 +154,15 @@ export default function ProgressScreen() {
                       {sgAverages.sgTotal > 0 ? '+' : ''}{sgAverages.sgTotal}
                     </Text>
                   </View>
-                </View>
+                  <Text style={styles.sgTapHint}>Tap for per-round breakdown →</Text>
+                </TouchableOpacity>
               ) : (
-                <View style={[styles.sgCard, styles.sgEmpty]}>
+                <TouchableOpacity style={[styles.sgCard, styles.sgEmpty]} onPress={() => router.push('/sg')} activeOpacity={0.85}>
                   <Text style={styles.sgEmptyTitle}>Not enough data yet</Text>
                   <Text style={styles.sgEmptyText}>
                     Enter Approach Distance and First Putt Distance in the Performance Details section while tracking rounds to unlock Strokes Gained analysis.
                   </Text>
-                </View>
+                </TouchableOpacity>
               )}
             </View>
 
@@ -581,7 +591,9 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: FontSize.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 24 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.lg },
   section: { marginBottom: Spacing.lg },
+  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
   sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, marginBottom: Spacing.sm },
+  sectionLink: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
   chartCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
@@ -613,6 +625,7 @@ const styles = StyleSheet.create({
   },
   sgTotalLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 0.6 },
   sgTotalValue: { fontSize: FontSize.lg, fontWeight: '800' },
+  sgTapHint: { fontSize: FontSize.xs, color: Colors.primary, textAlign: 'right', marginTop: Spacing.xs, fontWeight: '600' },
   chartNote: {
     fontSize: FontSize.xs,
     color: Colors.textLight,
