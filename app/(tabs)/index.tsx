@@ -2,6 +2,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   SafeAreaView, ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { formatHandicap } from '../../components/HandicapDial';
@@ -142,30 +143,47 @@ function getHandicapCoachingLine(profile: UserProfile, rounds: Round[]): string 
 function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: Round[] }) {
   const gap = profile.handicap - profile.targetHandicap;
   const achieved = gap <= 0;
-  const absGap = Math.abs(Math.round(gap));
+  const absGap = Math.abs(gap);
+  const pct = Math.min(95, Math.max(5,
+    profile.handicap > 0
+      ? (1 - absGap / profile.handicap) * 100
+      : 95
+  ));
+
+  const completed = rounds.filter((r) => r.isComplete && r.totalScore > 0).slice(0, 5);
+  const recentGIR = completed.length > 0
+    ? Math.round(completed.reduce((s, r) => s + r.greensInRegulation, 0) / completed.length)
+    : null;
+  const recentPutts = completed.length > 0
+    ? (completed.reduce((s, r) => s + r.totalPutts, 0) / completed.length).toFixed(1)
+    : null;
 
   return (
-    <View style={heroStyles.card}>
+    <LinearGradient
+      colors={['#1a3d20', '#0d2010', Colors.background]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1.2 }}
+      style={heroStyles.card}
+    >
+      {/* Overline */}
+      <Text style={heroStyles.overline}>HANDICAP INDEX</Text>
+
+      {/* Numbers row */}
       <View style={heroStyles.row}>
-        {/* Current */}
         <View style={heroStyles.col}>
           <Text style={heroStyles.colLabel}>CURRENT</Text>
           <Text style={heroStyles.colNum}>{formatHandicap(profile.handicap)}</Text>
         </View>
-
-        {/* Gap */}
         <View style={heroStyles.middle}>
           {achieved ? (
-            <Text style={heroStyles.achievedText}>Goal reached 🎉</Text>
+            <Text style={heroStyles.achievedText}>Goal{'\n'}reached 🎉</Text>
           ) : (
             <>
-              <Text style={heroStyles.gapNum}>{absGap}</Text>
-              <Text style={heroStyles.gapLabel}>strokes{'\n'}to go</Text>
+              <Text style={heroStyles.gapNum}>{absGap.toFixed(1)}</Text>
+              <Text style={heroStyles.gapLabel}>to go</Text>
             </>
           )}
         </View>
-
-        {/* Target */}
         <View style={[heroStyles.col, heroStyles.colEnd]}>
           <Text style={heroStyles.colLabel}>TARGET</Text>
           <Text style={[heroStyles.colNum, heroStyles.colNumTarget]}>
@@ -174,25 +192,38 @@ function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: R
         </View>
       </View>
 
-      {/* Simple distance bar */}
+      {/* Thick progress bar */}
       {!achieved && (
-        <View style={heroStyles.barWrap}>
-          <View style={heroStyles.barTrack}>
-            <View
-              style={[
-                heroStyles.barFill,
-                {
-                  width: `${Math.min(
-                    95,
-                    Math.max(5, (1 - absGap / Math.max(absGap + Math.abs(profile.targetHandicap), 1)) * 100),
-                  )}%`,
-                },
-              ]}
-            />
+        <View style={heroStyles.progressWrap}>
+          <View style={heroStyles.progressTrack}>
+            <View style={[heroStyles.progressFill, { width: `${pct}%` }]} />
           </View>
-          <Text style={heroStyles.barHint}>
-            {formatHandicap(profile.targetHandicap)} target
-          </Text>
+          <View style={heroStyles.progressLabels}>
+            <Text style={heroStyles.progressLabelText}>Current: {formatHandicap(profile.handicap)}</Text>
+            <Text style={heroStyles.progressLabelText}>Goal: {formatHandicap(profile.targetHandicap)}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Stats strip */}
+      {(recentGIR !== null || recentPutts !== null) && (
+        <View style={heroStyles.statsStrip}>
+          {recentGIR !== null && (
+            <View style={heroStyles.statChip}>
+              <Text style={heroStyles.statChipNum}>{recentGIR}/18</Text>
+              <Text style={heroStyles.statChipLabel}>GIR avg</Text>
+            </View>
+          )}
+          {recentPutts !== null && (
+            <View style={heroStyles.statChip}>
+              <Text style={heroStyles.statChipNum}>{recentPutts}</Text>
+              <Text style={heroStyles.statChipLabel}>putts avg</Text>
+            </View>
+          )}
+          <View style={heroStyles.statChip}>
+            <Text style={heroStyles.statChipNum}>{completed.length}</Text>
+            <Text style={heroStyles.statChipLabel}>rounds</Text>
+          </View>
         </View>
       )}
 
@@ -201,7 +232,7 @@ function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: R
         <Text style={heroStyles.insightIcon}>💡</Text>
         <Text style={heroStyles.insightText}>{getHandicapCoachingLine(profile, rounds)}</Text>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -562,24 +593,47 @@ function RoundRow({ round }: { round: Round }) {
   const date = new Date(round.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const stp = round.scoreToPar;
   const parLabel = stp === 0 ? 'E' : stp > 0 ? `+${stp}` : String(stp);
+  const stripColor = stp <= -3 ? Colors.accent
+    : stp < 0 ? Colors.success
+    : stp === 0 ? Colors.textSecondary
+    : Colors.error;
+  const udPct = round.upAndDownAttempts > 0
+    ? Math.round((round.upAndDowns / round.upAndDownAttempts) * 100)
+    : null;
+
   return (
     <View style={roundStyles.row}>
-      <View style={roundStyles.left}>
-        <Text style={roundStyles.course}>{round.courseName}</Text>
-        <Text style={roundStyles.date}>{date}</Text>
+      <View style={[roundStyles.strip, { backgroundColor: stripColor }]} />
+      <View style={roundStyles.body}>
+        <View style={roundStyles.topRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={roundStyles.course} numberOfLines={1}>{round.courseName}</Text>
+            <Text style={roundStyles.date}>{date}
+              {round.roundType ? ` · ${round.roundType.charAt(0).toUpperCase() + round.roundType.slice(1)}` : ''}
+            </Text>
+          </View>
+          <View style={roundStyles.scoreBlock}>
+            <Text style={roundStyles.score}>{round.totalScore}</Text>
+            <Text style={[roundStyles.par, { color: stripColor }]}>{parLabel}</Text>
+          </View>
+        </View>
+        <View style={roundStyles.pills}>
+          <StatPill label={`${round.greensInRegulation}/18 GIR`} />
+          <StatPill label={`${round.totalPutts} putts`} />
+          {udPct !== null && <StatPill label={`${udPct}% U&D`} />}
+          {round.scoreDifferential !== undefined && (
+            <StatPill label={`${round.scoreDifferential > 0 ? '+' : ''}${round.scoreDifferential.toFixed(1)} diff`} accent />
+          )}
+        </View>
       </View>
-      <View style={roundStyles.right}>
-        <Text style={roundStyles.score}>{round.totalScore}</Text>
-        <Text
-          style={[
-            roundStyles.par,
-            stp < 0 && roundStyles.under,
-            stp > 0 && roundStyles.over,
-          ]}
-        >
-          {parLabel}
-        </Text>
-      </View>
+    </View>
+  );
+}
+
+function StatPill({ label, accent }: { label: string; accent?: boolean }) {
+  return (
+    <View style={[pillStyles.pill, accent && pillStyles.pillAccent]}>
+      <Text style={[pillStyles.text, accent && pillStyles.textAccent]}>{label}</Text>
     </View>
   );
 }
@@ -589,11 +643,18 @@ function RoundRow({ round }: { round: Round }) {
 // Handicap hero card
 const heroStyles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.primary,
     borderRadius: Radius.xl,
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
-    ...Shadow.md,
+    overflow: 'hidden',
+    ...Shadow.lg,
+  },
+  overline: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 1.5,
+    marginBottom: Spacing.sm,
   },
   row: {
     flexDirection: 'row',
@@ -605,7 +666,7 @@ const heroStyles = StyleSheet.create({
   colLabel: {
     fontSize: FontSize.xs,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.5)',
     letterSpacing: 0.8,
     marginBottom: 2,
   },
@@ -614,57 +675,84 @@ const heroStyles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.background,
     letterSpacing: -2,
+    lineHeight: 66,
   },
   colNumTarget: { color: Colors.primaryLight },
   middle: { flex: 1, alignItems: 'center' },
   gapNum: {
-    fontSize: FontSize.xxl,
+    fontSize: FontSize.xxxl,
     fontWeight: '800',
     color: 'rgba(255,255,255,0.9)',
-    letterSpacing: -0.5,
+    letterSpacing: -1,
   },
   gapLabel: {
     fontSize: FontSize.xs,
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.45)',
     textAlign: 'center',
-    lineHeight: 15,
   },
   achievedText: {
     fontSize: FontSize.sm,
     color: Colors.primaryLight,
     fontWeight: '700',
     textAlign: 'center',
+    lineHeight: 20,
   },
-  barWrap: { gap: 6 },
-  barTrack: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  progressWrap: { marginBottom: Spacing.md, gap: 6 },
+  progressTrack: {
+    height: 10,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: Radius.full,
     overflow: 'hidden',
   },
-  barFill: {
+  progressFill: {
     height: '100%',
     backgroundColor: Colors.primaryLight,
     borderRadius: Radius.full,
   },
-  barHint: {
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  progressLabelText: {
     fontSize: FontSize.xs,
-    color: 'rgba(255,255,255,0.5)',
-    textAlign: 'right',
+    color: 'rgba(255,255,255,0.4)',
+  },
+  statsStrip: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  statChip: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 7,
+    alignItems: 'center',
+  },
+  statChipNum: {
+    fontSize: FontSize.base,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.95)',
+  },
+  statChipLabel: {
+    fontSize: FontSize.xs,
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: 1,
   },
   insightRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 6,
-    marginTop: Spacing.md,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.15)',
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
   insightIcon: { fontSize: 13 },
   insightText: {
     fontSize: FontSize.xs,
-    color: 'rgba(255,255,255,0.75)',
+    color: 'rgba(255,255,255,0.7)',
     flex: 1,
     lineHeight: 18,
   },
@@ -816,15 +904,16 @@ const statStyles = StyleSheet.create({
   box: {
     flex: 1,
     backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     padding: Spacing.md,
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
     ...Shadow.sm,
   },
-  value: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
-  label: { fontSize: FontSize.xs, color: Colors.textSecondary, textAlign: 'center', marginTop: 2 },
+  value: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text },
+  label: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 3, lineHeight: 16 },
 });
 
 // Trend insight card
@@ -850,22 +939,39 @@ const roundStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
+    borderRadius: Radius.lg,
     marginBottom: Spacing.sm,
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
+    overflow: 'hidden',
     ...Shadow.sm,
   },
-  left: { flex: 1 },
-  course: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text },
-  date: { fontSize: FontSize.sm, color: Colors.textSecondary },
-  right: { alignItems: 'flex-end' },
-  score: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
-  par: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
-  under: { color: Colors.success },
-  over: { color: Colors.error },
+  strip: { width: 4 },
+  body: { flex: 1, padding: Spacing.md },
+  topRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
+  course: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text },
+  date: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
+  scoreBlock: { alignItems: 'flex-end' },
+  score: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
+  par: { fontSize: FontSize.sm, fontWeight: '700' },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+});
+
+const pillStyles = StyleSheet.create({
+  pill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  pillAccent: {
+    backgroundColor: Colors.accentLight,
+    borderColor: Colors.accent + '60',
+  },
+  text: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600' },
+  textAccent: { color: Colors.accent },
 });
 
 // Main screen layout

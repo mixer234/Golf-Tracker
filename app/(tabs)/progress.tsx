@@ -86,32 +86,38 @@ export default function ProgressScreen() {
                 sub={`Last ${last5.length} rounds`}
                 trend={trend !== null ? (trend < 0 ? 'up' : trend > 0 ? 'down' : 'flat') : undefined}
                 trendValue={trend !== null ? `${Math.abs(trend).toFixed(1)} strokes` : undefined}
+                accent={Colors.primary}
               />
               <StatCard
                 label="GIR %"
                 value={girPct(completed)}
                 sub="Greens in regulation"
+                accent={Colors.info}
               />
               <StatCard
                 label="FW %"
                 value={fwPct(completed)}
                 sub="Fairways hit"
+                accent={Colors.info}
               />
               <StatCard
                 label="Avg Putts"
                 value={avgPutts(completed)}
                 sub="Per round"
+                accent={Colors.warning}
               />
               <StatCard
                 label="Up & Down"
                 value={udPct(completed)}
                 sub="Scrambling %"
+                accent={Colors.success}
               />
               {calculatedHcp !== null && (
                 <StatCard
                   label="WHS Index"
                   value={formatHandicap(calculatedHcp)}
                   sub={`From ${differentials.length} rounds`}
+                  accent={Colors.accent}
                 />
               )}
             </View>
@@ -119,7 +125,10 @@ export default function ProgressScreen() {
             {/* Score Chart */}
             {last10.length >= 2 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Scoring Trend</Text>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionDot} />
+                  <Text style={styles.sectionTitle}>Scoring Trend</Text>
+                </View>
                 <View style={styles.chartCard}>
                   <ScoreChart rounds={[...last10].reverse()} />
                 </View>
@@ -175,7 +184,10 @@ export default function ProgressScreen() {
             {/* Score Differential Chart */}
             {differentials.length >= 3 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Score Differentials</Text>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionDot} />
+                  <Text style={styles.sectionTitle}>Score Differentials</Text>
+                </View>
                 <View style={styles.chartCard}>
                   <DifferentialChart
                     rounds={[...completed].reverse().filter((r) => r.scoreDifferential !== undefined)}
@@ -190,7 +202,10 @@ export default function ProgressScreen() {
             {/* Handicap Progress */}
             {profile && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Handicap Journey</Text>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionDot} />
+                  <Text style={styles.sectionTitle}>Handicap Journey</Text>
+                </View>
                 <View style={styles.hcpCard}>
                   <View style={styles.hcpRow}>
                     <View style={styles.hcpItem}>
@@ -241,7 +256,10 @@ export default function ProgressScreen() {
 
             {/* Key Stats */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>All-Time Stats</Text>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionDot} />
+                <Text style={styles.sectionTitle}>All-Time Stats</Text>
+              </View>
               <View style={styles.statsTable}>
                 <StatRow label="Rounds Played" value={completed.length.toString()} />
                 <StatRow
@@ -295,7 +313,10 @@ function ParTypeSection({ rounds }: { rounds: Round[] }) {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Scoring by Par Type</Text>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionDot} />
+        <Text style={styles.sectionTitle}>Scoring by Par Type</Text>
+      </View>
       <View style={[styles.chartCard, { flexDirection: 'row', gap: Spacing.sm }]}>
         {data.map(({ par, avgScore, avgVsPar }) => {
           if (avgScore === null) return null;
@@ -342,7 +363,10 @@ function SegmentSection({ rounds }: { rounds: Round[] }) {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Round Segments</Text>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionDot} />
+        <Text style={styles.sectionTitle}>Round Segments</Text>
+      </View>
       <View style={[styles.chartCard, { flexDirection: 'row', gap: Spacing.sm }]}>
         {data.map(({ label, avgVsPar }) => {
           if (avgVsPar === null) return null;
@@ -368,19 +392,21 @@ function StatCard({
   sub,
   trend,
   trendValue,
+  accent,
 }: {
   label: string;
   value: string;
   sub: string;
   trend?: 'up' | 'down' | 'flat';
   trendValue?: string;
+  accent?: string;
 }) {
   const trendColor = trend === 'up' ? Colors.success : trend === 'down' ? Colors.error : Colors.textLight;
   const trendIcon = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
   return (
-    <View style={cardStyles.card}>
+    <View style={[cardStyles.card, accent ? { borderLeftColor: accent, borderLeftWidth: 3 } : {}]}>
+      <Text style={cardStyles.overline}>{label.toUpperCase()}</Text>
       <Text style={cardStyles.value}>{value}</Text>
-      <Text style={cardStyles.label}>{label}</Text>
       <Text style={cardStyles.sub}>{sub}</Text>
       {trend && trendValue && (
         <Text style={[cardStyles.trend, { color: trendColor }]}>
@@ -464,36 +490,121 @@ const sgStyles = StyleSheet.create({
 
 function ScoreChart({ rounds }: { rounds: Round[] }) {
   const scores = rounds.map((r) => r.totalScore);
-  const min = Math.min(...scores) - 2;
-  const max = Math.max(...scores) + 2;
-  const range = max - min;
-  const chartHeight = 120;
+  const minS = Math.min(...scores) - 3;
+  const maxS = Math.max(...scores) + 3;
+  const range = maxS - minS;
+  const chartH = 110;
   const best = Math.min(...scores);
 
+  // We'll compute positions as percentages using flex
   return (
-    <View style={chartStyles.container}>
-      <View style={chartStyles.chart}>
-        {rounds.map((round, i) => {
-          // Invert: lower score (better) = taller bar
-          const barHeight = range > 0 ? ((max - round.totalScore) / range) * chartHeight : chartHeight / 2;
-          const isBest = round.totalScore === best;
-          const isLast = i === rounds.length - 1;
-          const barColor = isBest ? Colors.accent : isLast ? Colors.primary : Colors.primaryMid;
-          return (
-            <View key={round.id} style={chartStyles.barContainer}>
-              <Text style={chartStyles.barLabel}>{round.totalScore}</Text>
-              <View style={[chartStyles.bar, { height: Math.max(8, barHeight), backgroundColor: barColor }]} />
-              <Text style={chartStyles.barDate}>
-                {new Date(round.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
-              </Text>
-            </View>
-          );
-        })}
+    <View style={lcStyles.wrap}>
+      {/* Y axis labels */}
+      <View style={lcStyles.yAxis}>
+        <Text style={lcStyles.yLabel}>{maxS}</Text>
+        <Text style={lcStyles.yLabel}>{Math.round(minS + range / 2)}</Text>
+        <Text style={lcStyles.yLabel}>{minS}</Text>
       </View>
-      <Text style={chartStyles.chartHint}>Taller bar = better round</Text>
+
+      {/* Chart area */}
+      <View style={lcStyles.chart}>
+        {/* Horizontal grid lines */}
+        <View style={[lcStyles.gridLine, { top: 0 }]} />
+        <View style={[lcStyles.gridLine, { top: '50%' }]} />
+        <View style={[lcStyles.gridLine, { top: '100%' }]} />
+
+        {/* Bars as background fill */}
+        <View style={lcStyles.barsRow}>
+          {rounds.map((round, i) => {
+            const heightPct = range > 0 ? ((maxS - round.totalScore) / range) * 100 : 50;
+            const isBest = round.totalScore === best;
+            const isLast = i === rounds.length - 1;
+            const barColor = isBest
+              ? Colors.accent
+              : isLast
+              ? Colors.primary
+              : Colors.primaryMid + '88';
+            return (
+              <View key={round.id} style={lcStyles.barCol}>
+                <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+                  <View
+                    style={[
+                      lcStyles.bar,
+                      {
+                        height: `${Math.max(5, heightPct)}%`,
+                        backgroundColor: barColor,
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={[lcStyles.dot, { backgroundColor: isBest ? Colors.accent : isLast ? Colors.primary : Colors.primaryMid }]} />
+              </View>
+            );
+          })}
+        </View>
+      </View>
     </View>
   );
 }
+
+const lcStyles = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row',
+    height: 130,
+    gap: Spacing.xs,
+    paddingBottom: 0,
+  },
+  yAxis: {
+    width: 28,
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  yLabel: {
+    fontSize: 9,
+    color: Colors.textLight,
+    textAlign: 'right',
+  },
+  chart: {
+    flex: 1,
+    position: 'relative',
+  },
+  gridLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    zIndex: 0,
+  },
+  barsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+    paddingTop: 4,
+    zIndex: 1,
+  },
+  barCol: {
+    flex: 1,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 0,
+  },
+  bar: {
+    width: '80%',
+    borderRadius: 4,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: -3,
+    zIndex: 2,
+  },
+});
 
 function DifferentialChart({ rounds }: { rounds: Round[] }) {
   const diffs = rounds
@@ -559,12 +670,20 @@ const cardStyles = StyleSheet.create({
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
     ...Shadow.sm,
   },
+  overline: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: Colors.textLight,
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
   value: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text },
-  label: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary, marginTop: 2 },
-  sub: { fontSize: FontSize.xs, color: Colors.textLight },
-  trend: { fontSize: FontSize.xs, fontWeight: '700', marginTop: 4 },
+  sub: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2 },
+  trend: { fontSize: FontSize.xs, fontWeight: '700', marginTop: 6 },
 });
 
 const rowStyles = StyleSheet.create({
@@ -592,7 +711,19 @@ const styles = StyleSheet.create({
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.lg },
   section: { marginBottom: Spacing.lg },
   sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
-  sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, marginBottom: Spacing.sm },
+  sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: Spacing.sm,
+  },
+  sectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.primary,
+  },
   sectionLink: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
   chartCard: {
     backgroundColor: Colors.surface,

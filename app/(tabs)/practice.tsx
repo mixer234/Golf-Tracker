@@ -277,17 +277,30 @@ export default function PracticeScreen() {
               const isActive = index === selectedDayIndex;
               const hasContent = !!dayPlanItem;
               const isToday = index === todayIndex();
+              const totalDrills = dayPlanItem?.drills.length ?? 0;
+              const doneDrills = dayPlanItem?.completedDrillIds.length ?? 0;
+              const allDone = totalDrills > 0 && doneDrills === totalDrills;
               return (
                 <TouchableOpacity
                   key={day}
-                  style={[styles.dayChip, isActive && styles.dayChipActive, !hasContent && styles.dayChipEmpty]}
+                  style={[
+                    styles.dayChip,
+                    isActive && styles.dayChipActive,
+                    !hasContent && styles.dayChipEmpty,
+                    allDone && !isActive && styles.dayChipDone,
+                  ]}
                   onPress={() => setSelectedDayIndex(index)}
                   activeOpacity={0.75}
                 >
-                  <Text style={[styles.dayChipText, isActive && styles.dayChipTextActive]}>
+                  <Text style={[styles.dayChipText, isActive && styles.dayChipTextActive, allDone && !isActive && styles.dayChipTextDone]}>
                     {day.slice(0, 3)}
                   </Text>
-                  {isToday && <View style={styles.todayDot} />}
+                  {totalDrills > 0 && (
+                    <Text style={[styles.dayChipCount, isActive && styles.dayChipCountActive]}>
+                      {doneDrills}/{totalDrills}
+                    </Text>
+                  )}
+                  {isToday && !totalDrills && <View style={styles.todayDot} />}
                 </TouchableOpacity>
               );
             })}
@@ -425,68 +438,85 @@ function DrillCard({
 
   return (
     <View style={[drillStyles.card, isCompleted && drillStyles.cardCompleted]}>
-      <TouchableOpacity
-        style={drillStyles.cardHeader}
-        onPress={onToggleExpand}
-        activeOpacity={0.8}
-      >
+      {/* Difficulty left strip */}
+      <View style={[drillStyles.diffStrip, { backgroundColor: difficultyColor }]} />
+
+      <View style={{ flex: 1 }}>
         <TouchableOpacity
-          style={[drillStyles.checkbox, isCompleted && drillStyles.checkboxDone]}
-          onPress={onToggleComplete}
-          activeOpacity={0.75}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={drillStyles.cardHeader}
+          onPress={onToggleExpand}
+          activeOpacity={0.8}
         >
-          {isCompleted && <Text style={drillStyles.checkmark}>✓</Text>}
+          <TouchableOpacity
+            style={[drillStyles.checkbox, isCompleted && drillStyles.checkboxDone]}
+            onPress={onToggleComplete}
+            activeOpacity={0.75}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {isCompleted && <Text style={drillStyles.checkmark}>✓</Text>}
+          </TouchableOpacity>
+
+          <View style={drillStyles.info}>
+            <Text style={[drillStyles.name, isCompleted && drillStyles.nameCompleted]}>
+              {drill.name}
+            </Text>
+            <Text style={drillStyles.description}>{drill.description}</Text>
+            <View style={drillStyles.meta}>
+              <View style={drillStyles.durationPill}>
+                <Text style={drillStyles.durationText}>⏱ {drill.duration} min</Text>
+              </View>
+              <View style={[drillStyles.diffBadge, { backgroundColor: difficultyColor + '20', borderColor: difficultyColor + '40' }]}>
+                <Text style={[drillStyles.diffText, { color: difficultyColor }]}>
+                  {drill.difficulty}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <Text style={drillStyles.chevron}>{isExpanded ? '▲' : '▼'}</Text>
         </TouchableOpacity>
 
-        <View style={drillStyles.info}>
-          <Text style={[drillStyles.name, isCompleted && drillStyles.nameCompleted]}>
-            {drill.name}
-          </Text>
-          <Text style={drillStyles.description}>{drill.description}</Text>
-          <View style={drillStyles.meta}>
-            <Text style={drillStyles.duration}>{drill.duration} min</Text>
-            <View style={[drillStyles.diffBadge, { backgroundColor: difficultyColor + '20' }]}>
-              <Text style={[drillStyles.diffText, { color: difficultyColor }]}>
-                {drill.difficulty}
-              </Text>
-            </View>
-          </View>
-        </View>
+        {isExpanded && (
+          <View style={drillStyles.expandedContent}>
+            {drill.equipment.length > 0 && (
+              <View style={drillStyles.section}>
+                <Text style={drillStyles.sectionTitle}>Equipment</Text>
+                <View style={drillStyles.equipRow}>
+                  {drill.equipment.map((item, i) => (
+                    <View key={i} style={drillStyles.equipChip}>
+                      <Text style={drillStyles.equipText}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
-        <Text style={drillStyles.chevron}>{isExpanded ? '▲' : '▼'}</Text>
-      </TouchableOpacity>
-
-      {isExpanded && (
-        <View style={drillStyles.expandedContent}>
-          {drill.equipment.length > 0 && (
             <View style={drillStyles.section}>
-              <Text style={drillStyles.sectionTitle}>Equipment</Text>
-              <Text style={drillStyles.sectionText}>{drill.equipment.join(' • ')}</Text>
-            </View>
-          )}
-
-          <View style={drillStyles.section}>
-            <Text style={drillStyles.sectionTitle}>Instructions</Text>
-            {drill.instructions.map((step, i) => (
-              <Text key={i} style={drillStyles.step}>
-                {i + 1}. {step}
-              </Text>
-            ))}
-          </View>
-
-          {drill.focusPoints.length > 0 && (
-            <View style={drillStyles.section}>
-              <Text style={drillStyles.sectionTitle}>Focus Points</Text>
-              {drill.focusPoints.map((point, i) => (
-                <Text key={i} style={drillStyles.focusPoint}>
-                  • {point}
-                </Text>
+              <Text style={drillStyles.sectionTitle}>Instructions</Text>
+              {drill.instructions.map((step, i) => (
+                <View key={i} style={drillStyles.stepRow}>
+                  <View style={[drillStyles.stepNum, { backgroundColor: difficultyColor + '25' }]}>
+                    <Text style={[drillStyles.stepNumText, { color: difficultyColor }]}>{i + 1}</Text>
+                  </View>
+                  <Text style={drillStyles.step}>{step}</Text>
+                </View>
               ))}
             </View>
-          )}
-        </View>
-      )}
+
+            {drill.focusPoints.length > 0 && (
+              <View style={[drillStyles.section, drillStyles.focusSection]}>
+                <Text style={drillStyles.sectionTitle}>Focus Points</Text>
+                {drill.focusPoints.map((point, i) => (
+                  <View key={i} style={drillStyles.focusRow}>
+                    <View style={drillStyles.focusDot} />
+                    <Text style={drillStyles.focusPoint}>{point}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -497,11 +527,13 @@ const drillStyles = StyleSheet.create({
     borderRadius: Radius.lg,
     marginBottom: Spacing.sm,
     overflow: 'hidden',
+    flexDirection: 'row',
     ...Shadow.sm,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  cardCompleted: { opacity: 0.7 },
+  cardCompleted: { opacity: 0.6 },
+  diffStrip: { width: 4 },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -528,9 +560,17 @@ const drillStyles = StyleSheet.create({
   name: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, marginBottom: 2 },
   nameCompleted: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   description: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.xs },
-  meta: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
-  duration: { fontSize: FontSize.xs, color: Colors.textLight, fontWeight: '600' },
-  diffBadge: { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2 },
+  meta: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center', flexWrap: 'wrap' },
+  durationPill: {
+    backgroundColor: Colors.background,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  durationText: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600' },
+  diffBadge: { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1 },
   diffText: { fontSize: FontSize.xs, fontWeight: '700', textTransform: 'capitalize' },
   chevron: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 4 },
   expandedContent: {
@@ -540,11 +580,52 @@ const drillStyles = StyleSheet.create({
     borderTopColor: Colors.borderLight,
     gap: Spacing.md,
   },
-  section: { gap: 4 },
-  sectionTitle: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
-  sectionText: { fontSize: FontSize.sm, color: Colors.text },
-  step: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
-  focusPoint: { fontSize: FontSize.sm, color: Colors.primary, lineHeight: 20 },
+  section: { gap: 6 },
+  focusSection: {
+    backgroundColor: Colors.background,
+    borderRadius: Radius.sm,
+    padding: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 2,
+  },
+  equipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  equipChip: {
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  equipText: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600' },
+  stepRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
+  stepNum: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  stepNumText: { fontSize: FontSize.xs, fontWeight: '800' },
+  step: { flex: 1, fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
+  focusRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  focusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+    marginTop: 7,
+    flexShrink: 0,
+  },
+  focusPoint: { flex: 1, fontSize: FontSize.sm, color: Colors.primary, lineHeight: 20 },
 });
 
 const styles = StyleSheet.create({
@@ -555,19 +636,23 @@ const styles = StyleSheet.create({
   dayScroll: { maxHeight: 60 },
   dayScrollContent: { paddingHorizontal: Spacing.lg, gap: Spacing.sm, alignItems: 'center' },
   dayChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: Radius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: Radius.md,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     alignItems: 'center',
-    minWidth: 56,
+    minWidth: 52,
   },
   dayChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  dayChipEmpty: { opacity: 0.5 },
+  dayChipEmpty: { opacity: 0.4 },
+  dayChipDone: { borderColor: Colors.success, backgroundColor: Colors.success + '15' },
   dayChipText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
   dayChipTextActive: { color: Colors.background },
+  dayChipTextDone: { color: Colors.success },
+  dayChipCount: { fontSize: 9, color: Colors.textLight, fontWeight: '700', marginTop: 1 },
+  dayChipCountActive: { color: 'rgba(255,255,255,0.75)' },
   todayDot: {
     width: 4,
     height: 4,

@@ -136,86 +136,13 @@ export default function TrackScreen() {
             </View>
           </View>
 
-          {/* Running Score */}
-          <View style={styles.scoreSummary}>
-            {(() => {
-              const played = currentRound.holes.filter((h) => h.strokes > 0);
-              const total = played.reduce((s, h) => s + h.strokes, 0);
-              const par = played.reduce((s, h) => s + h.par, 0);
-              const diff = total - par;
-              const putts = played.reduce((s, h) => s + h.putts, 0);
-              const penalties = played.reduce((s, h) => s + (h.penaltyStrokes ?? 0), 0);
-              return (
-                <>
-                  <View style={styles.scoreBox}>
-                    <Text style={styles.scoreBoxVal}>{total || '—'}</Text>
-                    <Text style={styles.scoreBoxLabel}>Score</Text>
-                  </View>
-                  <View style={styles.scoreBox}>
-                    <Text style={[
-                      styles.scoreBoxVal,
-                      diff < 0 ? { color: Colors.success } : diff > 0 ? { color: Colors.error } : {},
-                    ]}>
-                      {total ? (diff > 0 ? `+${diff}` : diff === 0 ? 'E' : diff) : '—'}
-                    </Text>
-                    <Text style={styles.scoreBoxLabel}>vs Par</Text>
-                  </View>
-                  <View style={styles.scoreBox}>
-                    <Text style={styles.scoreBoxVal}>{played.length}/18</Text>
-                    <Text style={styles.scoreBoxLabel}>Holes</Text>
-                  </View>
-                  <View style={styles.scoreBox}>
-                    <Text style={styles.scoreBoxVal}>{putts || '—'}</Text>
-                    <Text style={styles.scoreBoxLabel}>Putts</Text>
-                  </View>
-                  {penalties > 0 && (
-                    <View style={styles.scoreBox}>
-                      <Text style={[styles.scoreBoxVal, { color: Colors.warning }]}>{penalties}</Text>
-                      <Text style={styles.scoreBoxLabel}>Penalty</Text>
-                    </View>
-                  )}
-                </>
-              );
-            })()}
-          </View>
+          {/* Scorecard */}
+          <ScorecardGrid
+            round={currentRound}
+            selectedHole={selectedHole}
+            onSelectHole={setSelectedHole}
+          />
 
-          {/* Hole Selector */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.holeScrollContent}
-            style={styles.holeScroll}
-          >
-            {currentRound.holes.map((hole) => {
-              const isActive = hole.holeNumber === selectedHole;
-              const hasData = hole.strokes > 0;
-              const diff = hole.strokes - hole.par;
-              return (
-                <TouchableOpacity
-                  key={hole.holeNumber}
-                  style={[
-                    styles.holeChip,
-                    isActive && styles.holeChipActive,
-                    hasData && !isActive && styles.holeChipDone,
-                  ]}
-                  onPress={() => setSelectedHole(hole.holeNumber)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.holeNum, isActive && styles.holeNumActive]}>
-                    {hole.holeNumber}
-                  </Text>
-                  {hasData && (
-                    <Text style={[
-                      styles.holeScore,
-                      diff < 0 ? styles.under : diff === 0 ? styles.even : styles.over,
-                    ]}>
-                      {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : diff}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
 
           {currentHole && (
             <ScrollView style={styles.holeInputArea} showsVerticalScrollIndicator={false}>
@@ -452,6 +379,174 @@ export default function TrackScreen() {
     </SafeAreaView>
   );
 }
+
+const PAR_COLORS: Record<string, string> = {
+  eagle: Colors.accent,
+  birdie: Colors.success,
+  par: Colors.surfaceElevated,
+  bogey: Colors.error,
+  double: Colors.error,
+};
+
+function holeScoreColor(diff: number | null): string {
+  if (diff === null) return Colors.surface;
+  if (diff <= -2) return Colors.accent + '50';
+  if (diff === -1) return Colors.success + '35';
+  if (diff === 0) return Colors.surfaceElevated;
+  if (diff === 1) return Colors.error + '28';
+  return Colors.error + '55';
+}
+
+function holeBorderColor(diff: number | null): string {
+  if (diff === null) return Colors.border;
+  if (diff <= -2) return Colors.accent;
+  if (diff === -1) return Colors.success;
+  if (diff === 0) return Colors.border;
+  if (diff === 1) return Colors.error + '80';
+  return Colors.error;
+}
+
+function ScorecardGrid({ round, selectedHole, onSelectHole }: {
+  round: Round;
+  selectedHole: number;
+  onSelectHole: (n: number) => void;
+}) {
+  const front = round.holes.slice(0, 9);
+  const back = round.holes.slice(9, 18);
+  const frontTotal = front.reduce((s, h) => h.strokes > 0 ? s + h.strokes : s, 0);
+  const backTotal = back.reduce((s, h) => h.strokes > 0 ? s + h.strokes : s, 0);
+  const frontPar = front.reduce((s, h) => s + h.par, 0);
+  const backPar = back.reduce((s, h) => s + h.par, 0);
+
+  function ScorecardRow({ holes, label, total, totalPar }: {
+    holes: typeof front; label: string; total: number; totalPar: number;
+  }) {
+    const diff = total > 0 ? total - totalPar : null;
+    return (
+      <View style={scStyles.row}>
+        {holes.map((hole) => {
+          const hDiff = hole.strokes > 0 ? hole.strokes - hole.par : null;
+          const isSelected = hole.holeNumber === selectedHole;
+          return (
+            <TouchableOpacity
+              key={hole.holeNumber}
+              style={[
+                scStyles.cell,
+                { backgroundColor: holeScoreColor(hDiff), borderColor: holeBorderColor(hDiff) },
+                isSelected && scStyles.cellSelected,
+              ]}
+              onPress={() => onSelectHole(hole.holeNumber)}
+              activeOpacity={0.7}
+            >
+              <Text style={scStyles.cellHoleNum}>{hole.holeNumber}</Text>
+              <Text style={[scStyles.cellScore, hDiff !== null && hDiff < 0 && scStyles.cellScoreUnder]}>
+                {hole.strokes > 0 ? hole.strokes : '·'}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+        <View style={scStyles.totalCell}>
+          <Text style={scStyles.totalLabel}>{label}</Text>
+          <Text style={[
+            scStyles.totalNum,
+            diff !== null && diff < 0 ? { color: Colors.success } : diff !== null && diff > 0 ? { color: Colors.error } : {},
+          ]}>
+            {total || '—'}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={scStyles.wrap}>
+      <ScorecardRow holes={front} label="OUT" total={frontTotal} totalPar={frontPar} />
+      <View style={scStyles.divider} />
+      <ScorecardRow holes={back} label="IN" total={backTotal} totalPar={backPar} />
+      {/* Legend */}
+      <View style={scStyles.legend}>
+        {([
+          { color: Colors.accent + '50', border: Colors.accent, label: 'Eagle−' },
+          { color: Colors.success + '35', border: Colors.success, label: 'Birdie' },
+          { color: Colors.surfaceElevated, border: Colors.border, label: 'Par' },
+          { color: Colors.error + '28', border: Colors.error + '80', label: 'Bogey' },
+          { color: Colors.error + '55', border: Colors.error, label: 'Dbl+' },
+        ] as const).map(({ color, border, label }) => (
+          <View key={label} style={scStyles.legendItem}>
+            <View style={[scStyles.legendSwatch, { backgroundColor: color, borderColor: border }]} />
+            <Text style={scStyles.legendText}>{label}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const scStyles = StyleSheet.create({
+  wrap: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow.sm,
+  },
+  row: { flexDirection: 'row', gap: 2, marginBottom: 2 },
+  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 3 },
+  cell: {
+    flex: 1,
+    borderRadius: 5,
+    borderWidth: 1,
+    paddingVertical: 4,
+    alignItems: 'center',
+    minWidth: 0,
+  },
+  cellSelected: {
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
+  cellHoleNum: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: Colors.textLight,
+    lineHeight: 10,
+  },
+  cellScore: {
+    fontSize: FontSize.sm,
+    fontWeight: '800',
+    color: Colors.text,
+    lineHeight: 16,
+  },
+  cellScoreUnder: { color: Colors.background },
+  totalCell: {
+    width: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  totalLabel: { fontSize: 8, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.3 },
+  totalNum: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.text },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    marginTop: 3,
+    flexWrap: 'wrap',
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  legendSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    borderWidth: 1,
+  },
+  legendText: { fontSize: 8, color: Colors.textLight, fontWeight: '600' },
+});
 
 function Counter({
   value,
@@ -960,26 +1055,6 @@ const styles = StyleSheet.create({
   },
   scoreBoxVal: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
   scoreBoxLabel: { fontSize: FontSize.xs, color: Colors.textSecondary },
-  holeScroll: { maxHeight: 60 },
-  holeScrollContent: { paddingHorizontal: Spacing.lg, gap: 6, alignItems: 'center' },
-  holeChip: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  holeChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  holeChipDone: { backgroundColor: Colors.primaryPale, borderColor: Colors.primaryMid },
-  holeNum: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary },
-  holeNumActive: { color: Colors.background },
-  holeScore: { fontSize: FontSize.xs, fontWeight: '700' },
-  under: { color: Colors.success },
-  even: { color: Colors.textSecondary },
-  over: { color: Colors.error },
   holeInputArea: { flex: 1 },
   noRoundContent: { padding: Spacing.lg },
   summaryCard: {
