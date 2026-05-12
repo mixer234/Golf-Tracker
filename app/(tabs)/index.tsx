@@ -147,7 +147,7 @@ export default function DashboardScreen() {
   if (!hydrated) {
     return (
       <SafeAreaView style={s.container}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
           <SkeletonHome />
         </ScrollView>
       </SafeAreaView>
@@ -248,7 +248,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* Recent rounds */}
-        <View style={[s.section, { marginBottom: Spacing.xxl }]}>
+        <View style={s.section}>
           <View style={s.sectionRow}>
             <Text style={s.sectionTitle}>Recent Rounds</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/track')}>
@@ -314,7 +314,7 @@ const rStyles = StyleSheet.create({
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
+  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 100 },
 
   header: { marginBottom: Spacing.md },
   greeting: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.text },

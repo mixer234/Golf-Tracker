@@ -242,7 +242,7 @@ export default function ProfileScreen() {
 
         {/* Danger Zone */}
         <SectionHeader title="Account" />
-        <View style={[styles.card, { marginBottom: Spacing.xxl }]}>
+        <View style={styles.card}>
           <TouchableOpacity onPress={handleReset} activeOpacity={0.75}>
             <Text style={styles.resetText}>Reset all data</Text>
           </TouchableOpacity>
@@ -287,7 +287,7 @@ const infoStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { padding: Spacing.lg },
+  scroll: { padding: Spacing.lg, paddingBottom: 100 },
   title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.lg },
   userCard: {
     flexDirection: 'row',

@@ -116,7 +116,7 @@ export default function SkeletonProgress() {
 const s = StyleSheet.create({
   container: {
     padding: Spacing.lg,
-    paddingBottom: Spacing.xxl,
+    paddingBottom: 100,
   },
   title: {
     marginBottom: Spacing.lg,

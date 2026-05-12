@@ -275,7 +275,7 @@ export default function TrackScreen() {
           </ScrollView>
 
           {currentHole && (
-            <ScrollView style={styles.holeInputArea} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.holeInputArea} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
               <HoleInputCard
                 hole={currentHole}
                 onUpdate={(data) => updateHole(selectedHole, data)}
@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
   even: { color: Colors.textSecondary },
   over: { color: Colors.error },
   holeInputArea: { flex: 1 },
-  noRoundContent: { padding: Spacing.lg },
+  noRoundContent: { padding: Spacing.lg, paddingBottom: 100 },
   summaryCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.xl,

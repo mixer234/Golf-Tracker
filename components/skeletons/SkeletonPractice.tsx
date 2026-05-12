@@ -139,7 +139,7 @@ const s = StyleSheet.create({
   },
   dayScrollWrap: { maxHeight: 60 },
   dayScroll: { paddingHorizontal: Spacing.lg, gap: Spacing.sm, alignItems: 'center' },
-  scroll: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
+  scroll: { padding: Spacing.lg, paddingBottom: 100 },
   card: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
