@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Round, HoleScore, RoundType } from '../types';
+import { Round, HoleScore, RoundType, TeeColor } from '../types';
 import { calcScoreDifferential } from '../utils/whs';
 import { calcRoundSG } from '../utils/strokesGained';
 
@@ -9,7 +9,15 @@ interface RoundState {
   rounds: Round[];
   currentRound: Round | null;
   lastCompletedRound: Round | null;
-  startRound: (courseName: string, courseRating?: number, slopeRating?: number, roundType?: RoundType) => void;
+  startRound: (
+    courseName: string,
+    courseRating?: number,
+    slopeRating?: number,
+    roundType?: RoundType,
+    courseId?: string,
+    teeColor?: TeeColor,
+    holePars?: { holeNumber: number; par: 3 | 4 | 5 }[]
+  ) => void;
   updateRound: (id: string, updates: Partial<Round>) => void;
   updateHole: (holeNumber: number, data: Partial<HoleScore>) => void;
   completeRound: () => void;
@@ -69,7 +77,14 @@ export const useRoundStore = create<RoundState>()(
       rounds: [],
       currentRound: null,
       lastCompletedRound: null,
-      startRound: (courseName, courseRating, slopeRating, roundType) => {
+      startRound: (courseName, courseRating, slopeRating, roundType, courseId, teeColor, holePars) => {
+        const baseHoles = buildEmptyHoles();
+        const holes = holePars
+          ? baseHoles.map((h) => {
+              const match = holePars.find((p) => p.holeNumber === h.holeNumber);
+              return match ? { ...h, par: match.par } : h;
+            })
+          : baseHoles;
         const round: Round = {
           id: generateId(),
           date: new Date().toISOString(),
@@ -77,7 +92,9 @@ export const useRoundStore = create<RoundState>()(
           courseRating,
           slopeRating,
           roundType,
-          holes: buildEmptyHoles(),
+          courseId,
+          teeColor,
+          holes,
           totalScore: 0,
           scoreToPar: 0,
           totalPutts: 0,

@@ -50,6 +50,8 @@ export type MissDirection =
 
 export type RoundType = 'casual' | 'competitive' | 'tournament';
 
+export type TeeColor = 'black' | 'blue' | 'white' | 'red' | 'gold';
+
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export type DayOfWeek =
@@ -127,6 +129,8 @@ export interface Round {
   scoreDifferential?: number;
   notes?: string;
   roundType?: RoundType;
+  courseId?: string;
+  teeColor?: TeeColor;
   mentalCommitment?: number;
   mentalControl?: number;
   mentalDecisions?: number;
@@ -188,4 +192,23 @@ export interface GoalOption {
   key: GoalType;
   label: string;
   description: string;
+}
+
+export interface CourseHole {
+  holeNumber: number;
+  par: 3 | 4 | 5;
+  strokeIndex: number; // 1–18, handicap allocation order
+  yardages: Partial<Record<TeeColor, number>>;
+  name?: string;
+}
+
+export interface Course {
+  id: string;
+  name: string;
+  city?: string;
+  courseRating?: number;
+  slopeRating?: number;
+  defaultTee: TeeColor;
+  holes: CourseHole[];
+  createdAt: string;
 }

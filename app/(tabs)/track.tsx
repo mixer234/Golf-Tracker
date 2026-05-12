@@ -14,7 +14,16 @@ import {
 } from 'react-native';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useRoundStore } from '../../store/useRoundStore';
-import { HoleScore, Round, RoundType, MissDirection } from '../../types';
+import { useCourseStore } from '../../store/useCourseStore';
+import { HoleScore, Round, RoundType, MissDirection, TeeColor } from '../../types';
+
+const TEE_COLORS: { key: TeeColor; label: string; color: string }[] = [
+  { key: 'black', label: 'Black', color: '#1a1a1a' },
+  { key: 'blue',  label: 'Blue',  color: '#3b82f6' },
+  { key: 'white', label: 'White', color: '#e8f0e9' },
+  { key: 'red',   label: 'Red',   color: '#ef4444' },
+  { key: 'gold',  label: 'Gold',  color: '#d4af37' },
+];
 
 function buildRoundSummary(r: Round): { headline: string; highlights: string[] } {
   const stp = r.scoreToPar;
@@ -46,7 +55,10 @@ function buildRoundSummary(r: Round): { headline: string; highlights: string[] }
 export default function TrackScreen() {
   const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted, updateRoundNotes, updateRound } =
     useRoundStore();
+  const { courses } = useCourseStore();
   const [showNewRound, setShowNewRound] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedTeeColor, setSelectedTeeColor] = useState<TeeColor>('white');
   const [notesDraft, setNotesDraft] = useState(lastCompletedRound?.notes ?? '');
 
   // Sync draft whenever a new round is completed
@@ -73,19 +85,26 @@ export default function TrackScreen() {
   }, [lastCompletedRound?.id]);
 
   function handleStartRound() {
-    if (!courseName.trim()) {
-      Alert.alert('Course name required', 'Enter the course name to start tracking.');
+    const selectedCourse = courses.find((c) => c.id === selectedCourseId);
+    const nameToUse = selectedCourse ? selectedCourse.name : courseName.trim();
+    if (!nameToUse) {
+      Alert.alert('Course required', 'Select a saved course or enter a course name.');
       return;
     }
-    const cr = parseFloat(courseRating);
-    const sr = parseInt(slopeRating, 10);
+    const cr = selectedCourse?.courseRating ?? parseFloat(courseRating);
+    const sr = selectedCourse?.slopeRating ?? parseInt(slopeRating, 10);
     startRound(
-      courseName.trim(),
+      nameToUse,
       !isNaN(cr) && cr > 50 && cr < 90 ? cr : undefined,
       !isNaN(sr) && sr >= 55 && sr <= 155 ? sr : undefined,
-      roundType
+      roundType,
+      selectedCourse?.id,
+      selectedCourse ? selectedTeeColor : undefined,
+      selectedCourse ? selectedCourse.holes.map((h) => ({ holeNumber: h.holeNumber, par: h.par })) : undefined
     );
     setShowNewRound(false);
+    setSelectedCourseId(null);
+    setSelectedTeeColor('white');
     setCourseName('');
     setCourseRating('');
     setSlopeRating('');
@@ -310,16 +329,98 @@ export default function TrackScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.modalContent}>
-              <Text style={styles.inputLabel}>Course Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={courseName}
-                onChangeText={setCourseName}
-                placeholder="e.g. Pebble Beach"
-                placeholderTextColor={Colors.textLight}
-                autoFocus
-                returnKeyType="next"
-              />
+              {courses.length > 0 && (
+                <>
+                  <Text style={styles.inputLabel}>Saved Course</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', gap: 8, paddingRight: 4 }}>
+                      <TouchableOpacity
+                        style={[styles.courseChip, selectedCourseId === null && styles.courseChipActive]}
+                        onPress={() => setSelectedCourseId(null)}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[styles.courseChipText, selectedCourseId === null && styles.courseChipTextActive]}>
+                          Manual
+                        </Text>
+                      </TouchableOpacity>
+                      {courses.map((c) => (
+                        <TouchableOpacity
+                          key={c.id}
+                          style={[styles.courseChip, selectedCourseId === c.id && styles.courseChipActive]}
+                          onPress={() => {
+                            setSelectedCourseId(c.id);
+                            setSelectedTeeColor(c.defaultTee);
+                          }}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={[styles.courseChipText, selectedCourseId === c.id && styles.courseChipTextActive]}>
+                            {c.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+
+                  {selectedCourseId && (() => {
+                    const sc = courses.find((c) => c.id === selectedCourseId)!;
+                    return (
+                      <>
+                        <Text style={styles.inputLabel}>Tee Box</Text>
+                        <View style={styles.teeRow}>
+                          {TEE_COLORS.filter((t) => {
+                            const hasYardages = sc.holes.some((h) => h.yardages[t.key] !== undefined);
+                            return hasYardages || t.key === sc.defaultTee;
+                          }).map((t) => (
+                            <TouchableOpacity
+                              key={t.key}
+                              style={[styles.teeChip, selectedTeeColor === t.key && { borderColor: t.color, backgroundColor: t.color + '20' }]}
+                              onPress={() => setSelectedTeeColor(t.key)}
+                              activeOpacity={0.75}
+                            >
+                              <View style={[styles.teeChipDot, { backgroundColor: t.color }]} />
+                              <Text style={[styles.teeChipText, selectedTeeColor === t.key && { color: Colors.text }]}>{t.label}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        <View style={styles.courseInfoBox}>
+                          <Text style={styles.courseInfoText}>
+                            {sc.city ? `${sc.name} · ${sc.city}` : sc.name}
+                            {sc.courseRating && sc.slopeRating ? `  |  ${sc.courseRating} / ${sc.slopeRating}` : ''}
+                          </Text>
+                        </View>
+                      </>
+                    );
+                  })()}
+                  {selectedCourseId === null && (
+                    <>
+                      <Text style={[styles.inputLabel, { marginTop: Spacing.sm }]}>Course Name</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={courseName}
+                        onChangeText={setCourseName}
+                        placeholder="e.g. Pebble Beach"
+                        placeholderTextColor={Colors.textLight}
+                        returnKeyType="next"
+                      />
+                    </>
+                  )}
+                </>
+              )}
+
+              {courses.length === 0 && (
+                <>
+                  <Text style={styles.inputLabel}>Course Name</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={courseName}
+                    onChangeText={setCourseName}
+                    placeholder="e.g. Pebble Beach"
+                    placeholderTextColor={Colors.textLight}
+                    autoFocus
+                    returnKeyType="next"
+                  />
+                </>
+              )}
 
               <Text style={[styles.inputLabel, { marginTop: Spacing.lg }]}>Round Type</Text>
               <View style={styles.roundTypeRow}>
@@ -1186,6 +1287,40 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     color: Colors.text,
   },
+  courseChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  courseChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryPale },
+  courseChipText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
+  courseChipTextActive: { color: Colors.primary },
+  teeRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 8 },
+  teeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  teeChipDot: { width: 10, height: 10, borderRadius: 5 },
+  teeChipText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
+  courseInfoBox: {
+    backgroundColor: Colors.primaryPale,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.primary + '40',
+    marginBottom: Spacing.sm,
+  },
+  courseInfoText: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '500' },
   roundTypeRow: { flexDirection: 'row', gap: Spacing.sm },
   roundTypeChip: {
     flex: 1,

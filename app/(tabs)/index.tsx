@@ -497,6 +497,46 @@ export default function DashboardScreen() {
           )}
         </View>
 
+        {/* ── AI Coach Card ──────────────────────────────── */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.coachCard}
+            onPress={() => router.push('/coach')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.coachLeft}>
+              <View style={styles.coachIcon}>
+                <Text style={styles.coachIconText}>C</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.coachTitle}>Caddie AI</Text>
+                <Text style={styles.coachSubtitle}>Ask your coach anything about your game</Text>
+              </View>
+            </View>
+            <Text style={styles.coachArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Quick Links ───────────────────────────────── */}
+        <View style={[styles.section, styles.quickLinksRow]}>
+          <TouchableOpacity
+            style={styles.quickLink}
+            onPress={() => router.push('/courses')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.quickLinkIcon}>🏌️</Text>
+            <Text style={styles.quickLinkLabel}>My Courses</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickLink}
+            onPress={() => router.push('/sg')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.quickLinkIcon}>📊</Text>
+            <Text style={styles.quickLinkLabel}>Strokes Gained</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* ── Recent Rounds ─────────────────────────────── */}
         <View style={[styles.section, { marginBottom: Spacing.xxl }]}>
           <View style={styles.sectionHeaderRow}>
@@ -996,6 +1036,44 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, marginBottom: Spacing.sm },
   seeAll: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600', marginBottom: Spacing.sm },
+  coachCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.primary + '50',
+    ...Shadow.sm,
+  },
+  coachLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flex: 1 },
+  coachIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coachIconText: { fontSize: 16, fontWeight: '800', color: Colors.background },
+  coachTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
+  coachSubtitle: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
+  coachArrow: { fontSize: FontSize.base, color: Colors.primary, fontWeight: '700' },
+  quickLinksRow: { flexDirection: 'row', gap: Spacing.md },
+  quickLink: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    gap: 6,
+    ...Shadow.sm,
+  },
+  quickLinkIcon: { fontSize: 24 },
+  quickLinkLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary },
   card: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,

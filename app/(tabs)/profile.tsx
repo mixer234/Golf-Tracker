@@ -56,14 +56,14 @@ export default function ProfileScreen() {
   }
 
   function toggleWeakness(key: WeaknessArea) {
-    const current = profile.weaknesses;
+    const current = profile!.weaknesses;
     updateProfile({
       weaknesses: current.includes(key) ? current.filter((k) => k !== key) : [...current, key],
     });
   }
 
   function toggleGoal(key: GoalType) {
-    const current = profile.goals;
+    const current = profile!.goals;
     updateProfile({
       goals: current.includes(key) ? current.filter((k) => k !== key) : [...current, key],
     });
