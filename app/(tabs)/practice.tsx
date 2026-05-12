@@ -22,6 +22,7 @@ import { useHydration } from '../../hooks/useHydration';
 import SkeletonPractice from '../../components/skeletons/SkeletonPractice';
 import { useToast } from '../../hooks/useToast';
 import { checkConnectivity } from '../../hooks/useNetworkStatus';
+import { haptics } from '../../utils/haptics';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -219,17 +220,21 @@ export default function PracticeScreen() {
     const updated = [...completedInSession, currentSessionDrill.id];
     setCompletedInSession(updated);
     if (isLastDrill) {
+      haptics.success();
+      setTimeout(() => haptics.heavy(), 400);
       Alert.alert(
         'Session Complete! 🎯',
         `You nailed ${updated.length} of ${sessionDrills.length} drill${sessionDrills.length > 1 ? 's' : ''}. Great work!`,
         [{ text: 'Done', onPress: () => endSession(updated, sessionDrills.length) }],
       );
     } else {
+      haptics.medium();
       nextDrill();
     }
   }
 
   function handleSkipDrill() {
+    haptics.light();
     if (isLastDrill) {
       Alert.alert(
         'Session Finished',
@@ -242,6 +247,7 @@ export default function PracticeScreen() {
   }
 
   function handleCancelSession() {
+    haptics.warning();
     Alert.alert('End Session?', 'Your progress so far will be saved.', [
       { text: 'Keep Going', style: 'cancel' },
       { text: 'End Session', onPress: () => endSession(completedInSession, sessionDrills.length) },
@@ -273,6 +279,7 @@ export default function PracticeScreen() {
       return;
     }
 
+    haptics.light();
     setGenerating(true);
     setGenerationError(null);
     try {
@@ -435,7 +442,7 @@ export default function PracticeScreen() {
                 <TouchableOpacity
                   key={day}
                   style={[styles.dayChip, isActive && styles.dayChipActive, !hasContent && styles.dayChipEmpty]}
-                  onPress={() => setSelectedDayIndex(index)}
+                  onPress={() => { haptics.light(); setSelectedDayIndex(index); }}
                   activeOpacity={0.75}
                 >
                   <Text style={[styles.dayChipText, isActive && styles.dayChipTextActive]}>
@@ -483,25 +490,41 @@ export default function PracticeScreen() {
                 {dayPlan.drills.length > 0 && (
                   <TouchableOpacity
                     style={styles.startSessionBtn}
-                    onPress={() => startSession(selectedDayName)}
+                    onPress={() => { haptics.medium(); startSession(selectedDayName); }}
                     activeOpacity={0.85}
                   >
                     <Text style={styles.startSessionText}>▶  Start Practice Session</Text>
                   </TouchableOpacity>
                 )}
 
-                {dayPlan.drills.map((drill) => (
-                  <DrillCard
-                    key={drill.id}
-                    drill={drill}
-                    isCompleted={dayPlan.completedDrillIds.includes(drill.id)}
-                    isExpanded={expandedDrillId === drill.id}
-                    onToggleComplete={() => markDrillComplete(dayPlan.day, drill.id)}
-                    onToggleExpand={() =>
-                      setExpandedDrillId(expandedDrillId === drill.id ? null : drill.id)
-                    }
-                  />
-                ))}
+                {dayPlan.drills.map((drill) => {
+                  const isCompleted = dayPlan.completedDrillIds.includes(drill.id);
+                  const isLastUncompleted =
+                    !isCompleted &&
+                    dayPlan.drills.filter((d) => !dayPlan.completedDrillIds.includes(d.id)).length === 1;
+                  return (
+                    <DrillCard
+                      key={drill.id}
+                      drill={drill}
+                      isCompleted={isCompleted}
+                      isExpanded={expandedDrillId === drill.id}
+                      onToggleComplete={() => {
+                        if (isCompleted) {
+                          haptics.light();
+                        } else if (isLastUncompleted) {
+                          haptics.success();
+                        } else {
+                          haptics.medium();
+                        }
+                        markDrillComplete(dayPlan.day, drill.id);
+                      }}
+                      onToggleExpand={() => {
+                        haptics.light();
+                        setExpandedDrillId(expandedDrillId === drill.id ? null : drill.id);
+                      }}
+                    />
+                  );
+                })}
               </>
             ) : (
               <View style={styles.restDay}>
@@ -511,14 +534,14 @@ export default function PracticeScreen() {
               </View>
             )}
 
-            <TouchableOpacity style={styles.regenerateButton} onPress={handleGenerate} activeOpacity={0.75}>
+            <TouchableOpacity style={styles.regenerateButton} onPress={() => { haptics.light(); handleGenerate(); }} activeOpacity={0.75}>
               <Text style={styles.regenerateText}>↻  Regenerate Plan</Text>
             </TouchableOpacity>
 
             {/* My Bag */}
             <TouchableOpacity
               style={styles.bagHeader}
-              onPress={() => setShowBag(!showBag)}
+              onPress={() => { haptics.light(); setShowBag(!showBag); }}
               activeOpacity={0.75}
             >
               <Text style={styles.bagTitle}>🏌️ My Bag</Text>

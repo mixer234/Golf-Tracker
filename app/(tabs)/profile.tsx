@@ -17,6 +17,7 @@ import { useRoundStore } from '../../store/useRoundStore';
 import { WEAKNESS_OPTIONS, GOAL_OPTIONS } from '../../constants/data';
 import { WeaknessArea, GoalType } from '../../types';
 import { HandicapDial, formatHandicap, HCP_MIN, HCP_MAX } from '../../components/HandicapDial';
+import { haptics } from '../../utils/haptics';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -41,6 +42,7 @@ export default function ProfileScreen() {
   }
 
   function saveHandicap() {
+    haptics.success();
     updateProfile({ handicap: draftHandicap });
     setEditingHandicap(false);
   }
@@ -50,12 +52,14 @@ export default function ProfileScreen() {
   }
 
   function saveApiKey() {
+    haptics.success();
     updateProfile({ apiKey: apiKeyInput.trim() });
     clearPlan();
     Alert.alert('API Key Saved', 'Your key has been saved. You can now generate AI practice plans.');
   }
 
   function toggleWeakness(key: WeaknessArea) {
+    haptics.light();
     const current = profile.weaknesses;
     updateProfile({
       weaknesses: current.includes(key) ? current.filter((k) => k !== key) : [...current, key],
@@ -63,6 +67,7 @@ export default function ProfileScreen() {
   }
 
   function toggleGoal(key: GoalType) {
+    haptics.light();
     const current = profile.goals;
     updateProfile({
       goals: current.includes(key) ? current.filter((k) => k !== key) : [...current, key],
@@ -70,6 +75,7 @@ export default function ProfileScreen() {
   }
 
   function handleReset() {
+    haptics.warning();
     Alert.alert(
       'Reset App',
       'This will delete all your data including rounds and practice history. This cannot be undone.',
@@ -133,7 +139,7 @@ export default function ProfileScreen() {
                   Target: {formatHandicap(profile.targetHandicap)}
                 </Text>
               </View>
-              <TouchableOpacity style={styles.editBtn} onPress={openHandicapEditor}>
+              <TouchableOpacity style={styles.editBtn} onPress={() => { haptics.light(); openHandicapEditor(); }}>
                 <Text style={styles.editBtnText}>Update</Text>
               </TouchableOpacity>
             </View>

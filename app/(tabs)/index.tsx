@@ -14,6 +14,7 @@ import { useHydration } from '../../hooks/useHydration';
 import SkeletonHome from '../../components/skeletons/SkeletonHome';
 import { useToast } from '../../hooks/useToast';
 import { checkConnectivity } from '../../hooks/useNetworkStatus';
+import { haptics } from '../../utils/haptics';
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -121,10 +122,12 @@ export default function DashboardScreen() {
       return;
     }
 
+    haptics.light();
     setGenerating(true);
     setGenerationError(null);
     try {
       const plan = await generatePracticePlan(profile, rounds, profile.apiKey);
+      haptics.success();
       setPlan(plan);
     } catch (err: any) {
       console.error('[Home] AI generation failed:', err);
@@ -175,7 +178,7 @@ export default function DashboardScreen() {
         <View style={s.actions}>
           <TouchableOpacity
             style={[s.actionBtn, s.actionPrimary]}
-            onPress={() => router.push('/(tabs)/track')}
+            onPress={() => { haptics.light(); router.push('/(tabs)/track'); }}
             activeOpacity={0.85}
           >
             <Text style={s.actionIcon}>⛳</Text>
@@ -183,7 +186,7 @@ export default function DashboardScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[s.actionBtn, s.actionSecondary]}
-            onPress={() => router.push('/(tabs)/practice')}
+            onPress={() => { haptics.light(); router.push('/(tabs)/practice'); }}
             activeOpacity={0.85}
           >
             <Text style={s.actionIcon}>🎯</Text>
@@ -227,7 +230,7 @@ export default function DashboardScreen() {
                 <>
                   <Text style={s.emptyTitle}>No plan yet</Text>
                   <Text style={s.emptyText}>Add your Claude API key in Profile to unlock AI plans.</Text>
-                  <TouchableOpacity style={s.genBtn} onPress={() => router.push('/(tabs)/profile')}>
+                  <TouchableOpacity style={s.genBtn} onPress={() => { haptics.light(); router.push('/(tabs)/profile'); }}>
                     <Text style={s.genBtnText}>Add API Key</Text>
                   </TouchableOpacity>
                 </>

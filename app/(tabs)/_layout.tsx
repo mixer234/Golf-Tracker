@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/theme';
+import { haptics } from '../../utils/haptics';
 
 function TabIcon({ focused, label, emoji }: { focused: boolean; label: string; emoji: string }) {
   return (
@@ -19,6 +20,7 @@ export default function TabLayout() {
         tabBarStyle: styles.tabBar,
         tabBarShowLabel: false,
       }}
+      screenListeners={{ tabPress: () => haptics.light() }}
     >
       <Tabs.Screen
         name="index"

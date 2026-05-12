@@ -18,6 +18,7 @@ import { HoleScore, Round, RoundType, MissDirection } from '../../types';
 import EmptyRounds from '../../components/empty-states/EmptyRounds';
 import { useToast } from '../../hooks/useToast';
 import { Linking } from 'react-native';
+import { haptics } from '../../utils/haptics';
 
 function buildRoundSummary(r: Round): { headline: string; highlights: string[] } {
   const stp = r.scoreToPar;
@@ -136,11 +137,13 @@ export default function TrackScreen() {
   }
 
   function handleCompleteRound() {
+    haptics.heavy();
     Alert.alert('Complete Round?', 'This will save your round and update your stats.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Complete',
         onPress: () => {
+          haptics.success();
           completeRound();
           // currentRound ID captured before completeRound clears it
           const roundId = currentRound?.id;
@@ -154,6 +157,7 @@ export default function TrackScreen() {
   }
 
   function handleDiscardRound() {
+    haptics.warning();
     Alert.alert('Discard Round?', 'All hole data will be lost.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Discard', style: 'destructive', onPress: discardCurrentRound },
@@ -251,7 +255,7 @@ export default function TrackScreen() {
                     isActive && styles.holeChipActive,
                     hasData && !isActive && styles.holeChipDone,
                   ]}
-                  onPress={() => setSelectedHole(hole.holeNumber)}
+                  onPress={() => { haptics.light(); setSelectedHole(hole.holeNumber); }}
                   activeOpacity={0.75}
                 >
                   <Text style={[styles.holeNum, isActive && styles.holeNumActive]}>
@@ -327,6 +331,7 @@ export default function TrackScreen() {
                             key={n}
                             style={[styles.mentalDot, n <= value && styles.mentalDotActive]}
                             onPress={() => {
+                              haptics.light();
                               set(n);
                               updateRound(lastCompletedRound.id, { [key]: n });
                             }}
@@ -360,7 +365,7 @@ export default function TrackScreen() {
           ) : (
             <TouchableOpacity
               style={styles.startButton}
-              onPress={() => setShowNewRound(true)}
+              onPress={() => { haptics.light(); setShowNewRound(true); }}
               activeOpacity={0.85}
             >
               <Text style={styles.startButtonText}>Start New Round</Text>
@@ -433,7 +438,7 @@ export default function TrackScreen() {
                 <Text style={styles.modalCancel}>Cancel</Text>
               </TouchableOpacity>
               <Text style={styles.modalTitle}>New Round</Text>
-              <TouchableOpacity onPress={handleStartRound}>
+              <TouchableOpacity onPress={() => { haptics.medium(); handleStartRound(); }}>
                 <Text style={styles.modalStart}>Start</Text>
               </TouchableOpacity>
             </View>
@@ -459,7 +464,7 @@ export default function TrackScreen() {
                   <TouchableOpacity
                     key={opt.key}
                     style={[styles.roundTypeChip, roundType === opt.key && styles.roundTypeChipActive]}
-                    onPress={() => setRoundType(opt.key)}
+                    onPress={() => { haptics.light(); setRoundType(opt.key); }}
                     activeOpacity={0.75}
                   >
                     <Text style={[styles.roundTypeText, roundType === opt.key && styles.roundTypeTextActive]}>
@@ -625,7 +630,7 @@ function MissGrid({ value, onSelect }: { value: MissDirection | undefined; onSel
                   isCenter && holeStyles.missCellCenter,
                   isActive && (isCenter ? holeStyles.missCellCenterActive : holeStyles.missCellActive),
                 ]}
-                onPress={() => onSelect(dir)}
+                onPress={() => { haptics.light(); onSelect(dir); }}
                 activeOpacity={0.7}
               >
                 <Text style={[holeStyles.missCellText, isActive && holeStyles.missCellTextActive]}>{label}</Text>
@@ -676,7 +681,7 @@ function HoleInputCard({
             <TouchableOpacity
               key={p}
               style={[holeStyles.seg, hole.par === p && holeStyles.segActive]}
-              onPress={() => onUpdate({ par: p })}
+              onPress={() => { haptics.light(); onUpdate({ par: p }); }}
               activeOpacity={0.75}
             >
               <Text style={[holeStyles.segText, hole.par === p && holeStyles.segTextActive]}>{p}</Text>
@@ -690,8 +695,8 @@ function HoleInputCard({
         <Text style={holeStyles.rowLabel}>Strokes</Text>
         <Counter
           value={hole.strokes}
-          onDecrement={() => onUpdate({ strokes: Math.max(0, hole.strokes - 1) })}
-          onIncrement={() => onUpdate({ strokes: hole.strokes + 1 })}
+          onDecrement={() => { haptics.light(); onUpdate({ strokes: Math.max(0, hole.strokes - 1) }); }}
+          onIncrement={() => { haptics.light(); onUpdate({ strokes: hole.strokes + 1 }); }}
         />
       </View>
 
@@ -700,8 +705,8 @@ function HoleInputCard({
         <Text style={holeStyles.rowLabel}>Putts</Text>
         <Counter
           value={hole.putts}
-          onDecrement={() => onUpdate({ putts: Math.max(0, hole.putts - 1) })}
-          onIncrement={() => onUpdate({ putts: hole.putts + 1 })}
+          onDecrement={() => { haptics.light(); onUpdate({ putts: Math.max(0, hole.putts - 1) }); }}
+          onIncrement={() => { haptics.light(); onUpdate({ putts: hole.putts + 1 }); }}
           formatVal={(v) => String(v)}
         />
       </View>
@@ -711,8 +716,8 @@ function HoleInputCard({
         <Text style={holeStyles.rowLabel}>Penalties</Text>
         <Counter
           value={hole.penaltyStrokes ?? 0}
-          onDecrement={() => onUpdate({ penaltyStrokes: Math.max(0, (hole.penaltyStrokes ?? 0) - 1) })}
-          onIncrement={() => onUpdate({ penaltyStrokes: (hole.penaltyStrokes ?? 0) + 1 })}
+          onDecrement={() => { haptics.light(); onUpdate({ penaltyStrokes: Math.max(0, (hole.penaltyStrokes ?? 0) - 1) }); }}
+          onIncrement={() => { haptics.medium(); onUpdate({ penaltyStrokes: (hole.penaltyStrokes ?? 0) + 1 }); }}
           formatVal={(v) => String(v)}
         />
       </View>
@@ -722,8 +727,8 @@ function HoleInputCard({
         <ToggleRow
           label="Fairway Hit"
           value={hole.fairwayHit}
-          onYes={() => onUpdate({ fairwayHit: true })}
-          onNo={() => onUpdate({ fairwayHit: false })}
+          onYes={() => { haptics.light(); onUpdate({ fairwayHit: true }); }}
+          onNo={() => { haptics.light(); onUpdate({ fairwayHit: false }); }}
         />
       )}
 
@@ -731,8 +736,8 @@ function HoleInputCard({
       <ToggleRow
         label="Green in Reg."
         value={hole.greenInRegulation}
-        onYes={() => onUpdate({ greenInRegulation: true, upAndDown: undefined })}
-        onNo={() => onUpdate({ greenInRegulation: false })}
+        onYes={() => { haptics.light(); onUpdate({ greenInRegulation: true, upAndDown: undefined }); }}
+        onNo={() => { haptics.light(); onUpdate({ greenInRegulation: false }); }}
       />
 
       {/* Up & Down (only when GIR = false and strokes > 0) */}
@@ -740,15 +745,15 @@ function HoleInputCard({
         <ToggleRow
           label="Up & Down"
           value={hole.upAndDown}
-          onYes={() => onUpdate({ upAndDown: true })}
-          onNo={() => onUpdate({ upAndDown: false })}
+          onYes={() => { haptics.light(); onUpdate({ upAndDown: true }); }}
+          onNo={() => { haptics.light(); onUpdate({ upAndDown: false }); }}
         />
       )}
 
       {/* Strokes Gained inputs (collapsible) */}
       <TouchableOpacity
         style={holeStyles.sgToggleRow}
-        onPress={() => setShowSG(!showSG)}
+        onPress={() => { haptics.light(); setShowSG(!showSG); }}
         activeOpacity={0.7}
       >
         <Text style={holeStyles.sgToggleLabel}>Performance Details</Text>
@@ -778,7 +783,7 @@ function HoleInputCard({
                   <TouchableOpacity
                     key={lie}
                     style={[holeStyles.lieSeg, hole.approachLie === lie && holeStyles.lieSegActive]}
-                    onPress={() => onUpdate({ approachLie: lie })}
+                    onPress={() => { haptics.light(); onUpdate({ approachLie: lie }); }}
                   >
                     <Text style={[holeStyles.lieText, hole.approachLie === lie && holeStyles.lieTextActive]}>
                       {lie === 'fairway' ? 'FW' : lie === 'rough' ? 'Rough' : lie === 'sand' ? 'Sand' : 'Rec'}
@@ -813,7 +818,7 @@ function HoleInputCard({
       )}
 
       {hole.holeNumber < 18 && (
-        <TouchableOpacity style={holeStyles.nextBtn} onPress={onNext} activeOpacity={0.85}>
+        <TouchableOpacity style={holeStyles.nextBtn} onPress={() => { haptics.medium(); onNext(); }} activeOpacity={0.85}>
           <Text style={holeStyles.nextBtnText}>Next Hole →</Text>
         </TouchableOpacity>
       )}
