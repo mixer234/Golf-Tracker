@@ -255,16 +255,18 @@ const styles = StyleSheet.create({
 
   suggestionsWrap: { width: '100%', gap: Spacing.sm },
   suggestLabel: { fontSize: FontSize.xs, color: Colors.textLight, fontWeight: '600', letterSpacing: 0.5 },
-  suggestGrid: { gap: 8 },
+  suggestGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   suggestChip: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: Colors.border,
+    flexBasis: '47%',
+    flexGrow: 1,
   },
-  suggestText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
+  suggestText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '600', lineHeight: 18 },
 
   bubbleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   bubbleRowUser: { flexDirection: 'row-reverse' },

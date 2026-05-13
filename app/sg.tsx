@@ -129,14 +129,16 @@ export default function SGScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Text style={styles.back}>← Stats</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Text style={styles.back}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Strokes Gained</Text>
+        <View style={{ minWidth: 60 }} />
+      </View>
 
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Strokes Gained</Text>
         <Text style={styles.subtitle}>
           Measures each part of your game vs. a scratch-level baseline.{'\n'}
@@ -428,8 +430,18 @@ const cardStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scroll: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
-  header: { marginBottom: Spacing.sm },
-  back: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  headerTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
+  back: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600', minWidth: 60 },
   title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text, marginBottom: 6, letterSpacing: -0.5 },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.xl },
   section: { marginBottom: Spacing.lg },

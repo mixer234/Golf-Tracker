@@ -784,8 +784,8 @@ function HandicapHistoryChart({ rounds }: { rounds: Round[] }) {
 }
 
 const hcpHStyles = StyleSheet.create({
-  chart: { flexDirection: 'row', height: 130, gap: 3, alignItems: 'flex-end' },
-  col: { flex: 1, alignItems: 'center', height: '100%', gap: 0 },
+  chart: { flexDirection: 'row', height: 130, gap: 3, alignItems: 'flex-end', paddingBottom: 4 },
+  col: { flex: 1, alignItems: 'center', height: '100%', gap: 0, paddingBottom: 4 },
   bar: { width: '80%', borderRadius: 3 },
   valLabel: { fontSize: 8, fontWeight: '700', color: Colors.text, textAlign: 'center' },
   dateLabel: { fontSize: 8, color: Colors.textLight, textAlign: 'center' },
