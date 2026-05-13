@@ -17,6 +17,11 @@ import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme
 import { useRoundStore } from '../../store/useRoundStore';
 import { useCourseStore } from '../../store/useCourseStore';
 import { HoleScore, Round, RoundType, MissDirection, TeeColor } from '../../types';
+import {
+  getBestHole, getWorstHole, getGirPct, getFairwayPct,
+  getAvgPutts, getScramblingPct, vsParLabel, isPB, usedDefaultRating,
+  HoleResult,
+} from '../../utils/roundStats';
 
 const TEE_COLORS: { key: TeeColor; label: string; color: string }[] = [
   { key: 'black', label: 'Black', color: '#1a1a1a' },
@@ -101,9 +106,10 @@ export default function TrackScreen() {
     setNotesDraft(lastCompletedRound?.notes ?? '');
   }, [lastCompletedRound?.id]);
   const [courseName, setCourseName] = useState('');
-  const [courseRating, setCourseRating] = useState('');
-  const [slopeRating, setSlopeRating] = useState('');
+  const [courseRating, setCourseRating] = useState('72.0');
+  const [slopeRating, setSlopeRating] = useState('113');
   const [roundType, setRoundType] = useState<RoundType>('casual');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedHole, setSelectedHole] = useState(1);
 
   // Mental ratings for post-round debrief
@@ -141,8 +147,9 @@ export default function TrackScreen() {
     setSelectedCourseId(null);
     setSelectedTeeColor('white');
     setCourseName('');
-    setCourseRating('');
-    setSlopeRating('');
+    setCourseRating('72.0');
+    setSlopeRating('113');
+    setShowAdvanced(false);
     setRoundType('casual');
     setSelectedHole(1);
   }
@@ -212,7 +219,7 @@ export default function TrackScreen() {
         <ScrollView contentContainerStyle={styles.noRoundContent} showsVerticalScrollIndicator={false}>
           {/* Post-round summary — shown immediately after completing a round */}
           {lastCompletedRound && (() => {
-            const { headline, highlights } = buildRoundSummary(lastCompletedRound);
+            const { headline } = buildRoundSummary(lastCompletedRound);
             const stp = lastCompletedRound.scoreToPar;
             return (
               <View style={styles.summaryCard}>
@@ -231,14 +238,28 @@ export default function TrackScreen() {
                 ]}>
                   {headline}
                 </Text>
-                <View style={styles.summaryHighlights}>
-                  {highlights.map((h, i) => (
-                    <View key={i} style={styles.highlightRow}>
-                      <View style={styles.highlightBullet} />
-                      <Text style={styles.highlightText}>{h}</Text>
-                    </View>
-                  ))}
-                </View>
+
+                {/* Stats grid — replaces bullet highlights */}
+                <SummaryStatsGrid round={lastCompletedRound} rounds={rounds} />
+
+                {/* Differential card */}
+                {lastCompletedRound.scoreDifferential !== undefined && (
+                  <DifferentialCard
+                    diff={lastCompletedRound.scoreDifferential}
+                    isDefault={usedDefaultRating(
+                      lastCompletedRound.courseRating,
+                      lastCompletedRound.slopeRating,
+                    )}
+                    pb={isPB(lastCompletedRound.scoreDifferential, lastCompletedRound.id, rounds)}
+                  />
+                )}
+
+                {/* 18-hole scorecard */}
+                <PostRoundScorecard round={lastCompletedRound} />
+
+                {/* Best / worst hole callouts */}
+                <BestWorstHoles round={lastCompletedRound} />
+
                 <View style={styles.notesSection}>
                   <Text style={styles.notesLabel}>Mental Game</Text>
                   {([
@@ -484,37 +505,51 @@ export default function TrackScreen() {
                 ))}
               </View>
 
-              <Text style={[styles.inputLabel, { marginTop: Spacing.lg }]}>
-                Course Rating & Slope{' '}
-                <Text style={styles.inputOptional}>(optional — enables handicap differential)</Text>
-              </Text>
-              <View style={styles.ratingRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputSublabel}>Course Rating</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={courseRating}
-                    onChangeText={setCourseRating}
-                    placeholder="72.1"
-                    placeholderTextColor={Colors.textLight}
-                    keyboardType="decimal-pad"
-                    returnKeyType="next"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputSublabel}>Slope Rating</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={slopeRating}
-                    onChangeText={setSlopeRating}
-                    placeholder="113"
-                    placeholderTextColor={Colors.textLight}
-                    keyboardType="number-pad"
-                    returnKeyType="done"
-                    onSubmitEditing={handleStartRound}
-                  />
-                </View>
-              </View>
+              <TouchableOpacity
+                style={styles.advancedToggle}
+                onPress={() => setShowAdvanced((v) => !v)}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.advancedToggleLabel}>
+                  ⚙ Advanced  ·  {showAdvanced ? 'hide' : 'Course rating & slope for differential'}
+                </Text>
+                <Text style={styles.advancedChevron}>{showAdvanced ? '▲' : '▼'}</Text>
+              </TouchableOpacity>
+
+              {showAdvanced && (
+                <>
+                  <Text style={[styles.inputOptional, { marginTop: Spacing.sm, marginBottom: 6 }]}>
+                    Used to calculate your WHS scoring differential. Defaults (72.0 / 113) give a rough estimate.
+                  </Text>
+                  <View style={styles.ratingRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputSublabel}>Course Rating</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={courseRating}
+                        onChangeText={setCourseRating}
+                        placeholder="72.0"
+                        placeholderTextColor={Colors.textLight}
+                        keyboardType="decimal-pad"
+                        returnKeyType="next"
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputSublabel}>Slope Rating</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={slopeRating}
+                        onChangeText={setSlopeRating}
+                        placeholder="113"
+                        placeholderTextColor={Colors.textLight}
+                        keyboardType="number-pad"
+                        returnKeyType="done"
+                        onSubmitEditing={handleStartRound}
+                      />
+                    </View>
+                  </View>
+                </>
+              )}
             </ScrollView>
           </KeyboardAvoidingView>
         </SafeAreaView>
@@ -522,6 +557,225 @@ export default function TrackScreen() {
     </SafeAreaView>
   );
 }
+
+// ─── Post-round summary components ───────────────────────────────────────────
+
+function SummaryStatsGrid({ round, rounds }: { round: Round; rounds: Round[] }) {
+  const stp = round.scoreToPar;
+  const parLabel = stp === 0 ? 'E' : stp > 0 ? `+${stp}` : String(stp);
+  const parColor = stp < 0 ? Colors.success : stp > 0 ? Colors.error : Colors.textSecondary;
+
+  const diff = round.scoreDifferential;
+  const pb = diff !== undefined && isPB(diff, round.id, rounds);
+
+  const girPct  = getGirPct(round);
+  const fwPct   = getFairwayPct(round);
+  const avgP    = getAvgPutts(round);
+  const scramPct = getScramblingPct(round);
+
+  return (
+    <View style={sumStyles.grid}>
+      <View style={sumStyles.statRow}>
+        <SumStatBox label="Score"    value={String(round.totalScore)} pb={pb} />
+        <SumStatBox label="vs Par"   value={parLabel}                 color={parColor} />
+        <SumStatBox label="GIR"      value={girPct  !== null ? `${girPct}%`  : '—'} />
+      </View>
+      <View style={sumStyles.statRow}>
+        <SumStatBox label="Fairways" value={fwPct   !== null ? `${fwPct}%`   : '—'} />
+        <SumStatBox label="Avg Putts" value={avgP   !== null ? avgP.toFixed(1) : '—'} />
+        <SumStatBox label="Scrambling" value={scramPct !== null ? `${scramPct}%` : '—'} />
+      </View>
+    </View>
+  );
+}
+
+function SumStatBox({
+  label, value, color, pb,
+}: { label: string; value: string; color?: string; pb?: boolean }) {
+  return (
+    <View style={sumStyles.statBox}>
+      <View style={sumStyles.statLabelRow}>
+        <Text style={sumStyles.statLabel}>{label.toUpperCase()}</Text>
+        {pb && <View style={sumStyles.pbBadge}><Text style={sumStyles.pbText}>PB</Text></View>}
+      </View>
+      <Text style={[sumStyles.statValue, color ? { color } : undefined]}>{value}</Text>
+    </View>
+  );
+}
+
+function DifferentialCard({
+  diff, isDefault, pb,
+}: { diff: number; isDefault: boolean; pb: boolean }) {
+  return (
+    <View style={sumStyles.diffCard}>
+      <View style={sumStyles.diffHeader}>
+        <View style={sumStyles.diffLeft}>
+          <Text style={sumStyles.diffLabel}>SCORE DIFFERENTIAL</Text>
+          {pb && <View style={sumStyles.pbBadge}><Text style={sumStyles.pbText}>PB</Text></View>}
+        </View>
+        <TouchableOpacity
+          onPress={() =>
+            Alert.alert(
+              'Score Differential',
+              'Your scoring differential is used to calculate your WHS handicap index.\n\nFormula: (113 ÷ Slope Rating) × (Score − Course Rating)\n\nLower is better.',
+            )
+          }
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={sumStyles.diffTooltipIcon}>ⓘ</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={[sumStyles.diffValue, diff < 0 && { color: Colors.success }]}>
+        {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+      </Text>
+      {isDefault && (
+        <Text style={sumStyles.diffNote}>
+          Based on default course rating (72.0 / 113) — tap Advanced when starting a round for accuracy
+        </Text>
+      )}
+    </View>
+  );
+}
+
+// Score cell background colour per vs-par value (spec: eagle=gold, birdie=green, etc.)
+function summaryScoreBg(vsPar: number | null): string {
+  if (vsPar === null)  return Colors.surfaceElevated;
+  if (vsPar <= -2)     return '#F4B942';              // gold for eagle+
+  if (vsPar === -1)    return Colors.success;
+  if (vsPar === 0)     return Colors.surfaceElevated;
+  if (vsPar === 1)     return Colors.warning + '40';
+  if (vsPar === 2)     return Colors.error + '38';
+  return Colors.error;                                // triple bogey+
+}
+
+function summaryScoreText(vsPar: number | null): string {
+  if (vsPar === null)  return Colors.textLight;
+  if (vsPar <= -2)     return '#fff';
+  if (vsPar === -1)    return '#fff';
+  if (vsPar === 0)     return Colors.text;
+  if (vsPar === 1)     return Colors.warning;
+  if (vsPar === 2)     return Colors.error;
+  return '#fff';                                      // triple bogey+
+}
+
+function PostRoundScorecard({ round }: { round: Round }) {
+  const front = round.holes.slice(0, 9);
+  const back  = round.holes.slice(9, 18);
+  const frontPar   = front.reduce((s, h) => s + h.par, 0);
+  const backPar    = back.reduce((s, h) => s + h.par, 0);
+  const frontScore = front.reduce((s, h) => h.strokes > 0 ? s + h.strokes : s, 0);
+  const backScore  = back.reduce((s, h) => h.strokes > 0 ? s + h.strokes : s, 0);
+
+  return (
+    <View style={sumStyles.scorecardWrap}>
+      <Text style={sumStyles.scorecardTitle}>Scorecard</Text>
+      <SummaryNineRow holes={front} total={frontScore} totalPar={frontPar} label="OUT" />
+      <View style={sumStyles.scorecardDivider} />
+      <SummaryNineRow holes={back}  total={backScore}  totalPar={backPar}  label="IN" />
+      {/* Legend */}
+      <View style={sumStyles.legend}>
+        {[
+          { bg: '#F4B942',            text: '#fff',            label: 'Eagle−' },
+          { bg: Colors.success,       text: '#fff',            label: 'Birdie' },
+          { bg: Colors.surfaceElevated, text: Colors.text,     label: 'Par'    },
+          { bg: Colors.warning + '40', text: Colors.warning,   label: 'Bogey'  },
+          { bg: Colors.error + '38',  text: Colors.error,      label: 'Dbl'    },
+          { bg: Colors.error,         text: '#fff',            label: 'Tpl+'   },
+        ].map(({ bg, label }) => (
+          <View key={label} style={sumStyles.legendItem}>
+            <View style={[sumStyles.legendSwatch, { backgroundColor: bg }]} />
+            <Text style={sumStyles.legendText}>{label}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function SummaryNineRow({
+  holes, total, totalPar, label,
+}: { holes: HoleScore[]; total: number; totalPar: number; label: string }) {
+  const diff = total > 0 ? total - totalPar : null;
+  return (
+    <View style={sumStyles.nineRow}>
+      {holes.map((hole) => {
+        const vsPar = hole.strokes > 0 ? hole.strokes - hole.par : null;
+        return (
+          <View key={hole.holeNumber} style={sumStyles.holeCell}>
+            <Text style={sumStyles.holeNum}>{hole.holeNumber}</Text>
+            <Text style={sumStyles.holePar}>{hole.par}</Text>
+            <View style={[sumStyles.scoreCell, { backgroundColor: summaryScoreBg(vsPar) }]}>
+              <Text style={[sumStyles.holeScore, { color: summaryScoreText(vsPar) }]}>
+                {hole.strokes > 0 ? hole.strokes : '·'}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+      {/* Total column */}
+      <View style={sumStyles.totalHoleCell}>
+        <Text style={sumStyles.holeNum}>{label}</Text>
+        <Text style={sumStyles.holePar}>{totalPar}</Text>
+        <View style={[sumStyles.scoreCell, { backgroundColor: Colors.background }]}>
+          <Text style={[
+            sumStyles.holeScore,
+            diff !== null && diff < 0 ? { color: Colors.success }
+              : diff !== null && diff > 0 ? { color: Colors.error }
+              : { color: Colors.text },
+          ]}>
+            {total > 0 ? total : '—'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function BestWorstHoles({ round }: { round: Round }) {
+  const played = round.holes.filter((h) => h.strokes > 0);
+  if (played.length === 0) return null;
+
+  const best  = getBestHole(round.holes);
+  const worst = getWorstHole(round.holes);
+
+  // Every hole at par — special case
+  if (best && worst && best.vsPar === 0 && worst.vsPar === 0) {
+    return (
+      <View style={sumStyles.allParCard}>
+        <Text style={sumStyles.allParText}>Every hole at par — remarkable round.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={sumStyles.calloutRow}>
+      {best  && <HoleCallout result={best}  type="best" />}
+      {worst && <HoleCallout result={worst} type="worst" />}
+    </View>
+  );
+}
+
+function HoleCallout({ result, type }: { result: HoleResult; type: 'best' | 'worst' }) {
+  const isBest = type === 'best';
+  const accent = isBest ? Colors.success : Colors.error;
+  const sign = result.vsPar === 0 ? 'E' : result.vsPar > 0 ? `+${result.vsPar}` : String(result.vsPar);
+  return (
+    <View style={[sumStyles.callout, { borderLeftColor: accent }]}>
+      <View style={sumStyles.calloutTop}>
+        <Text style={sumStyles.calloutTypeLabel}>{isBest ? 'Best hole' : 'Worst hole'}</Text>
+        <Text style={sumStyles.calloutIcon}>{isBest ? '🏆' : '🔥'}</Text>
+      </View>
+      <Text style={[sumStyles.calloutHole, { color: accent }]}>Hole {result.hole.holeNumber}</Text>
+      <Text style={sumStyles.calloutVsPar}>{vsParLabel(result.vsPar)} · {sign}</Text>
+      <Text style={sumStyles.calloutDetail}>Par {result.hole.par} · {result.hole.strokes} strokes</Text>
+      {result.tiedCount > 0 && (
+        <Text style={sumStyles.calloutTied}>(+{result.tiedCount} more)</Text>
+      )}
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const PAR_COLORS: Record<string, string> = {
   eagle: Colors.accent,
@@ -1404,4 +1658,141 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   mentalDotActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  advancedToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.sm,
+    marginTop: Spacing.sm,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  advancedToggleLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary, flex: 1 },
+  advancedChevron: { fontSize: FontSize.xs, color: Colors.textLight, marginLeft: 6 },
+});
+
+const sumStyles = StyleSheet.create({
+  // ── Stats grid ──────────────────────────────────────────────────────────────
+  grid: { gap: 8, marginBottom: Spacing.md },
+  statRow: { flexDirection: 'row', gap: 8 },
+  statBox: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    minHeight: 60,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statLabel: { fontSize: 9, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.5, textTransform: 'uppercase' },
+  statValue: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text, letterSpacing: -0.5 },
+  pbBadge: {
+    backgroundColor: Colors.success,
+    borderRadius: Radius.full,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  pbText: { fontSize: 8, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
+  // ── Differential card ────────────────────────────────────────────────────────
+  diffCard: {
+    backgroundColor: Colors.background,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.md,
+  },
+  diffHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  diffLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  diffLabel: { fontSize: 10, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.6, textTransform: 'uppercase' },
+  diffTooltipIcon: { fontSize: FontSize.md, color: Colors.textLight },
+  diffValue: { fontSize: 32, fontWeight: '800', color: Colors.text, letterSpacing: -1 },
+  diffNote: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 4, lineHeight: 17 },
+  // ── Post-round scorecard ─────────────────────────────────────────────────────
+  scorecardWrap: {
+    backgroundColor: Colors.background,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.md,
+    overflow: 'hidden',
+  },
+  scorecardTitle: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textLight,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  scorecardDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 4 },
+  nineRow: { flexDirection: 'row', gap: 2 },
+  holeCell: { flex: 1, alignItems: 'center', gap: 2 },
+  totalHoleCell: { width: 30, alignItems: 'center', gap: 2 },
+  holeNum: { fontSize: 8, fontWeight: '700', color: Colors.textLight },
+  holePar: { fontSize: 8, color: Colors.textSecondary, fontWeight: '500' },
+  scoreCell: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  holeScore: { fontSize: 10, fontWeight: '800', color: Colors.text },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingTop: 8,
+    marginTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  legendSwatch: { width: 10, height: 10, borderRadius: 2 },
+  legendText: { fontSize: 9, color: Colors.textLight, fontWeight: '600' },
+  // ── Best / worst hole callouts ───────────────────────────────────────────────
+  calloutRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.md },
+  callout: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderLeftWidth: 4,
+    gap: 2,
+  },
+  calloutTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  calloutTypeLabel: { fontSize: 9, fontWeight: '700', color: Colors.textLight, textTransform: 'uppercase', letterSpacing: 0.4 },
+  calloutIcon: { fontSize: 14 },
+  calloutHole: { fontSize: FontSize.lg, fontWeight: '800' },
+  calloutVsPar: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
+  calloutDetail: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  calloutTied: { fontSize: FontSize.xs, color: Colors.textLight, fontStyle: 'italic' },
+  allParCard: {
+    backgroundColor: Colors.background,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  allParText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary, textAlign: 'center' },
 });
