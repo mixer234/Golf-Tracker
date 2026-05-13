@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../constants/theme';
 import { useCourseStore } from '../store/useCourseStore';
+import { useRoundStore } from '../store/useRoundStore';
 import { Course, TeeColor } from '../types';
 
 const TEE_COLORS: { key: TeeColor; label: string; color: string }[] = [
@@ -19,6 +20,7 @@ const TEE_COLORS: { key: TeeColor; label: string; color: string }[] = [
 export default function CoursesScreen() {
   const router = useRouter();
   const { courses, addCourse, deleteCourse } = useCourseStore();
+  const rounds = useRoundStore((s) => s.rounds.filter((r) => r.isComplete && r.totalScore > 0));
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
@@ -90,6 +92,21 @@ export default function CoursesScreen() {
             const filledHoles = course.holes.filter((h) => Object.keys(h.yardages).length > 0).length;
             const totalPar = course.holes.reduce((s, h) => s + h.par, 0);
             const defTee = TEE_COLORS.find((t) => t.key === course.defaultTee);
+
+            // Cross-reference rounds played at this course
+            const courseRounds = rounds.filter(
+              (r) => r.courseId === course.id || r.courseName === course.name
+            );
+            const avgScore = courseRounds.length > 0
+              ? courseRounds.reduce((s, r) => s + r.totalScore, 0) / courseRounds.length
+              : null;
+            const bestScore = courseRounds.length > 0
+              ? Math.min(...courseRounds.map((r) => r.totalScore))
+              : null;
+            const avgGir = courseRounds.length > 0
+              ? Math.round(courseRounds.reduce((s, r) => s + r.greensInRegulation, 0) / courseRounds.length)
+              : null;
+
             return (
               <TouchableOpacity
                 key={course.id}
@@ -122,6 +139,30 @@ export default function CoursesScreen() {
                       accent={filledHoles === 18 ? Colors.success : undefined}
                     />
                   </View>
+
+                  {courseRounds.length > 0 && (
+                    <View style={styles.perfRow}>
+                      <View style={styles.perfItem}>
+                        <Text style={styles.perfValue}>{courseRounds.length}</Text>
+                        <Text style={styles.perfLabel}>Rounds</Text>
+                      </View>
+                      <View style={styles.perfDivider} />
+                      <View style={styles.perfItem}>
+                        <Text style={styles.perfValue}>{avgScore!.toFixed(1)}</Text>
+                        <Text style={styles.perfLabel}>Avg Score</Text>
+                      </View>
+                      <View style={styles.perfDivider} />
+                      <View style={styles.perfItem}>
+                        <Text style={[styles.perfValue, { color: Colors.accent }]}>{bestScore}</Text>
+                        <Text style={styles.perfLabel}>Best</Text>
+                      </View>
+                      <View style={styles.perfDivider} />
+                      <View style={styles.perfItem}>
+                        <Text style={styles.perfValue}>{avgGir}/18</Text>
+                        <Text style={styles.perfLabel}>Avg GIR</Text>
+                      </View>
+                    </View>
+                  )}
 
                   <View style={styles.cardFooter}>
                     <View style={[styles.teePill, { borderColor: defTee?.color ?? Colors.border }]}>
@@ -303,6 +344,20 @@ const styles = StyleSheet.create({
   courseCity: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
   deleteText: { fontSize: FontSize.base, color: Colors.textLight, fontWeight: '600' },
   cardStats: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  perfRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    borderRadius: Radius.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  perfItem: { flex: 1, alignItems: 'center' },
+  perfValue: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text },
+  perfLabel: { fontSize: 9, color: Colors.textLight, marginTop: 1, fontWeight: '600', letterSpacing: 0.3 },
+  perfDivider: { width: 1, height: 28, backgroundColor: Colors.border },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   teePill: {
     flexDirection: 'row',

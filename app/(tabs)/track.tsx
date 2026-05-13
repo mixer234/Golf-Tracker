@@ -9,6 +9,7 @@ import {
   TextInput,
   Modal,
   Alert,
+  Share,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -24,6 +25,40 @@ const TEE_COLORS: { key: TeeColor; label: string; color: string }[] = [
   { key: 'red',   label: 'Red',   color: '#ef4444' },
   { key: 'gold',  label: 'Gold',  color: '#d4af37' },
 ];
+
+function formatShareText(r: Round): string {
+  const date = new Date(r.date).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+  const stp = r.scoreToPar;
+  const parStr = stp === 0 ? 'Even par' : stp < 0 ? `${Math.abs(stp)} under par` : `${stp} over par`;
+  const lines = [
+    `⛳ ${r.courseName}`,
+    `📅 ${date}`,
+    ``,
+    `Score: ${r.totalScore} (${parStr})`,
+    `GIR: ${r.greensInRegulation}/18`,
+  ];
+  if (r.fairwaysTotal > 0) {
+    const pct = Math.round((r.fairwaysHit / r.fairwaysTotal) * 100);
+    lines.push(`Fairways: ${r.fairwaysHit}/${r.fairwaysTotal} (${pct}%)`);
+  }
+  lines.push(`Putts: ${r.totalPutts}`);
+  if (r.upAndDownAttempts > 0) {
+    const pct = Math.round((r.upAndDowns / r.upAndDownAttempts) * 100);
+    lines.push(`Scrambling: ${pct}% (${r.upAndDowns}/${r.upAndDownAttempts})`);
+  }
+  if (r.scoreDifferential !== undefined) {
+    lines.push(`Differential: ${r.scoreDifferential > 0 ? '+' : ''}${r.scoreDifferential.toFixed(1)}`);
+  }
+  if (r.sgTotal !== undefined) {
+    lines.push(`SG Total: ${r.sgTotal > 0 ? '+' : ''}${r.sgTotal.toFixed(1)}`);
+  }
+  if (r.notes) {
+    lines.push(``, `Notes: ${r.notes}`);
+  }
+  return lines.join('\n');
+}
 
 function buildRoundSummary(r: Round): { headline: string; highlights: string[] } {
   const stp = r.scoreToPar;
@@ -296,6 +331,13 @@ export default function TrackScreen() {
                       ) : null}
                     </View>
                     <View style={styles.historyScores}>
+                      <TouchableOpacity
+                        onPress={() => Share.share({ message: formatShareText(round) })}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.shareBtn}
+                      >
+                        <Text style={styles.shareIcon}>↑</Text>
+                      </TouchableOpacity>
                       <Text style={styles.historyTotal}>{round.totalScore}</Text>
                       <Text style={[
                         styles.historyPar,
@@ -1258,9 +1300,20 @@ const styles = StyleSheet.create({
   historyStats: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2 },
   historyDiff: { fontSize: FontSize.xs, color: Colors.accent, marginTop: 2, fontWeight: '600' },
   historyNotes: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2, fontStyle: 'italic' },
-  historyScores: { alignItems: 'flex-end' },
+  historyScores: { alignItems: 'flex-end', gap: 4 },
   historyTotal: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
   historyPar: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
+  shareBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareIcon: { fontSize: 14, color: Colors.primary, fontWeight: '700' },
   modal: { flex: 1, backgroundColor: Colors.background },
   modalHeader: {
     flexDirection: 'row',

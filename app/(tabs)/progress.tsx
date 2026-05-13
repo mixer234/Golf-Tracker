@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useRoundStore } from '../../store/useRoundStore';
 import { useUserStore } from '../../store/useUserStore';
-import { Round } from '../../types';
+import { Round, MissDirection } from '../../types';
 import { formatHandicap } from '../../components/HandicapDial';
 import { calcHandicapIndex } from '../../utils/whs';
 import { calcSGAverages, SGAverages } from '../../utils/strokesGained';
@@ -253,6 +253,14 @@ export default function ProgressScreen() {
                 </View>
               </View>
             )}
+
+            {/* Handicap History */}
+            {differentials.length >= 4 && (
+              <HandicapHistoryChart rounds={completed} />
+            )}
+
+            {/* Miss Pattern Heatmap */}
+            <MissHeatmap rounds={completed} />
 
             {/* Key Stats */}
             <View style={styles.section}>
@@ -699,6 +707,207 @@ const rowStyles = StyleSheet.create({
   label: { fontSize: FontSize.base, color: Colors.textSecondary },
   value: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text },
 });
+
+// ─── Handicap History Chart ──────────────────────────────────────────────────
+
+function HandicapHistoryChart({ rounds }: { rounds: Round[] }) {
+  // rounds newest-first; reverse for chronological rolling calc
+  const withDiffs = [...rounds].reverse().filter((r) => r.scoreDifferential !== undefined);
+  if (withDiffs.length < 4) return null;
+
+  const points: { label: string; hcp: number }[] = [];
+  for (let i = 0; i < withDiffs.length; i++) {
+    // WHS expects newest-first slice
+    const diffs = withDiffs.slice(0, i + 1).reverse().map((r) => r.scoreDifferential as number);
+    const hcp = calcHandicapIndex(diffs);
+    if (hcp !== null) {
+      points.push({
+        label: new Date(withDiffs[i].date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
+        hcp,
+      });
+    }
+  }
+  if (points.length < 2) return null;
+
+  const hcps = points.map((p) => p.hcp);
+  const minH = Math.min(...hcps);
+  const maxH = Math.max(...hcps);
+  const range = Math.max(maxH - minH, 1);
+  const chartH = 90;
+
+  const first = points[0].hcp;
+  const last = points[points.length - 1].hcp;
+  const improved = last < first;
+  const delta = Math.abs(last - first).toFixed(1);
+  const labelEvery = Math.max(1, Math.floor(points.length / 5));
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionRow}>
+        <Text style={styles.sectionTitle}>Handicap History</Text>
+        <Text style={[hcpHStyles.delta, { color: improved ? Colors.success : Colors.error }]}>
+          {improved ? '↓' : '↑'} {delta}
+        </Text>
+      </View>
+      <View style={styles.chartCard}>
+        <View style={hcpHStyles.chart}>
+          {points.map((p, i) => {
+            const barH = ((maxH - p.hcp) / range) * chartH;
+            const isBest = p.hcp === minH;
+            const isLast = i === points.length - 1;
+            const color = isBest ? Colors.accent : isLast ? Colors.primary : Colors.primaryMid + '88';
+            return (
+              <View key={i} style={hcpHStyles.col}>
+                {(i === 0 || isLast || isBest) ? (
+                  <Text style={hcpHStyles.valLabel}>{p.hcp.toFixed(1)}</Text>
+                ) : (
+                  <View style={{ height: 14 }} />
+                )}
+                <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+                  <View style={[hcpHStyles.bar, { height: Math.max(6, barH), backgroundColor: color }]} />
+                </View>
+                {i % labelEvery === 0 ? (
+                  <Text style={hcpHStyles.dateLabel}>{p.label}</Text>
+                ) : (
+                  <View style={{ height: 11 }} />
+                )}
+              </View>
+            );
+          })}
+        </View>
+        <Text style={hcpHStyles.note}>
+          {improved ? 'Improved' : 'Increased'} {delta} strokes since {points[0].label}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const hcpHStyles = StyleSheet.create({
+  chart: { flexDirection: 'row', height: 130, gap: 3, alignItems: 'flex-end' },
+  col: { flex: 1, alignItems: 'center', height: '100%', gap: 0 },
+  bar: { width: '80%', borderRadius: 3 },
+  valLabel: { fontSize: 8, fontWeight: '700', color: Colors.text, textAlign: 'center' },
+  dateLabel: { fontSize: 8, color: Colors.textLight, textAlign: 'center' },
+  delta: { fontSize: FontSize.sm, fontWeight: '700' },
+  note: { fontSize: FontSize.xs, color: Colors.textLight, textAlign: 'center', marginTop: Spacing.sm },
+});
+
+// ─── Miss Direction Heatmap ──────────────────────────────────────────────────
+
+const MISS_GRID: MissDirection[][] = [
+  ['long-left', 'long', 'long-right'],
+  ['left', 'center', 'right'],
+  ['short-left', 'short', 'short-right'],
+];
+
+const MISS_LABEL: Record<MissDirection, string> = {
+  'long-left': 'Long\nLeft', 'long': 'Long', 'long-right': 'Long\nRight',
+  'left': 'Left', 'center': 'Center', 'right': 'Right',
+  'short-left': 'Short\nLeft', 'short': 'Short', 'short-right': 'Short\nRight',
+};
+
+function MissHeatmap({ rounds }: { rounds: Round[] }) {
+  const allMisses = rounds
+    .flatMap((r) => r.holes.map((h) => h.missDirection))
+    .filter((m): m is MissDirection => !!m);
+  if (allMisses.length < 5) return null;
+
+  const counts = {} as Record<MissDirection, number>;
+  (['long-left','long','long-right','left','center','right','short-left','short','short-right'] as MissDirection[])
+    .forEach((d) => (counts[d] = 0));
+  allMisses.forEach((m) => counts[m]++);
+  const missCounts = Object.entries(counts).filter(([k]) => k !== 'center').map(([, v]) => v);
+  const maxCount = Math.max(...missCounts, 1);
+
+  const topMiss = (Object.entries(counts) as [MissDirection, number][])
+    .filter(([k]) => k !== 'center')
+    .sort((a, b) => b[1] - a[1])[0];
+  const topPct = topMiss ? Math.round((topMiss[1] / allMisses.length) * 100) : 0;
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionDot} />
+        <Text style={styles.sectionTitle}>Miss Pattern</Text>
+      </View>
+      <View style={missStyles.card}>
+        <Text style={missStyles.note}>{allMisses.length} misses tracked · {rounds.length} rounds</Text>
+        {MISS_GRID.map((row, ri) => (
+          <View key={ri} style={missStyles.row}>
+            {row.map((dir) => {
+              const count = counts[dir];
+              const isCenter = dir === 'center';
+              const intensity = isCenter ? 0 : count / maxCount;
+              const bg = isCenter
+                ? Colors.primaryPale
+                : `rgba(239,68,68,${Math.max(0.05, intensity * 0.75)})`;
+              const textColor = intensity > 0.5 ? '#fff' : isCenter ? Colors.success : Colors.textSecondary;
+              return (
+                <View key={dir} style={[missStyles.cell, { backgroundColor: bg }, isCenter && missStyles.cellCenter]}>
+                  <Text style={[missStyles.cellCount, { color: count > 0 ? textColor : Colors.textLight }]}>
+                    {count > 0 ? count : '—'}
+                  </Text>
+                  <Text style={[missStyles.cellDir, { color: isCenter ? Colors.success : Colors.textLight }]}>
+                    {MISS_LABEL[dir]}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        ))}
+        {topMiss && topMiss[1] > 0 && (
+          <View style={missStyles.insightRow}>
+            <Text style={missStyles.insightLabel}>Most common miss:</Text>
+            <Text style={missStyles.insightValue}>
+              {topMiss[0].replace('-', ' ')} · {topMiss[1]}× ({topPct}%)
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const missStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 6,
+    ...Shadow.sm,
+  },
+  note: { fontSize: FontSize.xs, color: Colors.textLight, marginBottom: 4 },
+  row: { flexDirection: 'row', gap: 6 },
+  cell: {
+    flex: 1,
+    borderRadius: Radius.sm,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  cellCenter: { borderColor: Colors.primary + '60' },
+  cellCount: { fontSize: FontSize.md, fontWeight: '800' },
+  cellDir: { fontSize: 9, textAlign: 'center', lineHeight: 12 },
+  insightRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: Spacing.sm,
+    marginTop: 2,
+  },
+  insightLabel: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  insightValue: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.error },
+});
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
