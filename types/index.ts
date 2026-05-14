@@ -212,3 +212,28 @@ export interface Course {
   holes: CourseHole[];
   createdAt: string;
 }
+
+// ─── Swing Vault ─────────────────────────────────────────────────────────────
+
+export type SwingClub =
+  | 'driver'
+  | 'fairway_wood'
+  | 'hybrid'
+  | 'long_iron'
+  | 'mid_iron'
+  | 'short_iron'
+  | 'wedge'
+  | 'chipper'
+  | 'putter';
+
+export interface SwingVideo {
+  id: string;
+  title: string;
+  uri: string;
+  thumbnailUri?: string;
+  durationSeconds: number;
+  club: SwingClub;
+  date: string;
+  notes?: string;
+  slowMo: boolean;
+}

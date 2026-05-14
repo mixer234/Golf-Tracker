@@ -15,6 +15,7 @@ export default function RootLayout() {
         <Stack.Screen name="courses" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="course-editor" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="coach" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="vault" options={{ animation: 'slide_from_bottom', headerShown: false }} />
       </Stack>
     </GestureHandlerRootView>
   );

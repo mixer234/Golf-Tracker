@@ -46,6 +46,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="vault"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} label="Vault" emoji="🎥" />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="progress"
         options={{
           tabBarIcon: ({ focused }) => (
