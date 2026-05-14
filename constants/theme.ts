@@ -19,6 +19,8 @@ export const Colors = {
   warning: '#fbbf24',
   info: '#60a5fa',
   overlay: 'rgba(0,0,0,0.75)',
+  heroGradientTop: '#1a3d20',
+  heroGradientMid: '#0d2010',
 };
 
 export const Spacing = {

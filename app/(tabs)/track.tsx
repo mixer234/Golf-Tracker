@@ -226,7 +226,7 @@ export default function TrackScreen() {
                 <View style={styles.summaryHeader}>
                   <View>
                     <Text style={styles.summaryOverline}>ROUND COMPLETE</Text>
-                    <Text style={styles.summaryCourse}>{lastCompletedRound.courseName}</Text>
+                    <Text style={styles.summaryCourse} numberOfLines={1}>{lastCompletedRound.courseName}</Text>
                   </View>
                   <TouchableOpacity onPress={clearLastCompleted} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Text style={styles.summaryClose}>✕</Text>
@@ -331,7 +331,7 @@ export default function TrackScreen() {
                 return (
                   <View key={round.id} style={styles.historyRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.historyCourse}>{round.courseName}</Text>
+                      <Text style={styles.historyCourse} numberOfLines={1}>{round.courseName}</Text>
                       <Text style={styles.historyDate}>
                         {new Date(round.date).toLocaleDateString('en-US', {
                           weekday: 'short', month: 'short', day: 'numeric',
@@ -1132,7 +1132,7 @@ function HoleInputCard({
         <Counter
           value={hole.strokes}
           onDecrement={() => onUpdate({ strokes: Math.max(0, hole.strokes - 1) })}
-          onIncrement={() => onUpdate({ strokes: hole.strokes + 1 })}
+          onIncrement={() => onUpdate({ strokes: Math.min(20, hole.strokes + 1) })}
         />
       </View>
 
@@ -1142,7 +1142,7 @@ function HoleInputCard({
         <Counter
           value={hole.putts}
           onDecrement={() => onUpdate({ putts: Math.max(0, hole.putts - 1) })}
-          onIncrement={() => onUpdate({ putts: hole.putts + 1 })}
+          onIncrement={() => onUpdate({ putts: Math.min(hole.strokes > 0 ? hole.strokes : 20, hole.putts + 1) })}
           formatVal={(v) => String(v)}
         />
       </View>
@@ -1153,7 +1153,7 @@ function HoleInputCard({
         <Counter
           value={hole.penaltyStrokes ?? 0}
           onDecrement={() => onUpdate({ penaltyStrokes: Math.max(0, (hole.penaltyStrokes ?? 0) - 1) })}
-          onIncrement={() => onUpdate({ penaltyStrokes: (hole.penaltyStrokes ?? 0) + 1 })}
+          onIncrement={() => onUpdate({ penaltyStrokes: Math.min(10, (hole.penaltyStrokes ?? 0) + 1) })}
           formatVal={(v) => String(v)}
         />
       </View>
@@ -1210,7 +1210,7 @@ function HoleInputCard({
             unit=" yds"
             step={5}
             onDecrement={() => onUpdate({ approachDistanceYards: Math.max(5, (hole.approachDistanceYards ?? 5) - 5) })}
-            onIncrement={() => onUpdate({ approachDistanceYards: (hole.approachDistanceYards ?? 0) + 5 })}
+            onIncrement={() => onUpdate({ approachDistanceYards: Math.min(600, (hole.approachDistanceYards ?? 0) + 5) })}
           />
 
           {hole.approachDistanceYards && hole.approachDistanceYards > 0 && (

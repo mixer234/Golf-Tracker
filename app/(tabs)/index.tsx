@@ -160,7 +160,7 @@ function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: R
 
   return (
     <LinearGradient
-      colors={['#1a3d20', '#0d2010', Colors.background]}
+      colors={[Colors.heroGradientTop, Colors.heroGradientMid, Colors.background]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1.2 }}
       style={heroStyles.card}
@@ -1017,7 +1017,7 @@ const pillStyles = StyleSheet.create({
 // Main screen layout
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
+  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 100 },
   header: { marginBottom: Spacing.md },
   greeting: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.text },
   greetingName: { fontWeight: '800' },

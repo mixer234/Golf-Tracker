@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
     marginTop: 2,
   },
-  scroll: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
+  scroll: { padding: Spacing.lg, paddingBottom: 100 },
   dayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -110,5 +110,7 @@ export async function sendCoachMessage(
   }
 
   const data = await response.json();
-  return data.content?.[0]?.text ?? '';
+  const reply = data.content?.[0]?.text ?? '';
+  if (!reply) throw new Error('No response received from AI.');
+  return reply;
 }

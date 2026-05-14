@@ -12,6 +12,7 @@ import {
   Animated,
   Dimensions,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -333,6 +334,10 @@ export default function RecordScreen() {
 
       {/* ── Save overlay ── */}
       <Modal visible={showSave} transparent animationType="slide">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <View style={saveStyles.overlay}>
           <View style={saveStyles.sheet}>
             <Text style={saveStyles.heading}>Save Swing</Text>
@@ -346,6 +351,7 @@ export default function RecordScreen() {
               placeholderTextColor={Colors.textLight}
               autoFocus
               returnKeyType="done"
+              maxLength={60}
             />
 
             <Text style={[saveStyles.label, { marginTop: Spacing.md }]}>Club</Text>
@@ -381,6 +387,7 @@ export default function RecordScreen() {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

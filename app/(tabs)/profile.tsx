@@ -98,8 +98,8 @@ export default function ProfileScreen() {
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{profile.name.charAt(0).toUpperCase()}</Text>
           </View>
-          <View>
-            <Text style={styles.userName}>{profile.name}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.userName} numberOfLines={1}>{profile.name}</Text>
             <Text style={styles.userSince}>
               Member since{' '}
               {new Date(profile.createdAt).toLocaleDateString('en-US', {
@@ -281,7 +281,7 @@ const infoStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { padding: Spacing.lg },
+  scroll: { padding: Spacing.lg, paddingBottom: 100 },
   title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.lg },
   userCard: {
     flexDirection: 'row',

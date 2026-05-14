@@ -29,11 +29,18 @@ export default function CoachScreen() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (messages.length > 0) {
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+      scrollTimerRef.current = setTimeout(
+        () => scrollRef.current?.scrollToEnd({ animated: true }),
+        100,
+      );
     }
+    return () => {
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    };
   }, [messages.length]);
 
   async function handleSend(text?: string) {

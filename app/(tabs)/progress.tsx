@@ -911,7 +911,7 @@ const missStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
+  scroll: { padding: Spacing.lg, paddingBottom: 100 },
   title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.lg },
   empty: { alignItems: 'center', paddingTop: Spacing.xxl, gap: Spacing.md },
   emptyEmoji: { fontSize: 64 },

@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     gap: CARD_GAP,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xxl,
+    paddingBottom: 100,
   },
   // Card
   card: {
