@@ -365,6 +365,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const rounds = useRoundStore((s) => s.rounds);
+  const currentRound = useRoundStore((s) => s.currentRound);
   const { currentPlan, isGenerating, generationError, setPlan, setGenerating, setGenerationError } =
     usePracticeStore();
 
@@ -404,6 +405,21 @@ export default function DashboardScreen() {
           </Text>
           <Text style={styles.date}>{formatHeaderDate()}</Text>
         </View>
+
+        {/* ── Resume Round Banner ───────────────────────── */}
+        {currentRound && (
+          <TouchableOpacity
+            style={styles.resumeBanner}
+            onPress={() => router.push('/(tabs)/track')}
+            activeOpacity={0.85}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.resumeTitle}>Round in progress</Text>
+              <Text style={styles.resumeSub} numberOfLines={1}>{currentRound.courseName}</Text>
+            </View>
+            <Text style={styles.resumeArrow}>Resume →</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Handicap Hero ─────────────────────────────── */}
         <HandicapHeroCard profile={profile} rounds={rounds} />
@@ -553,7 +569,7 @@ export default function DashboardScreen() {
               </Text>
             </View>
           ) : (
-            rounds.slice(0, 2).map((round) => <RoundRow key={round.id} round={round} />)
+            rounds.slice(0, 3).map((round) => <RoundRow key={round.id} round={round} />)
           )}
         </View>
 
@@ -1128,4 +1144,17 @@ const styles = StyleSheet.create({
   },
   genBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
   errorText: { color: Colors.error, textAlign: 'center', marginBottom: Spacing.md, fontSize: FontSize.sm },
+  resumeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.warning + '22',
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1.5,
+    borderColor: Colors.warning,
+  },
+  resumeTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.warning },
+  resumeSub: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
+  resumeArrow: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.warning },
 });

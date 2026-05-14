@@ -55,11 +55,13 @@ export default function RecordScreen() {
   const [elapsed,         setElapsed]        = useState(0);
   const [slowMo,          setSlowMo]         = useState(false);
   const [gridOn,          setGridOn]         = useState(false);
+  const [torchOn,         setTorchOn]        = useState(false);
   const [showSave,        setShowSave]       = useState(false);
   const [pendingUri,      setPendingUri]     = useState<string | null>(null);
   const [pendingDuration, setPendingDuration]= useState(0);
   const [saveTitle,       setSaveTitle]      = useState('My Swing');
   const [saveClub,        setSaveClub]       = useState<SwingClub>('driver');
+  const [saveNotes,       setSaveNotes]      = useState('');
   const [saving,          setSaving]         = useState(false);
 
   const cameraRef     = useRef<CameraView>(null);
@@ -182,6 +184,7 @@ export default function RecordScreen() {
         durationSeconds: pendingDuration,
         club: saveClub,
         slowMo,
+        notes: saveNotes.trim() || undefined,
       });
       router.back();
     } catch {
@@ -233,6 +236,7 @@ export default function RecordScreen() {
         style={StyleSheet.absoluteFill}
         facing={facing}
         mode="video"
+        enableTorch={torchOn}
       />
 
       {/* Rule-of-thirds grid overlay */}
@@ -277,13 +281,22 @@ export default function RecordScreen() {
           </View>
         )}
 
-        <TouchableOpacity
-          style={[styles.topBtn, isRecording && styles.topBtnDisabled]}
-          onPress={() => !isRecording && setFacing((f) => (f === 'back' ? 'front' : 'back'))}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={[styles.topBtnText, isRecording && { opacity: 0.4 }]}>🔄</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+          <TouchableOpacity
+            style={[styles.topBtn, torchOn && styles.topBtnActive]}
+            onPress={() => setTorchOn((v) => !v)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.topBtnText}>{torchOn ? '🔦' : '💡'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.topBtn, isRecording && styles.topBtnDisabled]}
+            onPress={() => !isRecording && setFacing((f) => (f === 'back' ? 'front' : 'back'))}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={[styles.topBtnText, isRecording && { opacity: 0.4 }]}>🔄</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
 
       {/* Bottom controls */}
@@ -372,6 +385,19 @@ export default function RecordScreen() {
               </View>
             </ScrollView>
 
+            <Text style={[saveStyles.label, { marginTop: Spacing.md }]}>Notes (optional)</Text>
+            <TextInput
+              style={[saveStyles.input, saveStyles.notesInput]}
+              value={saveNotes}
+              onChangeText={setSaveNotes}
+              placeholder="e.g. Keep left arm straight, follow-through high…"
+              placeholderTextColor={Colors.textLight}
+              multiline
+              numberOfLines={3}
+              maxLength={300}
+              returnKeyType="done"
+            />
+
             <View style={saveStyles.actions}>
               <TouchableOpacity style={saveStyles.discardBtn} onPress={handleDiscard}>
                 <Text style={saveStyles.discardText}>Discard</Text>
@@ -411,6 +437,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   topBtnDisabled: { opacity: 0.5 },
+  topBtnActive: { backgroundColor: 'rgba(251,191,36,0.35)', borderWidth: 1.5, borderColor: Colors.warning },
   topBtnText: { fontSize: 20 },
   timerBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -483,6 +510,7 @@ const saveStyles = StyleSheet.create({
     paddingHorizontal: Spacing.md, paddingVertical: 12,
     fontSize: FontSize.md, color: Colors.text,
   },
+  notesInput: { minHeight: 72, textAlignVertical: 'top', paddingTop: 10 },
   clubRow: { flexDirection: 'row', gap: 8 },
   clubChip: {
     paddingHorizontal: 14, paddingVertical: 8,

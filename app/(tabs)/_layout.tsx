@@ -1,18 +1,44 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/theme';
+import { usePracticeStore } from '../../store/usePracticeStore';
+import { useRoundStore } from '../../store/useRoundStore';
 
-function TabIcon({ focused, label, emoji }: { focused: boolean; label: string; emoji: string }) {
+function TabIcon({
+  focused,
+  label,
+  emoji,
+  badge,
+}: {
+  focused: boolean;
+  label: string;
+  emoji: string;
+  badge?: boolean;
+}) {
   return (
     <View style={styles.tabItem}>
       <View style={[styles.indicator, focused && styles.indicatorActive]} />
-      <Text style={[styles.emoji, focused && styles.emojiActive]}>{emoji}</Text>
+      <View style={styles.emojiWrap}>
+        <Text style={[styles.emoji, focused && styles.emojiActive]}>{emoji}</Text>
+        {badge && <View style={styles.badge} />}
+      </View>
       <Text style={[styles.label, focused && styles.labelActive]}>{label}</Text>
     </View>
   );
 }
 
 export default function TabLayout() {
+  const currentPlan = usePracticeStore((s) => s.currentPlan);
+  const currentRound = useRoundStore((s) => s.currentRound);
+
+  // Show badge on Practice tab when a plan exists with incomplete drills
+  const hasPracticeBadge = !!currentPlan && currentPlan.days.some(
+    (d) => d.drills.length > d.completedDrillIds.length
+  );
+
+  // Show badge on Round tab when a round is in progress
+  const hasRoundBadge = !!currentRound;
+
   return (
     <Tabs
       screenOptions={{
@@ -33,7 +59,7 @@ export default function TabLayout() {
         name="practice"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} label="Practice" emoji="🎯" />
+            <TabIcon focused={focused} label="Practice" emoji="🎯" badge={hasPracticeBadge} />
           ),
         }}
       />
@@ -41,7 +67,7 @@ export default function TabLayout() {
         name="track"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} label="Round" emoji="⛳" />
+            <TabIcon focused={focused} label="Round" emoji="⛳" badge={hasRoundBadge} />
           ),
         }}
       />
@@ -100,11 +126,25 @@ const styles = StyleSheet.create({
   indicatorActive: {
     backgroundColor: Colors.primary,
   },
+  emojiWrap: {
+    position: 'relative',
+  },
   emoji: {
     fontSize: 20,
   },
   emojiActive: {
     fontSize: 24,
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.primary,
+    borderWidth: 1.5,
+    borderColor: Colors.surface,
   },
   label: {
     fontSize: 10,

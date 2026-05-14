@@ -120,10 +120,27 @@ export default function PracticeScreen() {
       );
       return;
     }
+
+    if (currentPlan) {
+      const hasProgress = currentPlan.days.some((d) => d.completedDrillIds.length > 0);
+      const message = hasProgress
+        ? 'You have drill progress this week. Regenerating will erase that progress. Continue?'
+        : 'This will replace your current practice plan. Continue?';
+      Alert.alert('Regenerate Plan?', message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Regenerate', style: 'destructive', onPress: doGenerate },
+      ]);
+      return;
+    }
+
+    doGenerate();
+  }
+
+  async function doGenerate() {
     setGenerating(true);
     setGenerationError(null);
     try {
-      const plan = await generatePracticePlan(profile, rounds, profile.apiKey);
+      const plan = await generatePracticePlan(profile!, rounds, profile!.apiKey!);
       setPlan(plan);
     } catch (err: any) {
       setGenerationError(err.message ?? 'Failed to generate plan');

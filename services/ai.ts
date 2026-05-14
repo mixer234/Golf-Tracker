@@ -3,6 +3,19 @@ import { UserProfile, Round, PracticePlan, DayOfWeek, WeaknessArea } from '../ty
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-4-6';
 
+function formatFacilities(facilities: string[]): string {
+  const labels: Record<string, string> = {
+    driving_range: 'Driving Range',
+    putting_green: 'Putting Green',
+    chipping_area: 'Chipping Area',
+    full_course: 'Full Course Access',
+    simulator: 'Golf Simulator',
+    home_net: 'Home Net / Backyard',
+  };
+  if (!facilities || facilities.length === 0) return 'Driving Range (assumed)';
+  return facilities.map((f) => labels[f] ?? f).join(', ');
+}
+
 function formatWeaknesses(weaknesses: WeaknessArea[]): string {
   const labels: Record<WeaknessArea, string> = {
     driving: 'Driver / Tee Shots',
@@ -64,7 +77,10 @@ PLAYER PROFILE:
 - Weaknesses: ${formatWeaknesses(profile.weaknesses)}
 - Goals: ${profile.goals.join(', ')}
 - Practice time available: ${hoursPerWeek} hours/week
+- Available facilities: ${formatFacilities(profile.facilities ?? [])}
 ${profile.ballSpeed ? `- Ball Speed: ${profile.ballSpeed} mph` : ''}
+
+IMPORTANT: Only generate drills that can be performed at the player's available facilities. Do not prescribe driving range drills if the player only has a putting green, etc.
 
 RECENT PERFORMANCE (last 5 rounds):
 ${formatRecentRounds(rounds)}
