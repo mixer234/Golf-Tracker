@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,10 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useUserStore } from '../../store/useUserStore';
 import { useRoundStore } from '../../store/useRoundStore';
@@ -16,8 +19,13 @@ import { usePracticeStore } from '../../store/usePracticeStore';
 import { generatePracticePlan } from '../../services/ai';
 import { Drill, DayOfWeek, ClubEntry } from '../../types';
 import { DEFAULT_BAG } from '../../store/useUserStore';
+import { useRouter } from 'expo-router';
+import { haptics } from '../../utils/haptics';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const REST_DURATION = 30;
+const RING_SIZE = 200;
+const RING_STROKE = 10;
 
 function todayIndex(): number {
   const day = new Date().getDay();
@@ -25,12 +33,87 @@ function todayIndex(): number {
 }
 
 function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
+  const m = Math.floor(Math.abs(seconds) / 60);
+  const s = Math.abs(seconds) % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+// ── SVG Progress Ring ─────────────────────────────────────────────────────────
+
+function ProgressRing({
+  progress,
+  size,
+  strokeWidth,
+  color,
+  children,
+}: {
+  progress: number; // 0 → 1
+  size: number;
+  strokeWidth: number;
+  color: string;
+  children?: React.ReactNode;
+}) {
+  const r = (size - strokeWidth) / 2;
+  const circ = 2 * Math.PI * r;
+  const strokeDashoffset = circ * (1 - Math.max(0, Math.min(1, progress)));
+  const center = size / 2;
+
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        {/* Track */}
+        <Circle
+          cx={center}
+          cy={center}
+          r={r}
+          stroke={Colors.border}
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        {/* Progress arc — starts at 12 o'clock */}
+        <Circle
+          cx={center}
+          cy={center}
+          r={r}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circ}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          rotation={-90}
+          origin={`${center}, ${center}`}
+        />
+      </Svg>
+      {children}
+    </View>
+  );
+}
+
+// ── Animated celebration checkmark ────────────────────────────────────────────
+
+function CelebrationCheck({ onReady }: { onReady: () => void }) {
+  const scale = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, friction: 5, tension: 60, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+    ]).start(() => onReady());
+  }, []);
+
+  return (
+    <Animated.View style={[celebStyles.checkWrap, { transform: [{ scale }], opacity }]}>
+      <Text style={celebStyles.checkEmoji}>✅</Text>
+    </Animated.View>
+  );
+}
+
+// ── Main screen ───────────────────────────────────────────────────────────────
+
 export default function PracticeScreen() {
+  const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const updateClub = useUserStore((s) => s.updateClub);
   const rounds = useRoundStore((s) => s.rounds);
@@ -41,72 +124,257 @@ export default function PracticeScreen() {
     startSession, nextDrill, endSession,
   } = usePracticeStore();
 
+  // ── Existing state ──────────────────────────────────────────────────────────
   const [selectedDayIndex, setSelectedDayIndex] = useState(todayIndex());
   const [expandedDrillId, setExpandedDrillId] = useState<string | null>(null);
   const [showBag, setShowBag] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [completedInSession, setCompletedInSession] = useState<string[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── New session state ───────────────────────────────────────────────────────
+  const [sessionPhase, setSessionPhase] = useState<'drill' | 'rest' | 'celebration'>('drill');
+  const [drillSecondsLeft, setDrillSecondsLeft] = useState(0);
+  const [restSecondsLeft, setRestSecondsLeft] = useState(REST_DURATION);
+  const [autoAdvanceCount, setAutoAdvanceCount] = useState<number | null>(null);
+  const [skippedDrillIds, setSkippedDrillIds] = useState<string[]>([]);
+
+  const drillTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const restTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Refs for values needed inside setInterval closures
+  const drillSecsRef      = useRef(0);
+  const restSecsRef       = useRef(REST_DURATION);
+  const sessionPhaseRef   = useRef<'drill' | 'rest' | 'celebration'>('drill');
+  const completedRef      = useRef<string[]>([]);
+  const skippedRef        = useRef<string[]>([]);
+  const activeDrillRef    = useRef(0);
+  const sessionDrillsRef  = useRef<Drill[]>([]);
 
   const bag: ClubEntry[] = profile?.bag ?? DEFAULT_BAG;
 
-  // Timer for active session
-  useEffect(() => {
-    if (activeSessionDay && activeSessionStartTime) {
-      timerRef.current = setInterval(() => {
-        setElapsedSeconds(Math.floor((Date.now() - activeSessionStartTime) / 1000));
-      }, 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-      setElapsedSeconds(0);
-      setCompletedInSession([]);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [activeSessionDay, activeSessionStartTime]);
-
-  // Derive session drill info
+  // ── Derive session drill info ───────────────────────────────────────────────
   const sessionDayPlan = activeSessionDay
     ? currentPlan?.days.find((d) => d.day === activeSessionDay)
     : null;
   const sessionDrills = sessionDayPlan?.drills ?? [];
   const currentSessionDrill = sessionDrills[activeDrillIndex] ?? null;
+  const nextSessionDrill = sessionDrills[activeDrillIndex + 1] ?? null;
   const isSessionActive = !!activeSessionDay && !!activeSessionStartTime;
   const isLastDrill = activeDrillIndex >= sessionDrills.length - 1;
 
-  function handleCompleteDrill() {
+  // Keep refs in sync
+  useEffect(() => { activeDrillRef.current = activeDrillIndex; }, [activeDrillIndex]);
+  useEffect(() => { sessionDrillsRef.current = sessionDrills; }, [sessionDrills]);
+  useEffect(() => { completedRef.current = completedInSession; }, [completedInSession]);
+  useEffect(() => { skippedRef.current = skippedDrillIds; }, [skippedDrillIds]);
+  useEffect(() => { sessionPhaseRef.current = sessionPhase; }, [sessionPhase]);
+
+  // ── Clear all timers ────────────────────────────────────────────────────────
+  const clearAllTimers = useCallback(() => {
+    if (drillTimerRef.current) { clearInterval(drillTimerRef.current); drillTimerRef.current = null; }
+    if (restTimerRef.current)  { clearInterval(restTimerRef.current);  restTimerRef.current = null; }
+    if (autoTimerRef.current)  { clearInterval(autoTimerRef.current);  autoTimerRef.current = null; }
+  }, []);
+
+  // ── Advance to celebration ──────────────────────────────────────────────────
+  const enterCelebration = useCallback(() => {
+    clearAllTimers();
+    setSessionPhase('celebration');
+    setAutoAdvanceCount(null);
+    haptics.success();
+    setTimeout(() => haptics.heavy(), 500);
+  }, [clearAllTimers]);
+
+  // ── Advance to next drill ───────────────────────────────────────────────────
+  const advanceToNextDrill = useCallback(() => {
+    clearAllTimers();
+    setSessionPhase('drill');
+    setRestSecondsLeft(REST_DURATION);
+    setAutoAdvanceCount(null);
+    nextDrill();
+    // drillSecondsLeft will reset in the useEffect below
+  }, [clearAllTimers, nextDrill]);
+
+  // ── Start rest period ───────────────────────────────────────────────────────
+  const enterRest = useCallback(() => {
+    clearAllTimers();
+    setSessionPhase('rest');
+    setAutoAdvanceCount(null);
+    restSecsRef.current = REST_DURATION;
+    setRestSecondsLeft(REST_DURATION);
+    haptics.light();
+
+    restTimerRef.current = setInterval(() => {
+      restSecsRef.current = Math.max(restSecsRef.current - 1, 0);
+      setRestSecondsLeft(restSecsRef.current);
+
+      if (restSecsRef.current === 0) {
+        clearInterval(restTimerRef.current!);
+        restTimerRef.current = null;
+        const drills = sessionDrillsRef.current;
+        const idx = activeDrillRef.current;
+        if (idx >= drills.length - 1) {
+          enterCelebration();
+        } else {
+          advanceToNextDrill();
+        }
+      }
+    }, 1000);
+  }, [clearAllTimers, enterCelebration, advanceToNextDrill]);
+
+  // ── Start auto-advance countdown (3→2→1→0) ─────────────────────────────────
+  const startAutoAdvance = useCallback((isLast: boolean) => {
+    let count = 3;
+    setAutoAdvanceCount(count);
+
+    autoTimerRef.current = setInterval(() => {
+      count--;
+      setAutoAdvanceCount(count);
+      if (count === 0) {
+        clearInterval(autoTimerRef.current!);
+        autoTimerRef.current = null;
+        setAutoAdvanceCount(null);
+        if (isLast) {
+          enterCelebration();
+        } else {
+          enterRest();
+        }
+      }
+    }, 1000);
+  }, [enterCelebration, enterRest]);
+
+  // ── Start drill countdown ───────────────────────────────────────────────────
+  const startDrillTimer = useCallback((seconds: number, isLast: boolean) => {
+    if (drillTimerRef.current) { clearInterval(drillTimerRef.current); drillTimerRef.current = null; }
+    drillSecsRef.current = seconds;
+    setDrillSecondsLeft(seconds);
+
+    drillTimerRef.current = setInterval(() => {
+      drillSecsRef.current = Math.max(drillSecsRef.current - 1, 0);
+      setDrillSecondsLeft(drillSecsRef.current);
+
+      const s = drillSecsRef.current;
+      if (s > 0 && s <= 10) haptics.medium();
+
+      if (s === 0) {
+        clearInterval(drillTimerRef.current!);
+        drillTimerRef.current = null;
+        haptics.success();
+        startAutoAdvance(isLast);
+      }
+    }, 1000);
+  }, [startAutoAdvance]);
+
+  // ── Session start / end lifecycle ───────────────────────────────────────────
+  useEffect(() => {
+    if (activeSessionDay && activeSessionStartTime) {
+      // Reset session state
+      setCompletedInSession([]);
+      setSkippedDrillIds([]);
+      setSessionPhase('drill');
+      setAutoAdvanceCount(null);
+
+      // Elapsed timer (for total session time stat)
+      elapsedTimerRef.current = setInterval(() => {
+        setElapsedSeconds(Math.floor((Date.now() - activeSessionStartTime!) / 1000));
+      }, 1000);
+    } else {
+      clearAllTimers();
+      if (elapsedTimerRef.current) { clearInterval(elapsedTimerRef.current); elapsedTimerRef.current = null; }
+      setElapsedSeconds(0);
+      setCompletedInSession([]);
+      setSkippedDrillIds([]);
+      setSessionPhase('drill');
+      setAutoAdvanceCount(null);
+    }
+    return () => {
+      if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+    };
+  }, [activeSessionDay, activeSessionStartTime]);
+
+  // ── Reset drill timer whenever the active drill changes ─────────────────────
+  useEffect(() => {
+    if (!isSessionActive || !currentSessionDrill || sessionPhase !== 'drill') return;
+    const isLast = activeDrillRef.current >= sessionDrillsRef.current.length - 1;
+    startDrillTimer(currentSessionDrill.duration * 60, isLast);
+    return () => {
+      if (drillTimerRef.current) { clearInterval(drillTimerRef.current); drillTimerRef.current = null; }
+    };
+  }, [isSessionActive, activeDrillIndex, sessionPhase]);
+
+  // ── Cleanup on unmount ──────────────────────────────────────────────────────
+  useEffect(() => () => clearAllTimers(), []);
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
+
+  function handleMarkDone() {
     if (!currentSessionDrill) return;
-    const updated = [...completedInSession, currentSessionDrill.id];
+    clearAllTimers();
+    const updated = [...completedRef.current, currentSessionDrill.id];
     setCompletedInSession(updated);
     if (isLastDrill) {
-      Alert.alert(
-        'Session Complete! 🎯',
-        `You nailed ${updated.length} of ${sessionDrills.length} drill${sessionDrills.length > 1 ? 's' : ''}. Great work!`,
-        [{ text: 'Done', onPress: () => endSession(updated, sessionDrills.length) }],
-      );
+      enterCelebration();
     } else {
-      nextDrill();
+      enterRest();
     }
   }
 
   function handleSkipDrill() {
+    Alert.alert('Skip this drill?', 'You can still complete it later from the plan view.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Skip',
+        style: 'destructive',
+        onPress: () => {
+          if (!currentSessionDrill) return;
+          haptics.light();
+          clearAllTimers();
+          const updatedSkipped = [...skippedRef.current, currentSessionDrill.id];
+          setSkippedDrillIds(updatedSkipped);
+          if (isLastDrill) {
+            enterCelebration();
+          } else {
+            enterRest();
+          }
+        },
+      },
+    ]);
+  }
+
+  function handleSkipRest() {
+    clearAllTimers();
     if (isLastDrill) {
-      Alert.alert(
-        'Session Finished',
-        `Completed ${completedInSession.length} of ${sessionDrills.length} drills.`,
-        [{ text: 'Done', onPress: () => endSession(completedInSession, sessionDrills.length) }],
-      );
+      enterCelebration();
     } else {
-      nextDrill();
+      advanceToNextDrill();
     }
   }
 
   function handleCancelSession() {
     Alert.alert('End Session?', 'Your progress so far will be saved.', [
       { text: 'Keep Going', style: 'cancel' },
-      { text: 'End Session', onPress: () => endSession(completedInSession, sessionDrills.length) },
+      {
+        text: 'End Session',
+        onPress: () => {
+          clearAllTimers();
+          endSession(completedRef.current, sessionDrillsRef.current.length);
+        },
+      },
     ]);
   }
 
+  function handleSessionComplete() {
+    endSession(completedRef.current, sessionDrillsRef.current.length);
+  }
+
+  function handleLogRound() {
+    endSession(completedRef.current, sessionDrillsRef.current.length);
+    router.push('/(tabs)/track');
+  }
+
+  // ── Plan generation (unchanged) ─────────────────────────────────────────────
   const planDays = currentPlan?.days ?? [];
   const selectedDayName = DAYS[selectedDayIndex];
   const dayPlan = planDays.find((d) => d.day === selectedDayName);
@@ -150,13 +418,26 @@ export default function PracticeScreen() {
     }
   }
 
+  // ── Drill countdown progress (0→1 as time elapses) ─────────────────────────
+  const totalDrillSeconds = (currentSessionDrill?.duration ?? 1) * 60;
+  const drillProgress = currentSessionDrill
+    ? Math.max(0, Math.min(1, (totalDrillSeconds - drillSecondsLeft) / totalDrillSeconds))
+    : 0;
+
+  const restProgress = Math.max(0, Math.min(1, (REST_DURATION - restSecondsLeft) / REST_DURATION));
+
+  // ── Focus area label ────────────────────────────────────────────────────────
+  const focusLabel = currentPlan?.focusAreas[0]
+    ?.replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase()) ?? 'General Practice';
+
   return (
     <SafeAreaView style={styles.container}>
 
-      {/* ── Active Session Mode ────────────────────────────────────────────── */}
-      {isSessionActive && currentSessionDrill && (
+      {/* ── SESSION: DRILL PHASE ──────────────────────────────────────────────── */}
+      {isSessionActive && sessionPhase === 'drill' && currentSessionDrill && (
         <View style={styles.sessionOverlay}>
-          {/* Session header */}
+          {/* Header */}
           <View style={styles.sessionHeader}>
             <View>
               <Text style={styles.sessionDay}>{activeSessionDay}</Text>
@@ -164,21 +445,50 @@ export default function PracticeScreen() {
                 Drill {activeDrillIndex + 1} of {sessionDrills.length}
               </Text>
             </View>
-            <View style={styles.timerBadge}>
-              <Text style={styles.timerText}>{formatTime(elapsedSeconds)}</Text>
+            <View style={styles.elapsedBadge}>
+              <Text style={styles.elapsedText}>{formatTime(elapsedSeconds)}</Text>
             </View>
           </View>
 
-          {/* Progress bar */}
+          {/* Drill progress bar */}
           <View style={styles.sessionProgressBar}>
             <View style={[styles.sessionProgressFill, {
               width: `${(activeDrillIndex / sessionDrills.length) * 100}%`,
             }]} />
           </View>
 
-          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+          {/* Countdown ring + timer */}
+          <View style={styles.ringArea}>
+            <ProgressRing
+              progress={drillProgress}
+              size={RING_SIZE}
+              strokeWidth={RING_STROKE}
+              color={drillSecondsLeft <= 10 && drillSecondsLeft > 0 ? Colors.warning : Colors.primary}
+            >
+              <View style={styles.ringInner}>
+                <Text style={[
+                  styles.countdownText,
+                  drillSecondsLeft <= 10 && drillSecondsLeft > 0 && styles.countdownWarning,
+                ]}>
+                  {formatTime(drillSecondsLeft)}
+                </Text>
+                <Text style={styles.countdownLabel}>remaining</Text>
+              </View>
+            </ProgressRing>
+
+            {/* Auto-advance overlay */}
+            {autoAdvanceCount !== null && (
+              <View style={styles.autoAdvanceBanner}>
+                <Text style={styles.autoAdvanceText}>
+                  {autoAdvanceCount > 0 ? `Next drill in ${autoAdvanceCount}…` : 'Loading next drill…'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Drill info */}
+          <ScrollView style={styles.drillScroll} showsVerticalScrollIndicator={false}>
             <View style={styles.sessionCard}>
-              {/* Drill title */}
               <View style={styles.sessionDrillHeader}>
                 <View style={[styles.diffDot, {
                   backgroundColor: currentSessionDrill.difficulty === 'beginner' ? Colors.success
@@ -189,7 +499,6 @@ export default function PracticeScreen() {
               </View>
               <Text style={styles.sessionDrillDesc}>{currentSessionDrill.description}</Text>
 
-              {/* Duration + Equipment */}
               <View style={styles.sessionMeta}>
                 <View style={styles.sessionMetaChip}>
                   <Text style={styles.sessionMetaText}>⏱ {currentSessionDrill.duration} min</Text>
@@ -201,7 +510,6 @@ export default function PracticeScreen() {
                 )}
               </View>
 
-              {/* Goal */}
               {currentSessionDrill.focusPoints.length > 0 && (
                 <View style={styles.sessionSection}>
                   <Text style={styles.sessionSectionTitle}>GOALS & FOCUS</Text>
@@ -214,7 +522,6 @@ export default function PracticeScreen() {
                 </View>
               )}
 
-              {/* Instructions */}
               <View style={styles.sessionSection}>
                 <Text style={styles.sessionSectionTitle}>INSTRUCTIONS</Text>
                 {currentSessionDrill.instructions.map((step, i) => (
@@ -231,10 +538,20 @@ export default function PracticeScreen() {
 
           {/* Actions */}
           <View style={styles.sessionActions}>
-            <TouchableOpacity style={styles.sessionSkipBtn} onPress={handleSkipDrill} activeOpacity={0.75}>
-              <Text style={styles.sessionSkipText}>{isLastDrill ? 'Finish' : 'Skip →'}</Text>
+            <TouchableOpacity
+              style={styles.sessionSkipBtn}
+              onPress={handleSkipDrill}
+              activeOpacity={0.75}
+              disabled={autoAdvanceCount !== null}
+            >
+              <Text style={styles.sessionSkipText}>Skip</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.sessionDoneBtn} onPress={handleCompleteDrill} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={[styles.sessionDoneBtn, autoAdvanceCount !== null && { opacity: 0.5 }]}
+              onPress={handleMarkDone}
+              activeOpacity={0.85}
+              disabled={autoAdvanceCount !== null}
+            >
               <Text style={styles.sessionDoneText}>
                 ✓  {isLastDrill ? 'Complete Session' : 'Done, Next Drill'}
               </Text>
@@ -246,7 +563,112 @@ export default function PracticeScreen() {
         </View>
       )}
 
-      {/* ── Normal view (hidden when session active) ──────────────────────── */}
+      {/* ── SESSION: REST PHASE ───────────────────────────────────────────────── */}
+      {isSessionActive && sessionPhase === 'rest' && (
+        <View style={styles.sessionOverlay}>
+          <View style={styles.restContainer}>
+            <Text style={styles.restHeading}>Rest</Text>
+            <Text style={styles.restSub}>Next drill in {restSecondsLeft}s</Text>
+
+            <ProgressRing
+              progress={restProgress}
+              size={RING_SIZE}
+              strokeWidth={RING_STROKE}
+              color={Colors.accent}
+            >
+              <View style={styles.ringInner}>
+                <Text style={styles.restCountdownText}>{restSecondsLeft}</Text>
+                <Text style={styles.countdownLabel}>seconds</Text>
+              </View>
+            </ProgressRing>
+
+            <TouchableOpacity style={styles.skipRestBtn} onPress={handleSkipRest} activeOpacity={0.85}>
+              <Text style={styles.skipRestText}>Skip rest →</Text>
+            </TouchableOpacity>
+
+            {nextSessionDrill && (
+              <View style={styles.nextDrillPreview}>
+                <Text style={styles.nextDrillLabel}>UP NEXT</Text>
+                <Text style={styles.nextDrillName}>{nextSessionDrill.name}</Text>
+                <Text style={styles.nextDrillDesc} numberOfLines={2}>{nextSessionDrill.description}</Text>
+                <View style={styles.nextDrillMeta}>
+                  <View style={styles.sessionMetaChip}>
+                    <Text style={styles.sessionMetaText}>⏱ {nextSessionDrill.duration} min</Text>
+                  </View>
+                  <View style={[styles.diffPill, {
+                    backgroundColor: (nextSessionDrill.difficulty === 'beginner' ? Colors.success
+                      : nextSessionDrill.difficulty === 'intermediate' ? Colors.warning
+                      : Colors.error) + '25',
+                  }]}>
+                    <Text style={[styles.diffPillText, {
+                      color: nextSessionDrill.difficulty === 'beginner' ? Colors.success
+                        : nextSessionDrill.difficulty === 'intermediate' ? Colors.warning
+                        : Colors.error,
+                    }]}>
+                      {nextSessionDrill.difficulty}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity style={styles.sessionCancelRow} onPress={handleCancelSession}>
+            <Text style={styles.sessionCancelText}>End session early</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── SESSION: CELEBRATION PHASE ────────────────────────────────────────── */}
+      {isSessionActive && sessionPhase === 'celebration' && (
+        <View style={styles.sessionOverlay}>
+          <View style={styles.celebContainer}>
+            <CelebrationCheck onReady={() => {}} />
+
+            <Text style={styles.celebHeading}>Session complete!</Text>
+            <Text style={styles.celebSub}>That's a wrap — great work on the range today.</Text>
+
+            {/* Stats */}
+            <View style={styles.celebStats}>
+              <View style={styles.celebStatBox}>
+                <Text style={styles.celebStatNum}>{completedInSession.length}</Text>
+                <Text style={styles.celebStatLabel}>Drills done</Text>
+              </View>
+              <View style={styles.celebStatDivider} />
+              <View style={styles.celebStatBox}>
+                <Text style={styles.celebStatNum}>
+                  {skippedDrillIds.length > 0 ? skippedDrillIds.length : '—'}
+                </Text>
+                <Text style={styles.celebStatLabel}>Skipped</Text>
+              </View>
+              <View style={styles.celebStatDivider} />
+              <View style={styles.celebStatBox}>
+                <Text style={styles.celebStatNum}>{Math.round(elapsedSeconds / 60)}m</Text>
+                <Text style={styles.celebStatLabel}>Total time</Text>
+              </View>
+            </View>
+
+            {currentPlan?.focusAreas[0] && (
+              <View style={styles.focusBadge}>
+                <Text style={styles.focusBadgeText}>
+                  Focus: {focusLabel}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.celebActions}>
+              <TouchableOpacity style={styles.celebPrimaryBtn} onPress={handleSessionComplete} activeOpacity={0.85}>
+                <Text style={styles.celebPrimaryText}>Back to practice</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.celebSecondaryBtn} onPress={handleLogRound} activeOpacity={0.85}>
+                <Text style={styles.celebSecondaryText}>Log a round? →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* ── Normal view (hidden when session active) ──────────────────────────── */}
       {!isSessionActive && (
         <>
       <View style={styles.header}>
@@ -434,6 +856,8 @@ export default function PracticeScreen() {
   );
 }
 
+// ── DrillCard (unchanged) ──────────────────────────────────────────────────────
+
 function DrillCard({
   drill,
   isCompleted,
@@ -455,7 +879,6 @@ function DrillCard({
 
   return (
     <View style={[drillStyles.card, isCompleted && drillStyles.cardCompleted]}>
-      {/* Difficulty left strip */}
       <View style={[drillStyles.diffStrip, { backgroundColor: difficultyColor }]} />
 
       <View style={{ flex: 1 }}>
@@ -537,6 +960,17 @@ function DrillCard({
     </View>
   );
 }
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const celebStyles = StyleSheet.create({
+  checkWrap: {
+    width: 100, height: 100,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: Spacing.lg,
+  },
+  checkEmoji: { fontSize: 80 },
+});
 
 const drillStyles = StyleSheet.create({
   card: {
@@ -796,8 +1230,20 @@ const styles = StyleSheet.create({
   bagBtnText: { fontSize: FontSize.lg, color: Colors.text, fontWeight: '300', lineHeight: 22 },
   bagYards: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, minWidth: 72, textAlign: 'center' },
   bagUnit: { fontSize: FontSize.xs, fontWeight: '400', color: Colors.textSecondary },
+  startSessionBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  startSessionText: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.background,
+  },
 
-  // ── Session mode ────────────────────────────────────────────────────────────
+  // ── Session shared ──────────────────────────────────────────────────────────
   sessionOverlay: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -810,28 +1256,20 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
   },
-  sessionDay: {
-    fontSize: FontSize.xl,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  sessionProgress: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  timerBadge: {
-    backgroundColor: Colors.primaryPale,
+  sessionDay: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
+  sessionProgress: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
+  elapsedBadge: {
+    backgroundColor: Colors.surfaceElevated,
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.primary + '40',
+    borderColor: Colors.border,
   },
-  timerText: {
-    fontSize: FontSize.lg,
-    fontWeight: '700',
-    color: Colors.primary,
+  elapsedText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   sessionProgressBar: {
@@ -847,10 +1285,43 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: Radius.full,
   },
+
+  // ── Ring area (drill phase) ─────────────────────────────────────────────────
+  ringArea: {
+    alignItems: 'center',
+    paddingVertical: Spacing.lg,
+  },
+  ringInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countdownText: {
+    fontSize: FontSize.xxxl,
+    fontWeight: '800',
+    color: Colors.text,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -1,
+  },
+  countdownWarning: { color: Colors.warning },
+  countdownLabel: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600', marginTop: 2 },
+  autoAdvanceBanner: {
+    marginTop: Spacing.md,
+    backgroundColor: Colors.primaryPale,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.primary + '50',
+  },
+  autoAdvanceText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+
+  // ── Drill scroll + card ─────────────────────────────────────────────────────
+  drillScroll: { flex: 1 },
   sessionCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
     padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -862,30 +1333,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.sm,
   },
-  diffDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    flexShrink: 0,
-  },
-  sessionDrillName: {
-    fontSize: FontSize.xl,
-    fontWeight: '800',
-    color: Colors.text,
-    flex: 1,
-  },
-  sessionDrillDesc: {
-    fontSize: FontSize.base,
-    color: Colors.textSecondary,
-    lineHeight: 22,
-    marginBottom: Spacing.md,
-  },
-  sessionMeta: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
+  diffDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+  sessionDrillName: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text, flex: 1 },
+  sessionDrillDesc: { fontSize: FontSize.base, color: Colors.textSecondary, lineHeight: 22, marginBottom: Spacing.md },
+  sessionMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.lg },
   sessionMetaChip: {
     backgroundColor: Colors.surfaceSecondary,
     borderRadius: Radius.full,
@@ -894,11 +1345,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  sessionMetaText: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    fontWeight: '600',
-  },
+  sessionMetaText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '600' },
   sessionSection: {
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
@@ -914,58 +1361,29 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: 4,
   },
-  sessionBulletRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-  },
+  sessionBulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   sessionBullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.primary,
-    marginTop: 7,
-    flexShrink: 0,
+    width: 6, height: 6, borderRadius: 3,
+    backgroundColor: Colors.primary, marginTop: 7, flexShrink: 0,
   },
-  sessionBulletText: {
-    fontSize: FontSize.sm,
-    color: Colors.text,
-    lineHeight: 22,
-    flex: 1,
-  },
-  sessionStepRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-  },
+  sessionBulletText: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 22, flex: 1 },
+  sessionStepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   sessionStepNum: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 24, height: 24, borderRadius: 12,
     backgroundColor: Colors.primaryPale,
-    borderWidth: 1,
-    borderColor: Colors.primary + '40',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    marginTop: 1,
+    borderWidth: 1, borderColor: Colors.primary + '40',
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, marginTop: 1,
   },
-  sessionStepNumText: {
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  sessionStepText: {
-    fontSize: FontSize.sm,
-    color: Colors.text,
-    lineHeight: 22,
-    flex: 1,
-  },
+  sessionStepNumText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  sessionStepText: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 22, flex: 1 },
+
+  // ── Drill actions ───────────────────────────────────────────────────────────
   sessionActions: {
     flexDirection: 'row',
     gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
+    paddingTop: Spacing.sm,
   },
   sessionSkipBtn: {
     flex: 1,
@@ -975,11 +1393,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     alignItems: 'center',
   },
-  sessionSkipText: {
-    fontSize: FontSize.base,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
+  sessionSkipText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textSecondary },
   sessionDoneBtn: {
     flex: 2,
     paddingVertical: 14,
@@ -987,31 +1401,117 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
   },
-  sessionDoneText: {
-    fontSize: FontSize.base,
-    fontWeight: '700',
-    color: Colors.background,
-  },
+  sessionDoneText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
   sessionCancelRow: {
     alignItems: 'center',
     paddingVertical: Spacing.md,
     paddingBottom: Spacing.lg,
   },
-  sessionCancelText: {
-    fontSize: FontSize.sm,
-    color: Colors.textLight,
-    textDecorationLine: 'underline',
+  sessionCancelText: { fontSize: FontSize.sm, color: Colors.textLight, textDecorationLine: 'underline' },
+
+  // ── Rest phase ──────────────────────────────────────────────────────────────
+  restContainer: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: Spacing.xxl,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.lg,
   },
-  startSessionBtn: {
+  restHeading: { fontSize: FontSize.xxxl, fontWeight: '800', color: Colors.text },
+  restSub: { fontSize: FontSize.base, color: Colors.textSecondary, marginTop: -Spacing.md },
+  restCountdownText: {
+    fontSize: FontSize.xxxl,
+    fontWeight: '800',
+    color: Colors.accent,
+    fontVariant: ['tabular-nums'],
+  },
+  skipRestBtn: {
+    backgroundColor: Colors.primaryPale,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary + '50',
+  },
+  skipRestText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.primary },
+  nextDrillPreview: {
+    width: '100%',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.xs,
+    ...Shadow.sm,
+  },
+  nextDrillLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  nextDrillName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
+  nextDrillDesc: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20 },
+  nextDrillMeta: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
+  diffPill: {
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  diffPillText: { fontSize: FontSize.xs, fontWeight: '700', textTransform: 'capitalize' },
+
+  // ── Celebration phase ───────────────────────────────────────────────────────
+  celebContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.lg,
+  },
+  celebHeading: { fontSize: FontSize.xxxl, fontWeight: '800', color: Colors.text, textAlign: 'center' },
+  celebSub: { fontSize: FontSize.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginTop: -Spacing.sm },
+  celebStats: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignSelf: 'stretch',
+    ...Shadow.sm,
+  },
+  celebStatBox: { flex: 1, alignItems: 'center', gap: 4 },
+  celebStatNum: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text },
+  celebStatLabel: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600' },
+  celebStatDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 4 },
+  focusBadge: {
+    backgroundColor: Colors.primaryPale,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.primary + '40',
+  },
+  focusBadgeText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  celebActions: {
+    alignSelf: 'stretch',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  celebPrimaryBtn: {
     backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  celebPrimaryText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  celebSecondaryBtn: {
     borderRadius: Radius.full,
     paddingVertical: 14,
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
   },
-  startSessionText: {
-    fontSize: FontSize.base,
-    fontWeight: '700',
-    color: Colors.background,
-  },
+  celebSecondaryText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textSecondary },
 });
