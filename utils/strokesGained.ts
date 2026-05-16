@@ -22,7 +22,8 @@ import {
 // ─── Interpolation ────────────────────────────────────────────────────────────
 
 function interpolate(table: [number, number][], x: number): number {
-  if (x <= table[0][0]) return table[0][1];
+  if (table.length === 0) return 0;
+  if (!Number.isFinite(x) || x <= table[0][0]) return table[0][1];
   if (x >= table[table.length - 1][0]) return table[table.length - 1][1];
 
   for (let i = 0; i < table.length - 1; i++) {

@@ -45,7 +45,7 @@ function formatRecentRounds(rounds: Round[]): string {
         : '';
       const penLine = r.totalPenalties > 0 ? `, ${r.totalPenalties} penalties` : '';
       const diffLine = r.scoreDifferential !== undefined ? `, differential ${r.scoreDifferential}` : '';
-      return `- ${date} at ${r.courseName}: ${r.totalScore} (${score}), ${r.greensInRegulation}/18 GIR, ${r.fairwaysHit}/${r.fairwaysTotal} FW, ${r.totalPutts} putts${udLine}${penLine}${diffLine}`;
+      return `- ${date} at ${safeStr(r.courseName, 60)}: ${r.totalScore} (${score}), ${r.greensInRegulation}/18 GIR, ${r.fairwaysHit}/${r.fairwaysTotal} FW, ${r.totalPutts} putts${udLine}${penLine}${diffLine}`;
     })
     .join('\n');
 }
@@ -58,27 +58,35 @@ function getStartOfWeek(): string {
   return monday.toISOString().split('T')[0];
 }
 
+// Strip newlines and control chars from user-supplied strings before prompt interpolation.
+function safeStr(s: string, maxLen = 120): string {
+  return s.replace(/[\r\n\t\x00-\x1F\x7F]/g, ' ').trim().slice(0, maxLen);
+}
+
 export async function generatePracticePlan(
   profile: UserProfile,
   rounds: Round[],
   apiKey: string
 ): Promise<PracticePlan> {
-  const practiceDays = Math.min(profile.practiceDaysPerWeek ?? 3, 5);
-  const hoursPerWeek = Math.round((practiceDays * (profile.sessionLengthMinutes ?? 60)) / 60);
+  const rawDays = profile.practiceDaysPerWeek ?? 3;
+  const practiceDays = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 5) : 3;
+  const rawLength = profile.sessionLengthMinutes ?? 60;
+  const sessionLength = Number.isFinite(rawLength) && rawLength > 0 ? rawLength : 60;
+  const hoursPerWeek = Math.round((practiceDays * sessionLength) / 60);
 
   const systemPrompt = `You are an expert PGA-certified golf coach. Generate highly personalized, actionable practice plans based on the golfer's data. Always return valid JSON only — no explanations, no markdown, just raw JSON.`;
 
   const userPrompt = `Generate a personalized weekly golf practice plan for this player:
 
 PLAYER PROFILE:
-- Name: ${profile.name}
+- Name: ${safeStr(profile.name, 60)}
 - Current Handicap: ${profile.handicap}
 - Target Handicap: ${profile.targetHandicap}
 - Weaknesses: ${formatWeaknesses(profile.weaknesses)}
-- Goals: ${profile.goals.join(', ')}
+- Goals: ${profile.goals.map((g) => safeStr(g, 40)).join(', ')}
 - Practice time available: ${hoursPerWeek} hours/week
 - Available facilities: ${formatFacilities(profile.facilities ?? [])}
-${profile.ballSpeed ? `- Ball Speed: ${profile.ballSpeed} mph` : ''}
+${Number.isFinite(profile.ballSpeed) && (profile.ballSpeed ?? 0) > 0 ? `- Ball Speed: ${profile.ballSpeed} mph` : ''}
 
 IMPORTANT: Only generate drills that can be performed at the player's available facilities. Do not prescribe driving range drills if the player only has a putting green, etc.
 
