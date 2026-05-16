@@ -103,6 +103,7 @@ export interface HoleScore {
   upAndDown?: boolean;
   sandSave?: boolean;
   // Strokes Gained inputs
+  holeDistanceYards?: number;
   approachDistanceYards?: number;
   approachLie?: 'fairway' | 'rough' | 'sand' | 'recovery';
   firstPuttDistanceFeet?: number;

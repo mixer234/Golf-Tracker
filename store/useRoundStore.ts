@@ -16,7 +16,8 @@ interface RoundState {
     roundType?: RoundType,
     courseId?: string,
     teeColor?: TeeColor,
-    holePars?: { holeNumber: number; par: 3 | 4 | 5 }[]
+    holePars?: { holeNumber: number; par: 3 | 4 | 5 }[],
+    holeDistances?: { holeNumber: number; distanceYards: number }[]
   ) => void;
   updateRound: (id: string, updates: Partial<Round>) => void;
   updateHole: (holeNumber: number, data: Partial<HoleScore>) => void;
@@ -77,14 +78,17 @@ export const useRoundStore = create<RoundState>()(
       rounds: [],
       currentRound: null,
       lastCompletedRound: null,
-      startRound: (courseName, courseRating, slopeRating, roundType, courseId, teeColor, holePars) => {
+      startRound: (courseName, courseRating, slopeRating, roundType, courseId, teeColor, holePars, holeDistances) => {
         const baseHoles = buildEmptyHoles();
-        const holes = holePars
-          ? baseHoles.map((h) => {
-              const match = holePars.find((p) => p.holeNumber === h.holeNumber);
-              return match ? { ...h, par: match.par } : h;
-            })
-          : baseHoles;
+        const holes = baseHoles.map((h) => {
+          const parMatch = holePars?.find((p) => p.holeNumber === h.holeNumber);
+          const distMatch = holeDistances?.find((d) => d.holeNumber === h.holeNumber);
+          return {
+            ...h,
+            ...(parMatch ? { par: parMatch.par } : {}),
+            ...(distMatch ? { holeDistanceYards: distMatch.distanceYards } : {}),
+          };
+        });
         const round: Round = {
           id: generateId(),
           date: new Date().toISOString(),

@@ -141,7 +141,15 @@ export default function TrackScreen() {
       roundType,
       selectedCourse?.id,
       selectedCourse ? selectedTeeColor : undefined,
-      selectedCourse ? selectedCourse.holes.map((h) => ({ holeNumber: h.holeNumber, par: h.par })) : undefined
+      selectedCourse ? selectedCourse.holes.map((h) => ({ holeNumber: h.holeNumber, par: h.par })) : undefined,
+      selectedCourse
+        ? selectedCourse.holes
+            .map((h) => {
+              const yds = h.yardages[selectedTeeColor] ?? h.yardages[selectedCourse.defaultTee];
+              return yds ? { holeNumber: h.holeNumber, distanceYards: yds } : null;
+            })
+            .filter((x): x is { holeNumber: number; distanceYards: number } => x !== null)
+        : undefined
     );
     setShowNewRound(false);
     setSelectedCourseId(null);
@@ -259,6 +267,11 @@ export default function TrackScreen() {
 
                 {/* Best / worst hole callouts */}
                 <BestWorstHoles round={lastCompletedRound} />
+
+                {/* Strokes Gained summary */}
+                {lastCompletedRound.sgTotal !== undefined && (
+                  <PostRoundSG round={lastCompletedRound} />
+                )}
 
                 <View style={styles.notesSection}>
                   <Text style={styles.notesLabel}>Mental Game</Text>
@@ -771,6 +784,53 @@ function HoleCallout({ result, type }: { result: HoleResult; type: 'best' | 'wor
       {result.tiedCount > 0 && (
         <Text style={sumStyles.calloutTied}>(+{result.tiedCount} more)</Text>
       )}
+    </View>
+  );
+}
+
+function PostRoundSG({ round }: { round: Round }) {
+  const cats = [
+    { label: 'OTT', full: 'Off Tee', val: round.sgOffTee },
+    { label: 'APP', full: 'Approach', val: round.sgApproach },
+    { label: 'ARG', full: 'Around Green', val: round.sgAroundGreen },
+    { label: 'PUT', full: 'Putting', val: round.sgPutting },
+  ];
+
+  function sgColor(v: number | undefined): string {
+    if (v === undefined) return Colors.textLight;
+    if (v > 0.3) return Colors.success;
+    if (v < -0.3) return Colors.error;
+    return Colors.textSecondary;
+  }
+
+  function sgSign(v: number): string {
+    return v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2);
+  }
+
+  const total = round.sgTotal ?? 0;
+  const totalColor = sgColor(total);
+
+  return (
+    <View style={sumStyles.sgCard}>
+      <View style={sumStyles.sgHeader}>
+        <Text style={sumStyles.sgTitle}>Strokes Gained</Text>
+        <Text style={[sumStyles.sgTotal, { color: totalColor }]}>
+          {total > 0 ? '+' : ''}{total.toFixed(2)} total
+        </Text>
+      </View>
+      <View style={sumStyles.sgRow}>
+        {cats.map(({ label, val }) => {
+          const color = sgColor(val);
+          return (
+            <View key={label} style={sumStyles.sgChip}>
+              <Text style={sumStyles.sgChipLabel}>{label}</Text>
+              <Text style={[sumStyles.sgChipVal, { color }]}>
+                {val !== undefined ? sgSign(val) : '—'}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -1795,4 +1855,28 @@ const sumStyles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   allParText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary, textAlign: 'center' },
+  sgCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  sgHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sgTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 0.3 },
+  sgTotal: { fontSize: FontSize.base, fontWeight: '800' },
+  sgRow: { flexDirection: 'row', gap: 6 },
+  sgChip: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderRadius: Radius.sm,
+    padding: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  sgChipLabel: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textLight },
+  sgChipVal: { fontSize: FontSize.sm, fontWeight: '800', marginTop: 2 },
 });
