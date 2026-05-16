@@ -268,8 +268,12 @@ export default function TrackScreen() {
                 {/* Best / worst hole callouts */}
                 <BestWorstHoles round={lastCompletedRound} />
 
-                {/* Strokes Gained summary */}
-                {lastCompletedRound.sgTotal !== undefined && (
+                {/* Strokes Gained summary — shown only when at least one category has data */}
+                {(lastCompletedRound.sgTotal !== undefined
+                  || lastCompletedRound.sgOffTee !== undefined
+                  || lastCompletedRound.sgApproach !== undefined
+                  || lastCompletedRound.sgAroundGreen !== undefined
+                  || lastCompletedRound.sgPutting !== undefined) && (
                   <PostRoundSG round={lastCompletedRound} />
                 )}
 
@@ -796,8 +800,12 @@ function PostRoundSG({ round }: { round: Round }) {
     { label: 'PUT', full: 'Putting', val: round.sgPutting },
   ];
 
-  function sgColor(v: number | undefined): string {
-    if (v === undefined) return Colors.textLight;
+  function isValid(v: number | undefined | null): v is number {
+    return typeof v === 'number' && !isNaN(v) && isFinite(v);
+  }
+
+  function sgColor(v: number | undefined | null): string {
+    if (!isValid(v)) return Colors.textLight;
     if (v > 0.3) return Colors.success;
     if (v < -0.3) return Colors.error;
     return Colors.textSecondary;
@@ -807,7 +815,7 @@ function PostRoundSG({ round }: { round: Round }) {
     return v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2);
   }
 
-  const total = round.sgTotal ?? 0;
+  const total = round.sgTotal;
   const totalColor = sgColor(total);
 
   return (
@@ -815,7 +823,7 @@ function PostRoundSG({ round }: { round: Round }) {
       <View style={sumStyles.sgHeader}>
         <Text style={sumStyles.sgTitle}>Strokes Gained</Text>
         <Text style={[sumStyles.sgTotal, { color: totalColor }]}>
-          {total > 0 ? '+' : ''}{total.toFixed(2)} total
+          {isValid(total) ? `${sgSign(total)} total` : '—'}
         </Text>
       </View>
       <View style={sumStyles.sgRow}>
@@ -825,7 +833,7 @@ function PostRoundSG({ round }: { round: Round }) {
             <View key={label} style={sumStyles.sgChip}>
               <Text style={sumStyles.sgChipLabel}>{label}</Text>
               <Text style={[sumStyles.sgChipVal, { color }]}>
-                {val !== undefined ? sgSign(val) : '—'}
+                {isValid(val) ? sgSign(val) : '—'}
               </Text>
             </View>
           );

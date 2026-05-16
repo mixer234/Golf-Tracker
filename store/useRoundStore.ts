@@ -141,15 +141,17 @@ export const useRoundStore = create<RoundState>()(
           );
         }
         const sg = calcRoundSG(current.holes);
+        // Only persist a category value if at least one hole contributed to it,
+        // so the UI can show "—" instead of a misleading 0.00 for missing data.
         const completed: Round = {
           ...current,
           ...stats,
           scoreDifferential,
-          sgPutting: sg?.sgPutting,
-          sgApproach: sg?.sgApproach,
-          sgAroundGreen: sg?.sgAroundGreen,
-          sgOffTee: sg?.sgOffTee,
-          sgTotal: sg?.sgTotal,
+          sgPutting: sg && sg.holesWithPutting > 0 ? sg.sgPutting : undefined,
+          sgApproach: sg && sg.holesWithApproach > 0 ? sg.sgApproach : undefined,
+          sgAroundGreen: sg && sg.holesWithAroundGreen > 0 ? sg.sgAroundGreen : undefined,
+          sgOffTee: sg && sg.holesWithOffTee > 0 ? sg.sgOffTee : undefined,
+          sgTotal: sg ? sg.sgTotal : undefined,
           isComplete: true,
         };
         set((state) => ({

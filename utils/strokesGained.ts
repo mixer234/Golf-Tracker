@@ -67,10 +67,11 @@ export function expectedTeeStrokes(
   holeDistanceYards: number | undefined,
   par: 3 | 4 | 5
 ): number {
-  if (holeDistanceYards && holeDistanceYards > 0) {
+  if (holeDistanceYards && holeDistanceYards > 0 && isFinite(holeDistanceYards)) {
     return interpolate(TEE_BASELINE, holeDistanceYards);
   }
-  return PAR_TEE_BASELINE[par];
+  // Fall back to par-based baseline; default to par-4 value if par is unexpected.
+  return PAR_TEE_BASELINE[par] ?? PAR_TEE_BASELINE[4];
 }
 
 // ─── Per-hole SG calculations ─────────────────────────────────────────────────

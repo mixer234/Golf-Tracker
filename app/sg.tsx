@@ -216,8 +216,8 @@ export default function SGScreen() {
               })}
             </View>
 
-            {/* Per-round trend chart */}
-            {last10.length >= 2 && (
+            {/* Per-round trend chart — needs at least 3 rounds for a meaningful trend */}
+            {last10.length >= 3 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Total SG — Last {last10.length} Rounds</Text>
                 <View style={styles.trendCard}>
