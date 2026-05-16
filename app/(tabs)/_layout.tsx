@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/theme';
 import { usePracticeStore } from '../../store/usePracticeStore';
 import { useRoundStore } from '../../store/useRoundStore';
@@ -30,6 +31,7 @@ function TabIcon({
 export default function TabLayout() {
   const currentPlan = usePracticeStore((s) => s.currentPlan);
   const currentRound = useRoundStore((s) => s.currentRound);
+  const insets = useSafeAreaInsets();
 
   // Show badge on Practice tab when a plan exists with incomplete drills
   const hasPracticeBadge = !!currentPlan && currentPlan.days.some(
@@ -39,11 +41,21 @@ export default function TabLayout() {
   // Show badge on Round tab when a round is in progress
   const hasRoundBadge = !!currentRound;
 
+  // Tab bar height must account for the iPhone home indicator (34pt on X+, 0 on
+  // older devices). Hardcoding 80 leaves only 16pt clearance on home-indicator
+  // phones, which clips icons into the system gesture area.
+  const bottomInset = insets.bottom;
+  const tabBarHeight = TAB_CONTENT_HEIGHT + Math.max(bottomInset, MIN_BOTTOM_PAD);
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: {
+          ...styles.tabBar,
+          height: tabBarHeight,
+          paddingBottom: Math.max(bottomInset, MIN_BOTTOM_PAD),
+        },
         tabBarShowLabel: false,
       }}
     >
@@ -99,12 +111,16 @@ export default function TabLayout() {
   );
 }
 
+// The content area of the tab bar (indicator + emoji + label) without any
+// bottom safe area padding. Derived from the original 80 - 16 = 64.
+const TAB_CONTENT_HEIGHT = 64;
+// Minimum bottom padding on devices without a home indicator.
+const MIN_BOTTOM_PAD = 16;
+
 const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: Colors.surface,
     borderTopWidth: 0,
-    height: 80,
-    paddingBottom: 16,
     paddingTop: 8,
     elevation: 8,
     shadowColor: '#000',
