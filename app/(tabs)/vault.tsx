@@ -137,11 +137,12 @@ export default function VaultScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Swing Vault</Text>
         <View style={styles.headerBtns}>
+          {/* TODO: build app/vault/compare.tsx then restore this button
           {swings.length >= 2 && (
             <TouchableOpacity style={styles.compareBtn} activeOpacity={0.8}>
               <Text style={styles.compareBtnText}>Compare</Text>
             </TouchableOpacity>
-          )}
+          )} */}
           {atLimit ? null : (
             <TouchableOpacity
               style={styles.recordBtn}
