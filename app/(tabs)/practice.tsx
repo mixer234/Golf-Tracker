@@ -119,7 +119,7 @@ export default function PracticeScreen() {
   const rounds = useRoundStore((s) => s.rounds);
   const {
     currentPlan, isGenerating, generationError, setPlan, setGenerating,
-    setGenerationError, markDrillComplete,
+    setGenerationError, markDrillComplete, sessions,
     activeSessionDay, activeSessionStartTime, activeDrillIndex,
     startSession, nextDrill, endSession,
   } = usePracticeStore();
@@ -206,22 +206,25 @@ export default function PracticeScreen() {
     setRestSecondsLeft(REST_DURATION);
     haptics.light();
 
+    const deadline = Date.now() + REST_DURATION * 1000;
     restTimerRef.current = setInterval(() => {
-      restSecsRef.current = Math.max(restSecsRef.current - 1, 0);
-      setRestSecondsLeft(restSecsRef.current);
-
-      if (restSecsRef.current === 0) {
-        clearInterval(restTimerRef.current!);
-        restTimerRef.current = null;
-        const drills = sessionDrillsRef.current;
-        const idx = activeDrillRef.current;
-        if (idx >= drills.length - 1) {
-          enterCelebration();
-        } else {
-          advanceToNextDrill();
+      const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      if (remaining !== restSecsRef.current) {
+        restSecsRef.current = remaining;
+        setRestSecondsLeft(remaining);
+        if (remaining === 0) {
+          clearInterval(restTimerRef.current!);
+          restTimerRef.current = null;
+          const drills = sessionDrillsRef.current;
+          const idx = activeDrillRef.current;
+          if (idx >= drills.length - 1) {
+            enterCelebration();
+          } else {
+            advanceToNextDrill();
+          }
         }
       }
-    }, 1000);
+    }, 200);
   }, [clearAllTimers, enterCelebration, advanceToNextDrill]);
 
   // ── Start auto-advance countdown (3→2→1→0) ─────────────────────────────────
@@ -251,20 +254,21 @@ export default function PracticeScreen() {
     drillSecsRef.current = seconds;
     setDrillSecondsLeft(seconds);
 
+    const deadline = Date.now() + seconds * 1000;
     drillTimerRef.current = setInterval(() => {
-      drillSecsRef.current = Math.max(drillSecsRef.current - 1, 0);
-      setDrillSecondsLeft(drillSecsRef.current);
-
-      const s = drillSecsRef.current;
-      if (s > 0 && s <= 10) haptics.medium();
-
-      if (s === 0) {
-        clearInterval(drillTimerRef.current!);
-        drillTimerRef.current = null;
-        haptics.success();
-        startAutoAdvance(isLast);
+      const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      if (remaining !== drillSecsRef.current) {
+        drillSecsRef.current = remaining;
+        setDrillSecondsLeft(remaining);
+        if (remaining === 10) haptics.warning();
+        if (remaining === 0) {
+          clearInterval(drillTimerRef.current!);
+          drillTimerRef.current = null;
+          haptics.success();
+          startAutoAdvance(isLast);
+        }
       }
-    }, 1000);
+    }, 200);
   }, [startAutoAdvance]);
 
   // ── Session start / end lifecycle ───────────────────────────────────────────
@@ -715,10 +719,13 @@ export default function PracticeScreen() {
               const dayPlanItem = planDays.find((d) => d.day === day);
               const isActive = index === selectedDayIndex;
               const hasContent = !!dayPlanItem;
-              const isToday = index === todayIndex();
+              const todayIdx = todayIndex();
+              const isToday = index === todayIdx;
+              const isPast = index < todayIdx;
               const totalDrills = dayPlanItem?.drills.length ?? 0;
               const doneDrills = dayPlanItem?.completedDrillIds.length ?? 0;
               const allDone = totalDrills > 0 && doneDrills === totalDrills;
+              const isMissed = isPast && hasContent && doneDrills === 0;
               return (
                 <TouchableOpacity
                   key={day}
@@ -727,11 +734,19 @@ export default function PracticeScreen() {
                     isActive && styles.dayChipActive,
                     !hasContent && styles.dayChipEmpty,
                     allDone && !isActive && styles.dayChipDone,
+                    isMissed && !isActive && styles.dayChipMissed,
+                    isToday && !isActive && styles.dayChipToday,
                   ]}
                   onPress={() => setSelectedDayIndex(index)}
                   activeOpacity={0.75}
                 >
-                  <Text style={[styles.dayChipText, isActive && styles.dayChipTextActive, allDone && !isActive && styles.dayChipTextDone]}>
+                  <Text style={[
+                    styles.dayChipText,
+                    isActive && styles.dayChipTextActive,
+                    allDone && !isActive && styles.dayChipTextDone,
+                    isMissed && !isActive && styles.dayChipTextMissed,
+                    isToday && !isActive && styles.dayChipTextToday,
+                  ]}>
                     {day.slice(0, 3)}
                   </Text>
                   {totalDrills > 0 && (
@@ -739,13 +754,16 @@ export default function PracticeScreen() {
                       {doneDrills}/{totalDrills}
                     </Text>
                   )}
-                  {isToday && !totalDrills && <View style={styles.todayDot} />}
+                  {isToday && !isActive && <View style={styles.todayDot} />}
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+            {currentPlan?.focusAreas && currentPlan.focusAreas.length > 0 && (
+              <WeeklyFocusCard focusAreas={currentPlan.focusAreas} />
+            )}
             {dayPlan ? (
               <>
                 <View style={styles.dayHeader}>
@@ -811,6 +829,8 @@ export default function PracticeScreen() {
               <Text style={styles.regenerateText}>↻  Regenerate Plan</Text>
             </TouchableOpacity>
 
+            <PracticeHistorySection sessions={sessions} />
+
             {/* My Bag */}
             <TouchableOpacity
               style={styles.bagHeader}
@@ -855,6 +875,149 @@ export default function PracticeScreen() {
   </SafeAreaView>
   );
 }
+
+// ── WeeklyFocusCard ────────────────────────────────────────────────────────────
+
+const FOCUS_INFO: Record<string, { label: string; tip: string }> = {
+  driving:           { label: 'Driver / Tee Shots',      tip: 'Focus on tempo and staying behind the ball through impact.' },
+  long_irons:        { label: 'Long Irons (2–5)',         tip: 'Sweep the ball with a shallow angle of attack and trust the loft.' },
+  mid_irons:         { label: 'Mid Irons (6–8)',          tip: 'Ball position center, compress with a slight forward shaft lean.' },
+  short_irons:       { label: 'Short Irons (9–PW)',       tip: 'Control trajectory with ball position and finish height.' },
+  wedges:            { label: 'Wedge Play',               tip: 'Dial in your three stock distances and commit to each shot.' },
+  bunkers:           { label: 'Bunker Shots',             tip: 'Open face, open stance, splash the sand 2 inches behind the ball.' },
+  chipping:          { label: 'Chipping & Pitching',      tip: 'Land the ball on your spot and let it run to the hole.' },
+  putting:           { label: 'Putting',                  tip: 'Consistent pace and start line. Make 100% of putts inside 4 ft.' },
+  mental:            { label: 'Mental Game',              tip: 'One shot at a time. Commit fully, then reset after each shot.' },
+  course_management: { label: 'Course Management',        tip: 'Play to your misses. Leave the ball below the hole every time.' },
+};
+
+function WeeklyFocusCard({ focusAreas }: { focusAreas: string[] }) {
+  if (!focusAreas || focusAreas.length === 0) return null;
+  const primary = FOCUS_INFO[focusAreas[0]];
+  if (!primary) return null;
+  return (
+    <View style={focusCardStyles.card}>
+      <View style={focusCardStyles.header}>
+        <Text style={focusCardStyles.label}>THIS WEEK'S FOCUS</Text>
+        <View style={focusCardStyles.areaRow}>
+          {focusAreas.slice(0, 3).map((a) => (
+            <View key={a} style={focusCardStyles.areaPill}>
+              <Text style={focusCardStyles.areaPillText}>{FOCUS_INFO[a]?.label ?? a}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+      <Text style={focusCardStyles.tip}>💡 {primary.tip}</Text>
+    </View>
+  );
+}
+
+const focusCardStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.primaryPale,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+    gap: Spacing.sm,
+  },
+  header: { gap: 6 },
+  label: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  areaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  areaPill: {
+    backgroundColor: Colors.primary + '18',
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  areaPillText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  tip: { fontSize: FontSize.sm, color: Colors.primary, lineHeight: 20, fontStyle: 'italic' },
+});
+
+// ── PracticeHistorySection ─────────────────────────────────────────────────────
+
+import { PracticeSession } from '../../types';
+
+function PracticeHistorySection({ sessions }: { sessions: PracticeSession[] }) {
+  const recent = sessions.slice(0, 8);
+  if (recent.length === 0) return null;
+  return (
+    <View style={histStyles.container}>
+      <Text style={histStyles.heading}>Recent Sessions</Text>
+      {recent.map((s) => {
+        const pct = s.totalDrills > 0
+          ? Math.round((s.drillsCompleted.length / s.totalDrills) * 100)
+          : 0;
+        const mins = Math.round(s.durationSeconds / 60);
+        const dateStr = new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return (
+          <View key={s.id} style={histStyles.row}>
+            <View style={histStyles.rowLeft}>
+              <Text style={histStyles.rowDay}>{s.day}</Text>
+              <Text style={histStyles.rowDate}>{dateStr}</Text>
+            </View>
+            <View style={histStyles.rowRight}>
+              <Text style={histStyles.rowDrills}>{s.drillsCompleted.length}/{s.totalDrills} drills</Text>
+              <View style={histStyles.pctRow}>
+                <View style={histStyles.pctTrack}>
+                  <View style={[histStyles.pctFill, { width: `${pct}%` as any }]} />
+                </View>
+                <Text style={histStyles.pctLabel}>{pct}%</Text>
+              </View>
+            </View>
+            <Text style={histStyles.rowTime}>{mins}m</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const histStyles = StyleSheet.create({
+  container: {
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    gap: Spacing.sm,
+  },
+  heading: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, marginBottom: 4 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  rowLeft: { flex: 1 },
+  rowDay: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
+  rowDate: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 1 },
+  rowRight: { flex: 1.5, gap: 4 },
+  rowDrills: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600' },
+  pctRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pctTrack: {
+    flex: 1,
+    height: 4,
+    backgroundColor: Colors.borderLight,
+    borderRadius: Radius.full,
+    overflow: 'hidden',
+  },
+  pctFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: Radius.full },
+  pctLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary, minWidth: 28, textAlign: 'right' },
+  rowTime: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary, minWidth: 30, textAlign: 'right' },
+});
 
 // ── DrillCard (unchanged) ──────────────────────────────────────────────────────
 
@@ -1099,9 +1262,13 @@ const styles = StyleSheet.create({
   dayChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   dayChipEmpty: { opacity: 0.4 },
   dayChipDone: { borderColor: Colors.success, backgroundColor: Colors.success + '15' },
+  dayChipMissed: { borderColor: Colors.error + '60', backgroundColor: Colors.error + '0A' },
+  dayChipToday: { borderColor: Colors.accent, borderWidth: 2 },
   dayChipText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
   dayChipTextActive: { color: Colors.background },
   dayChipTextDone: { color: Colors.success },
+  dayChipTextMissed: { color: Colors.error },
+  dayChipTextToday: { color: Colors.accent, fontWeight: '700' },
   dayChipCount: { fontSize: 9, color: Colors.textLight, fontWeight: '700', marginTop: 1 },
   dayChipCountActive: { color: 'rgba(255,255,255,0.75)' },
   todayDot: {
