@@ -1,4 +1,5 @@
 import { UserProfile, Round, PracticePlan, DayOfWeek, WeaknessArea } from '../types';
+import { GolferFingerprint } from '../types/diagnostic';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-4-6';
@@ -63,10 +64,29 @@ function safeStr(s: string, maxLen = 120): string {
   return s.replace(/[\r\n\t\x00-\x1F\x7F]/g, ' ').trim().slice(0, maxLen);
 }
 
+function formatFingerprint(fp: GolferFingerprint): string {
+  const lines = [
+    'DETAILED COACHING PROFILE (from game assessment):',
+    `Priority areas (most impactful first): ${fp.priorityAreas.join(', ')}`,
+    `Driver: ${[...fp.driverProfile.issues, fp.driverProfile.typicalMiss].filter(Boolean).join(', ') || 'No specific issues noted'}`,
+    `Irons: ${[...fp.ironProfile.issues, ...fp.ironProfile.problemClubs, ...fp.ironProfile.missPattern].filter(Boolean).join(', ') || 'No specific issues noted'}`,
+    `Wedges: ${[...fp.wedgeProfile.issues, fp.wedgeProfile.uncomfortableDistanceRange ? `Uncomfortable ${fp.wedgeProfile.uncomfortableDistanceRange.from}–${fp.wedgeProfile.uncomfortableDistanceRange.to} yards` : null].filter(Boolean).join(', ') || 'No specific issues noted'}`,
+    `Putting: ${[...fp.puttingProfile.issues, ...fp.puttingProfile.missPattern, ...fp.puttingProfile.problemDistances].filter(Boolean).join(', ') || 'No specific issues noted'}`,
+    `Short game: ${fp.shortGameProfile.issues.join(', ') || 'No specific issues noted'}`,
+    `Mental: ${[...fp.mentalProfile.issues, ...fp.mentalProfile.specificFears].filter(Boolean).join(', ') || 'No specific issues noted'}`,
+    `Key coaching insight: ${fp.keyInsights}`,
+    `Communication style: ${fp.coachingApproach}`,
+    '',
+    'The practice plan MUST address the top priority area with at least 2 drills. Every drill should reference the specific issue it addresses from the profile above.',
+  ];
+  return lines.join('\n');
+}
+
 export async function generatePracticePlan(
   profile: UserProfile,
   rounds: Round[],
-  apiKey: string
+  apiKey: string,
+  fingerprint?: GolferFingerprint | null,
 ): Promise<PracticePlan> {
   const rawDays = profile.practiceDaysPerWeek ?? 3;
   const practiceDays = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 5) : 3;
@@ -89,7 +109,7 @@ PLAYER PROFILE:
 ${Number.isFinite(profile.ballSpeed) && (profile.ballSpeed ?? 0) > 0 ? `- Ball Speed: ${profile.ballSpeed} mph` : ''}
 
 IMPORTANT: Only generate drills that can be performed at the player's available facilities. Do not prescribe driving range drills if the player only has a putting green, etc.
-
+${fingerprint ? '\n' + formatFingerprint(fingerprint) + '\n' : ''}
 RECENT PERFORMANCE (last 5 rounds):
 ${formatRecentRounds(rounds)}
 

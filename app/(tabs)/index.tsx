@@ -17,6 +17,7 @@ import { Round, UserProfile, PracticePlan, DayOfWeek, WeaknessArea, PracticeSess
 import { WEEKLY_FOCUS_DATA } from '../../constants/data';
 
 const SG_TIP_KEY = '@golf_sg_tip_dismissed';
+const DIAGNOSTIC_REMINDER_KEY = '@golf_diagnostic_reminder_shown';
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
@@ -470,8 +471,10 @@ export default function DashboardScreen() {
   const { currentPlan, sessions, isGenerating, generationError, setPlan, setGenerating, setGenerationError } =
     usePracticeStore();
 
+  const fingerprint = useUserStore((s) => s.fingerprint);
   const [refreshing, setRefreshing] = useState(false);
   const [showSGTip, setShowSGTip] = useState(false);
+  const [showDiagnosticReminder, setShowDiagnosticReminder] = useState(false);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -493,6 +496,22 @@ export default function DashboardScreen() {
     haptics.light();
     setShowSGTip(false);
     AsyncStorage.setItem(SG_TIP_KEY, 'true');
+  }
+
+  // Show diagnostic reminder once after first practice plan is generated for users who skipped assessment
+  useEffect(() => {
+    if (fingerprint) { setShowDiagnosticReminder(false); return; }
+    const completedRounds = rounds.filter((r) => r.isComplete).length;
+    if (completedRounds === 0) return;
+    AsyncStorage.getItem(DIAGNOSTIC_REMINDER_KEY).then((val) => {
+      if (val !== 'true') setShowDiagnosticReminder(true);
+    });
+  }, [fingerprint, rounds.length]);
+
+  function dismissDiagnosticReminder() {
+    haptics.light();
+    setShowDiagnosticReminder(false);
+    AsyncStorage.setItem(DIAGNOSTIC_REMINDER_KEY, 'true');
   }
 
   const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek;
@@ -599,6 +618,30 @@ export default function DashboardScreen() {
             </View>
             <TouchableOpacity onPress={dismissSGTip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={styles.sgTipDismiss}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ── Diagnostic reminder card ─────────────────── */}
+        {showDiagnosticReminder && (
+          <View style={styles.diagnosticCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.diagnosticTitle}>🎯 Get a more personalised plan</Text>
+              <Text style={styles.diagnosticBody}>
+                Complete your 3-minute game assessment and your practice plans will be tailored to your exact struggles — not just your handicap.
+              </Text>
+              <TouchableOpacity
+                onPress={() => { dismissDiagnosticReminder(); router.push('/diagnostic'); }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.diagnosticCTA}>Start assessment →</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              onPress={dismissDiagnosticReminder}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.diagnosticDismiss}>✕</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1478,4 +1521,21 @@ const styles = StyleSheet.create({
   sgTipTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text, marginBottom: 4 },
   sgTipBody: { fontSize: FontSize.xs, color: Colors.textSecondary, lineHeight: 16 },
   sgTipDismiss: { fontSize: 16, color: Colors.textLight, fontWeight: '600', paddingLeft: 4 },
+  diagnosticCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.primaryPale,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.primary + '40',
+    ...Shadow.sm,
+  },
+  diagnosticTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text, marginBottom: 4 },
+  diagnosticBody: { fontSize: FontSize.xs, color: Colors.textSecondary, lineHeight: 16, marginBottom: 8 },
+  diagnosticCTA: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  diagnosticDismiss: { fontSize: 16, color: Colors.textLight, fontWeight: '600', paddingLeft: 4 },
 });

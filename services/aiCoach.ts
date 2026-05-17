@@ -1,4 +1,5 @@
 import { UserProfile, Round, Course } from '../types';
+import { GolferFingerprint } from '../types/diagnostic';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-4-6';
@@ -8,7 +9,7 @@ export interface CoachMessage {
   content: string;
 }
 
-function buildSystemPrompt(profile: UserProfile, rounds: Round[], courses: Course[]): string {
+function buildSystemPrompt(profile: UserProfile, rounds: Round[], courses: Course[], fingerprint?: GolferFingerprint | null): string {
   const recentRounds = rounds.slice(0, 10);
   const avgScore = recentRounds.length > 0
     ? (recentRounds.reduce((s, r) => s + r.totalScore, 0) / recentRounds.length).toFixed(1)
@@ -39,7 +40,19 @@ function buildSystemPrompt(profile: UserProfile, rounds: Round[], courses: Cours
       }).join('\n')
     : 'No courses saved yet.';
 
+  const fingerprintSection = fingerprint ? `
+DETAILED PLAYER PROFILE (from game assessment):
+${fingerprint.keyInsights}
+Priority areas: ${fingerprint.priorityAreas.join(', ')}
+Known putting issues: ${fingerprint.puttingProfile.issues.join(', ') || 'None noted'}
+Known iron issues: ${fingerprint.ironProfile.issues.join(', ') || 'None noted'}
+Mental tendencies: ${fingerprint.mentalProfile.issues.join(', ') || 'None noted'}
+Specific fears: ${fingerprint.mentalProfile.specificFears.join(', ') || 'None noted'}
+Coaching approach: ${fingerprint.coachingApproach}
+` : '';
+
   return `You are an expert PGA-certified golf coach and caddie AI. You know the game deeply — from mechanics to mental game to course management to Strokes Gained methodology.
+${fingerprintSection}
 
 PLAYER PROFILE:
 - Name: ${profile.name}
@@ -78,9 +91,10 @@ export async function sendCoachMessage(
   profile: UserProfile,
   rounds: Round[],
   courses: Course[],
-  apiKey: string
+  apiKey: string,
+  fingerprint?: GolferFingerprint | null,
 ): Promise<string> {
-  const systemPrompt = buildSystemPrompt(profile, rounds, courses);
+  const systemPrompt = buildSystemPrompt(profile, rounds, courses, fingerprint);
 
   const response = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',

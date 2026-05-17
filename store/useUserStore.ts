@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserProfile, ClubEntry } from '../types';
+import { GolferFingerprint } from '../types/diagnostic';
 
 const DEFAULT_BAG: ClubEntry[] = [
   { club: 'Driver', carryYards: 230 },
@@ -21,10 +22,13 @@ const DEFAULT_BAG: ClubEntry[] = [
 
 interface UserState {
   profile: UserProfile | null;
+  fingerprint: GolferFingerprint | null;
   setProfile: (profile: UserProfile) => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   updateClub: (club: string, carryYards: number) => void;
   completeOnboarding: () => void;
+  setFingerprint: (fp: GolferFingerprint) => void;
+  clearFingerprint: () => void;
   clearProfile: () => void;
 }
 
@@ -32,6 +36,7 @@ export const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
       profile: null,
+      fingerprint: null,
       setProfile: (profile) => set({ profile }),
       updateProfile: (updates) => {
         const current = get().profile;
@@ -48,7 +53,9 @@ export const useUserStore = create<UserState>()(
         const current = get().profile;
         if (current) set({ profile: { ...current, hasCompletedOnboarding: true } });
       },
-      clearProfile: () => set({ profile: null }),
+      setFingerprint: (fp) => set({ fingerprint: fp }),
+      clearFingerprint: () => set({ fingerprint: null }),
+      clearProfile: () => set({ profile: null, fingerprint: null }),
     }),
     {
       name: 'user-store',

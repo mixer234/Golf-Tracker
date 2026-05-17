@@ -73,7 +73,7 @@ export default function GoalsScreen() {
       });
     }
 
-    router.replace('/(tabs)');
+    router.replace('/diagnostic');
   }
 
   return (

@@ -24,7 +24,7 @@ const SUGGESTED_PROMPTS = [
 
 export default function CoachScreen() {
   const router = useRouter();
-  const { profile } = useUserStore();
+  const { profile, fingerprint } = useUserStore();
   const { rounds } = useRoundStore();
   const { courses } = useCourseStore();
   const [messages, setMessages] = useState<CoachMessage[]>([]);
@@ -68,7 +68,7 @@ export default function CoachScreen() {
     setLoading(true);
 
     try {
-      const reply = await sendCoachMessage(updated, profile, rounds, courses, profile.apiKey);
+      const reply = await sendCoachMessage(updated, profile, rounds, courses, profile.apiKey, fingerprint);
       setMessages([...updated, { role: 'assistant', content: reply }]);
     } catch (err: any) {
       const isNetwork = err instanceof TypeError;

@@ -20,6 +20,7 @@ import { WEAKNESS_OPTIONS, GOAL_OPTIONS } from '../../constants/data';
 import { WeaknessArea, GoalType, ExperienceLevel, PracticeFacility, MissTendency } from '../../types';
 import { HandicapDial, formatHandicap, HCP_MIN, HCP_MAX } from '../../components/HandicapDial';
 import Constants from 'expo-constants';
+import { GolferFingerprint } from '../../types/diagnostic';
 
 const EXPERIENCE_OPTIONS: { key: ExperienceLevel; label: string; sub: string }[] = [
   { key: 'beginner', label: 'Beginner', sub: 'Less than 2 years' },
@@ -291,6 +292,9 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* ── Game Profile (Diagnostic Fingerprint) ── */}
+        <GameProfileCard router={router} />
+
         {/* ── Experience ── */}
         <SectionHeader title="Experience Level" />
         <View style={styles.card}>
@@ -512,6 +516,100 @@ export default function ProfileScreen() {
 function SectionHeader({ title }: { title: string }) {
   return <Text style={headerStyles.title}>{title}</Text>;
 }
+
+function GameProfileCard({ router }: { router: ReturnType<typeof useRouter> }) {
+  const fingerprint = useUserStore((s) => s.fingerprint);
+
+  return (
+    <View>
+      <Text style={headerStyles.title}>My Game Profile</Text>
+      <View style={gpStyles.card}>
+        {fingerprint ? (
+          <>
+            <View style={gpStyles.statusRow}>
+              <View style={gpStyles.statusDot} />
+              <Text style={gpStyles.statusText}>
+                Assessment completed · {new Date(fingerprint.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </Text>
+            </View>
+            <View style={gpStyles.tagsRow}>
+              {fingerprint.priorityAreas.slice(0, 3).map((area) => (
+                <View key={area} style={gpStyles.tag}>
+                  <Text style={gpStyles.tagText}>{area}</Text>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={gpStyles.btn}
+              onPress={() => router.push('/diagnostic')}
+              activeOpacity={0.85}
+            >
+              <Text style={gpStyles.btnText}>Update my assessment</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text style={gpStyles.emptyTitle}>Not completed</Text>
+            <Text style={gpStyles.emptyText}>
+              Complete a 3-minute game assessment so your coach knows exactly where to focus.
+            </Text>
+            <TouchableOpacity
+              style={gpStyles.btnPrimary}
+              onPress={() => router.push('/diagnostic')}
+              activeOpacity={0.85}
+            >
+              <Text style={gpStyles.btnPrimaryText}>Start game assessment →</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const gpStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.sm,
+    ...Shadow.sm,
+  },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success },
+  statusText: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600' },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  tag: {
+    backgroundColor: Colors.primaryPale,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: Colors.primary + '40',
+  },
+  tagText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.primary },
+  btn: {
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  btnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  emptyTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary },
+  emptyText: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 18 },
+  btnPrimary: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  btnPrimaryText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.background },
+});
 
 function InfoRow({ label, value, isLast }: { label: string; value: string; isLast?: boolean }) {
   return (
