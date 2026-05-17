@@ -17,7 +17,9 @@ interface RoundState {
     courseId?: string,
     teeColor?: TeeColor,
     holePars?: { holeNumber: number; par: 3 | 4 | 5 }[],
-    holeDistances?: { holeNumber: number; distanceYards: number }[]
+    holeDistances?: { holeNumber: number; distanceYards: number }[],
+    holeCount?: 9 | 18,
+    date?: string,
   ) => void;
   updateRound: (id: string, updates: Partial<Round>) => void;
   updateHole: (holeNumber: number, data: Partial<HoleScore>) => void;
@@ -26,14 +28,15 @@ interface RoundState {
   deleteRound: (id: string) => void;
   clearLastCompleted: () => void;
   updateRoundNotes: (id: string, notes: string) => void;
+  recalcAndSaveRound: (id: string, holes: HoleScore[]) => void;
 }
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-function buildEmptyHoles(): HoleScore[] {
-  return Array.from({ length: 18 }, (_, i) => ({
+function buildEmptyHoles(count: 9 | 18 = 18): HoleScore[] {
+  return Array.from({ length: count }, (_, i) => ({
     holeNumber: i + 1,
     par: 4 as const,
     strokes: 0,
@@ -78,8 +81,8 @@ export const useRoundStore = create<RoundState>()(
       rounds: [],
       currentRound: null,
       lastCompletedRound: null,
-      startRound: (courseName, courseRating, slopeRating, roundType, courseId, teeColor, holePars, holeDistances) => {
-        const baseHoles = buildEmptyHoles();
+      startRound: (courseName, courseRating, slopeRating, roundType, courseId, teeColor, holePars, holeDistances, holeCount, date) => {
+        const baseHoles = buildEmptyHoles(holeCount ?? 18);
         const holes = baseHoles.map((h) => {
           const parMatch = holePars?.find((p) => p.holeNumber === h.holeNumber);
           const distMatch = holeDistances?.find((d) => d.holeNumber === h.holeNumber);
@@ -91,7 +94,7 @@ export const useRoundStore = create<RoundState>()(
         });
         const round: Round = {
           id: generateId(),
-          date: new Date().toISOString(),
+          date: date && !isNaN(Date.parse(date)) ? new Date(date).toISOString() : new Date().toISOString(),
           courseName,
           courseRating,
           slopeRating,
@@ -172,6 +175,31 @@ export const useRoundStore = create<RoundState>()(
               ? { ...state.lastCompletedRound, notes }
               : state.lastCompletedRound,
         })),
+      recalcAndSaveRound: (id, holes) => {
+        const round = get().rounds.find((r) => r.id === id);
+        if (!round) return;
+        const stats = calcRoundStats(holes);
+        let scoreDifferential: number | undefined;
+        if (round.courseRating && round.slopeRating && stats.totalScore > 0) {
+          scoreDifferential = calcScoreDifferential(stats.totalScore, round.courseRating, round.slopeRating);
+        }
+        const sg = calcRoundSG(holes);
+        const updated: Round = {
+          ...round,
+          holes,
+          ...stats,
+          scoreDifferential,
+          sgPutting: sg && sg.holesWithPutting > 0 ? sg.sgPutting : undefined,
+          sgApproach: sg && sg.holesWithApproach > 0 ? sg.sgApproach : undefined,
+          sgAroundGreen: sg && sg.holesWithAroundGreen > 0 ? sg.sgAroundGreen : undefined,
+          sgOffTee: sg && sg.holesWithOffTee > 0 ? sg.sgOffTee : undefined,
+          sgTotal: sg ? sg.sgTotal : undefined,
+        };
+        set((state) => ({
+          rounds: state.rounds.map((r) => r.id === id ? updated : r),
+          lastCompletedRound: state.lastCompletedRound?.id === id ? updated : state.lastCompletedRound,
+        }));
+      },
     }),
     {
       name: 'round-store',

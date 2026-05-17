@@ -22,6 +22,7 @@ import {
   getAvgPutts, getScramblingPct, vsParLabel, isPB, usedDefaultRating,
   HoleResult,
 } from '../../utils/roundStats';
+import { haptics } from '../../utils/haptics';
 
 const TEE_COLORS: { key: TeeColor; label: string; color: string }[] = [
   { key: 'black', label: 'Black', color: '#1a1a1a' },
@@ -42,7 +43,7 @@ function formatShareText(r: Round): string {
     `📅 ${date}`,
     ``,
     `Score: ${r.totalScore} (${parStr})`,
-    `GIR: ${r.greensInRegulation}/18`,
+    `GIR: ${r.greensInRegulation}/${r.holes.length}`,
   ];
   if (r.fairwaysTotal > 0) {
     const pct = Math.round((r.fairwaysHit / r.fairwaysTotal) * 100);
@@ -69,10 +70,10 @@ function buildRoundSummary(r: Round): { headline: string; highlights: string[] }
   const stp = r.scoreToPar;
   const parStr = stp === 0 ? 'Even par' : stp < 0 ? `${Math.abs(stp)} under par` : `${stp} over par`;
   const headline = `${r.totalScore} — ${parStr}`;
-
   const highlights: string[] = [];
-  const girPct = Math.round((r.greensInRegulation / 18) * 100);
-  highlights.push(`${r.greensInRegulation}/18 greens in regulation (${girPct}%)`);
+  const holes = r.holes.length;
+  const girPct = Math.round((r.greensInRegulation / holes) * 100);
+  highlights.push(`${r.greensInRegulation}/${holes} greens in regulation (${girPct}%)`);
   if (r.fairwaysTotal > 0) {
     const fwPct = Math.round((r.fairwaysHit / r.fairwaysTotal) * 100);
     highlights.push(`${r.fairwaysHit}/${r.fairwaysTotal} fairways hit (${fwPct}%)`);
@@ -92,31 +93,55 @@ function buildRoundSummary(r: Round): { headline: string; highlights: string[] }
   return { headline, highlights };
 }
 
+function getOffsetDate(offset: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - offset);
+  return d;
+}
+
+function formatOffsetDate(offset: number): string {
+  if (offset === 0) return 'Today';
+  if (offset === 1) return 'Yesterday';
+  return getOffsetDate(offset).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
 export default function TrackScreen() {
-  const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted, updateRoundNotes, updateRound } =
-    useRoundStore();
+  const {
+    rounds, currentRound, lastCompletedRound,
+    startRound, updateHole, completeRound, discardCurrentRound,
+    clearLastCompleted, updateRoundNotes, updateRound, deleteRound,
+    recalcAndSaveRound,
+  } = useRoundStore();
   const { courses } = useCourseStore();
+
+  // New round modal state
   const [showNewRound, setShowNewRound] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedTeeColor, setSelectedTeeColor] = useState<TeeColor>('white');
-  const [notesDraft, setNotesDraft] = useState(lastCompletedRound?.notes ?? '');
-
-  // Sync draft whenever a new round is completed
-  useEffect(() => {
-    setNotesDraft(lastCompletedRound?.notes ?? '');
-  }, [lastCompletedRound?.id]);
   const [courseName, setCourseName] = useState('');
   const [courseRating, setCourseRating] = useState('72.0');
   const [slopeRating, setSlopeRating] = useState('113');
   const [roundType, setRoundType] = useState<RoundType>('casual');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [roundDateOffset, setRoundDateOffset] = useState(0);
+  const [isNineHole, setIsNineHole] = useState(false);
+
+  // Active round state
   const [selectedHole, setSelectedHole] = useState(1);
 
-  // Mental ratings for post-round debrief
+  // Post-round notes & mental debrief
+  const [notesDraft, setNotesDraft] = useState(lastCompletedRound?.notes ?? '');
   const [mentalCommitment, setMentalCommitment] = useState(lastCompletedRound?.mentalCommitment ?? 0);
   const [mentalControl, setMentalControl] = useState(lastCompletedRound?.mentalControl ?? 0);
   const [mentalDecisions, setMentalDecisions] = useState(lastCompletedRound?.mentalDecisions ?? 0);
   const [mentalEnergy, setMentalEnergy] = useState(lastCompletedRound?.mentalEnergy ?? 0);
+
+  // Round detail modal
+  const [detailRound, setDetailRound] = useState<Round | null>(null);
+
+  useEffect(() => {
+    setNotesDraft(lastCompletedRound?.notes ?? '');
+  }, [lastCompletedRound?.id]);
 
   useEffect(() => {
     setMentalCommitment(lastCompletedRound?.mentalCommitment ?? 0);
@@ -125,8 +150,10 @@ export default function TrackScreen() {
     setMentalEnergy(lastCompletedRound?.mentalEnergy ?? 0);
   }, [lastCompletedRound?.id]);
 
+  const selectedCourse = courses.find((c) => c.id === selectedCourseId);
+  const canStart = selectedCourseId !== null || courseName.trim().length > 0;
+
   function handleStartRound() {
-    const selectedCourse = courses.find((c) => c.id === selectedCourseId);
     const nameToUse = selectedCourse ? selectedCourse.name : courseName.trim();
     if (!nameToUse) {
       Alert.alert('Course required', 'Select a saved course or enter a course name.');
@@ -134,6 +161,7 @@ export default function TrackScreen() {
     }
     const cr = selectedCourse?.courseRating ?? parseFloat(courseRating);
     const sr = selectedCourse?.slopeRating ?? parseInt(slopeRating, 10);
+    haptics.success();
     startRound(
       nameToUse,
       !isNaN(cr) && cr > 50 && cr < 90 ? cr : undefined,
@@ -149,7 +177,9 @@ export default function TrackScreen() {
               return yds ? { holeNumber: h.holeNumber, distanceYards: yds } : null;
             })
             .filter((x): x is { holeNumber: number; distanceYards: number } => x !== null)
-        : undefined
+        : undefined,
+      isNineHole ? 9 : 18,
+      getOffsetDate(roundDateOffset).toISOString(),
     );
     setShowNewRound(false);
     setSelectedCourseId(null);
@@ -159,20 +189,22 @@ export default function TrackScreen() {
     setSlopeRating('113');
     setShowAdvanced(false);
     setRoundType('casual');
+    setRoundDateOffset(0);
+    setIsNineHole(false);
     setSelectedHole(1);
   }
 
   function handleCompleteRound() {
     Alert.alert('Complete Round?', 'This will save your round and update your stats.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Complete', onPress: () => completeRound() },
+      { text: 'Complete', onPress: () => { haptics.success(); completeRound(); } },
     ]);
   }
 
   function handleDiscardRound() {
     Alert.alert('Discard Round?', 'All hole data will be lost.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: discardCurrentRound },
+      { text: 'Discard', style: 'destructive', onPress: () => { haptics.medium(); discardCurrentRound(); } },
     ]);
   }
 
@@ -205,27 +237,30 @@ export default function TrackScreen() {
             </View>
           </View>
 
+          {/* Live running totals */}
+          <RunningTotals round={currentRound} />
+
           {/* Scorecard */}
           <ScorecardGrid
             round={currentRound}
             selectedHole={selectedHole}
-            onSelectHole={setSelectedHole}
+            onSelectHole={(n) => { haptics.light(); setSelectedHole(n); }}
           />
-
 
           {currentHole && (
             <ScrollView style={styles.holeInputArea} showsVerticalScrollIndicator={false}>
               <HoleInputCard
                 hole={currentHole}
                 onUpdate={(data) => updateHole(selectedHole, data)}
-                onNext={() => { if (selectedHole < 18) setSelectedHole(selectedHole + 1); }}
+                onNext={() => { if (selectedHole < currentRound.holes.length) setSelectedHole(selectedHole + 1); }}
+                isLastHole={selectedHole >= currentRound.holes.length}
               />
             </ScrollView>
           )}
         </>
       ) : (
         <ScrollView contentContainerStyle={styles.noRoundContent} showsVerticalScrollIndicator={false}>
-          {/* Post-round summary — shown immediately after completing a round */}
+          {/* Post-round summary */}
           {lastCompletedRound && (() => {
             const { headline } = buildRoundSummary(lastCompletedRound);
             const stp = lastCompletedRound.scoreToPar;
@@ -247,28 +282,19 @@ export default function TrackScreen() {
                   {headline}
                 </Text>
 
-                {/* Stats grid — replaces bullet highlights */}
                 <SummaryStatsGrid round={lastCompletedRound} rounds={rounds} />
 
-                {/* Differential card */}
                 {lastCompletedRound.scoreDifferential !== undefined && (
                   <DifferentialCard
                     diff={lastCompletedRound.scoreDifferential}
-                    isDefault={usedDefaultRating(
-                      lastCompletedRound.courseRating,
-                      lastCompletedRound.slopeRating,
-                    )}
+                    isDefault={usedDefaultRating(lastCompletedRound.courseRating, lastCompletedRound.slopeRating)}
                     pb={isPB(lastCompletedRound.scoreDifferential, lastCompletedRound.id, rounds)}
                   />
                 )}
 
-                {/* 18-hole scorecard */}
                 <PostRoundScorecard round={lastCompletedRound} />
-
-                {/* Best / worst hole callouts */}
                 <BestWorstHoles round={lastCompletedRound} />
 
-                {/* Strokes Gained summary — shown only when at least one category has data */}
                 {(lastCompletedRound.sgTotal !== undefined
                   || lastCompletedRound.sgOffTee !== undefined
                   || lastCompletedRound.sgApproach !== undefined
@@ -293,6 +319,7 @@ export default function TrackScreen() {
                             key={n}
                             style={[styles.mentalDot, n <= value && styles.mentalDotActive]}
                             onPress={() => {
+                              haptics.light();
                               set(n);
                               updateRound(lastCompletedRound.id, { [key]: n });
                             }}
@@ -329,7 +356,7 @@ export default function TrackScreen() {
             </Text>
             <TouchableOpacity
               style={styles.startButton}
-              onPress={() => setShowNewRound(true)}
+              onPress={() => { haptics.medium(); setShowNewRound(true); }}
               activeOpacity={0.85}
             >
               <Text style={styles.startButtonText}>Start New Round</Text>
@@ -346,7 +373,12 @@ export default function TrackScreen() {
                   ? Math.round((round.upAndDowns / round.upAndDownAttempts) * 100)
                   : null;
                 return (
-                  <View key={round.id} style={styles.historyRow}>
+                  <TouchableOpacity
+                    key={round.id}
+                    style={styles.historyRow}
+                    onPress={() => { haptics.light(); setDetailRound(round); }}
+                    activeOpacity={0.75}
+                  >
                     <View style={{ flex: 1 }}>
                       <Text style={styles.historyCourse} numberOfLines={1}>{round.courseName}</Text>
                       <Text style={styles.historyDate}>
@@ -370,7 +402,7 @@ export default function TrackScreen() {
                     </View>
                     <View style={styles.historyScores}>
                       <TouchableOpacity
-                        onPress={() => Share.share({ message: formatShareText(round) })}
+                        onPress={() => { haptics.light(); Share.share({ message: formatShareText(round) }); }}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         style={styles.shareBtn}
                       >
@@ -384,7 +416,7 @@ export default function TrackScreen() {
                         {parLabel}
                       </Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -404,8 +436,8 @@ export default function TrackScreen() {
                 <Text style={styles.modalCancel}>Cancel</Text>
               </TouchableOpacity>
               <Text style={styles.modalTitle}>New Round</Text>
-              <TouchableOpacity onPress={handleStartRound}>
-                <Text style={styles.modalStart}>Start</Text>
+              <TouchableOpacity onPress={handleStartRound} disabled={!canStart}>
+                <Text style={[styles.modalStart, !canStart && { opacity: 0.35 }]}>Start</Text>
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.modalContent}>
@@ -502,6 +534,27 @@ export default function TrackScreen() {
                 </>
               )}
 
+              {/* Date selector */}
+              <Text style={[styles.inputLabel, { marginTop: Spacing.lg }]}>Date</Text>
+              <View style={styles.dateRow}>
+                <TouchableOpacity
+                  style={[styles.dateArrow, roundDateOffset >= 30 && { opacity: 0.3 }]}
+                  onPress={() => { if (roundDateOffset < 30) { haptics.light(); setRoundDateOffset(roundDateOffset + 1); } }}
+                  disabled={roundDateOffset >= 30}
+                >
+                  <Text style={styles.dateArrowText}>‹</Text>
+                </TouchableOpacity>
+                <Text style={styles.dateText}>{formatOffsetDate(roundDateOffset)}</Text>
+                <TouchableOpacity
+                  style={[styles.dateArrow, roundDateOffset === 0 && { opacity: 0.3 }]}
+                  onPress={() => { if (roundDateOffset > 0) { haptics.light(); setRoundDateOffset(roundDateOffset - 1); } }}
+                  disabled={roundDateOffset === 0}
+                >
+                  <Text style={styles.dateArrowText}>›</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Round Type */}
               <Text style={[styles.inputLabel, { marginTop: Spacing.lg }]}>Round Type</Text>
               <View style={styles.roundTypeRow}>
                 {([
@@ -512,7 +565,7 @@ export default function TrackScreen() {
                   <TouchableOpacity
                     key={opt.key}
                     style={[styles.roundTypeChip, roundType === opt.key && styles.roundTypeChipActive]}
-                    onPress={() => setRoundType(opt.key)}
+                    onPress={() => { haptics.light(); setRoundType(opt.key); }}
                     activeOpacity={0.75}
                   >
                     <Text style={[styles.roundTypeText, roundType === opt.key && styles.roundTypeTextActive]}>
@@ -520,6 +573,21 @@ export default function TrackScreen() {
                     </Text>
                   </TouchableOpacity>
                 ))}
+              </View>
+
+              {/* 9-hole toggle */}
+              <View style={styles.nineHoleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nineHoleLabel}>9-hole round</Text>
+                  <Text style={styles.nineHoleSub}>Front 9 only</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.nineHoleToggle, isNineHole && styles.nineHoleToggleOn]}
+                  onPress={() => { haptics.light(); setIsNineHole((v) => !v); }}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.nineHoleThumb, isNineHole && styles.nineHoleThumbOn]} />
+                </TouchableOpacity>
               </View>
 
               <TouchableOpacity
@@ -571,6 +639,19 @@ export default function TrackScreen() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
+
+      {/* Round Detail Modal */}
+      <RoundDetailModal
+        round={detailRound}
+        rounds={rounds}
+        visible={detailRound !== null}
+        onClose={() => setDetailRound(null)}
+        onDelete={(id) => { deleteRound(id); setDetailRound(null); }}
+        onSave={(id, holes) => {
+          recalcAndSaveRound(id, holes);
+          // detailRound will auto-update on next render via rounds store
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -585,9 +666,9 @@ function SummaryStatsGrid({ round, rounds }: { round: Round; rounds: Round[] }) 
   const diff = round.scoreDifferential;
   const pb = diff !== undefined && isPB(diff, round.id, rounds);
 
-  const girPct  = getGirPct(round);
-  const fwPct   = getFairwayPct(round);
-  const avgP    = getAvgPutts(round);
+  const girPct   = getGirPct(round);
+  const fwPct    = getFairwayPct(round);
+  const avgP     = getAvgPutts(round);
   const scramPct = getScramblingPct(round);
 
   return (
@@ -654,15 +735,15 @@ function DifferentialCard({
   );
 }
 
-// Score cell background colour per vs-par value (spec: eagle=gold, birdie=green, etc.)
+// Scorecard colour helpers (post-round summary)
 function summaryScoreBg(vsPar: number | null): string {
   if (vsPar === null)  return Colors.surfaceElevated;
-  if (vsPar <= -2)     return '#F4B942';              // gold for eagle+
+  if (vsPar <= -2)     return '#F4B942';
   if (vsPar === -1)    return Colors.success;
   if (vsPar === 0)     return Colors.surfaceElevated;
   if (vsPar === 1)     return Colors.warning + '40';
   if (vsPar === 2)     return Colors.error + '38';
-  return Colors.error;                                // triple bogey+
+  return Colors.error;
 }
 
 function summaryScoreText(vsPar: number | null): string {
@@ -672,32 +753,36 @@ function summaryScoreText(vsPar: number | null): string {
   if (vsPar === 0)     return Colors.text;
   if (vsPar === 1)     return Colors.warning;
   if (vsPar === 2)     return Colors.error;
-  return '#fff';                                      // triple bogey+
+  return '#fff';
 }
 
 function PostRoundScorecard({ round }: { round: Round }) {
+  const isNine = round.holes.length <= 9;
   const front = round.holes.slice(0, 9);
-  const back  = round.holes.slice(9, 18);
-  const frontPar   = front.reduce((s, h) => s + h.par, 0);
-  const backPar    = back.reduce((s, h) => s + h.par, 0);
-  const frontScore = front.reduce((s, h) => h.strokes > 0 ? s + h.strokes : s, 0);
-  const backScore  = back.reduce((s, h) => h.strokes > 0 ? s + h.strokes : s, 0);
+  const back  = isNine ? [] : round.holes.slice(9, 18);
+  const frontPar    = front.reduce((s, h) => s + h.par, 0);
+  const backPar     = back.reduce((s, h) => s + h.par, 0);
+  const frontScore  = front.reduce((s, h) => h.strokes > 0 ? s + h.strokes : s, 0);
+  const backScore   = back.reduce((s, h) => h.strokes > 0 ? s + h.strokes : s, 0);
 
   return (
     <View style={sumStyles.scorecardWrap}>
       <Text style={sumStyles.scorecardTitle}>Scorecard</Text>
-      <SummaryNineRow holes={front} total={frontScore} totalPar={frontPar} label="OUT" />
-      <View style={sumStyles.scorecardDivider} />
-      <SummaryNineRow holes={back}  total={backScore}  totalPar={backPar}  label="IN" />
-      {/* Legend */}
+      <SummaryNineRow holes={front} total={frontScore} totalPar={frontPar} label={isNine ? '9' : 'OUT'} />
+      {!isNine && (
+        <>
+          <View style={sumStyles.scorecardDivider} />
+          <SummaryNineRow holes={back} total={backScore} totalPar={backPar} label="IN" />
+        </>
+      )}
       <View style={sumStyles.legend}>
         {[
-          { bg: '#F4B942',            text: '#fff',            label: 'Eagle−' },
-          { bg: Colors.success,       text: '#fff',            label: 'Birdie' },
+          { bg: '#F4B942',              text: '#fff',          label: 'Eagle−' },
+          { bg: Colors.success,         text: '#fff',          label: 'Birdie' },
           { bg: Colors.surfaceElevated, text: Colors.text,     label: 'Par'    },
-          { bg: Colors.warning + '40', text: Colors.warning,   label: 'Bogey'  },
-          { bg: Colors.error + '38',  text: Colors.error,      label: 'Dbl'    },
-          { bg: Colors.error,         text: '#fff',            label: 'Tpl+'   },
+          { bg: Colors.warning + '40',  text: Colors.warning,  label: 'Bogey'  },
+          { bg: Colors.error + '38',    text: Colors.error,    label: 'Dbl'    },
+          { bg: Colors.error,           text: '#fff',          label: 'Tpl+'   },
         ].map(({ bg, label }) => (
           <View key={label} style={sumStyles.legendItem}>
             <View style={[sumStyles.legendSwatch, { backgroundColor: bg }]} />
@@ -729,7 +814,6 @@ function SummaryNineRow({
           </View>
         );
       })}
-      {/* Total column */}
       <View style={sumStyles.totalHoleCell}>
         <Text style={sumStyles.holeNum}>{label}</Text>
         <Text style={sumStyles.holePar}>{totalPar}</Text>
@@ -755,7 +839,6 @@ function BestWorstHoles({ round }: { round: Round }) {
   const best  = getBestHole(round.holes);
   const worst = getWorstHole(round.holes);
 
-  // Every hole at par — special case
   if (best && worst && best.vsPar === 0 && worst.vsPar === 0) {
     return (
       <View style={sumStyles.allParCard}>
@@ -794,10 +877,10 @@ function HoleCallout({ result, type }: { result: HoleResult; type: 'best' | 'wor
 
 function PostRoundSG({ round }: { round: Round }) {
   const cats = [
-    { label: 'OTT', full: 'Off Tee', val: round.sgOffTee },
-    { label: 'APP', full: 'Approach', val: round.sgApproach },
-    { label: 'ARG', full: 'Around Green', val: round.sgAroundGreen },
-    { label: 'PUT', full: 'Putting', val: round.sgPutting },
+    { label: 'OTT', full: 'Off Tee',      val: round.sgOffTee },
+    { label: 'APP', full: 'Approach',      val: round.sgApproach },
+    { label: 'ARG', full: 'Around Green',  val: round.sgAroundGreen },
+    { label: 'PUT', full: 'Putting',       val: round.sgPutting },
   ];
 
   function isValid(v: number | undefined | null): v is number {
@@ -845,14 +928,6 @@ function PostRoundSG({ round }: { round: Round }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PAR_COLORS: Record<string, string> = {
-  eagle: Colors.accent,
-  birdie: Colors.success,
-  par: Colors.surfaceElevated,
-  bogey: Colors.error,
-  double: Colors.error,
-};
-
 function holeScoreColor(diff: number | null): string {
   if (diff === null) return Colors.surface;
   if (diff <= -2) return Colors.accent + '50';
@@ -876,12 +951,13 @@ function ScorecardGrid({ round, selectedHole, onSelectHole }: {
   selectedHole: number;
   onSelectHole: (n: number) => void;
 }) {
+  const isNine = round.holes.length <= 9;
   const front = round.holes.slice(0, 9);
-  const back = round.holes.slice(9, 18);
+  const back  = isNine ? [] : round.holes.slice(9, 18);
   const frontTotal = front.reduce((s, h) => h.strokes > 0 ? s + h.strokes : s, 0);
-  const backTotal = back.reduce((s, h) => h.strokes > 0 ? s + h.strokes : s, 0);
-  const frontPar = front.reduce((s, h) => s + h.par, 0);
-  const backPar = back.reduce((s, h) => s + h.par, 0);
+  const backTotal  = back.reduce((s, h) => h.strokes > 0 ? s + h.strokes : s, 0);
+  const frontPar   = front.reduce((s, h) => s + h.par, 0);
+  const backPar    = back.reduce((s, h) => s + h.par, 0);
 
   function ScorecardRow({ holes, label, total, totalPar }: {
     holes: typeof front; label: string; total: number; totalPar: number;
@@ -925,10 +1001,13 @@ function ScorecardGrid({ round, selectedHole, onSelectHole }: {
 
   return (
     <View style={scStyles.wrap}>
-      <ScorecardRow holes={front} label="OUT" total={frontTotal} totalPar={frontPar} />
-      <View style={scStyles.divider} />
-      <ScorecardRow holes={back} label="IN" total={backTotal} totalPar={backPar} />
-      {/* Legend */}
+      <ScorecardRow holes={front} label={isNine ? '9' : 'OUT'} total={frontTotal} totalPar={frontPar} />
+      {!isNine && (
+        <>
+          <View style={scStyles.divider} />
+          <ScorecardRow holes={back} label="IN" total={backTotal} totalPar={backPar} />
+        </>
+      )}
       <View style={scStyles.legend}>
         {([
           { color: Colors.accent + '50', border: Colors.accent, label: 'Eagle−' },
@@ -943,6 +1022,533 @@ function ScorecardGrid({ round, selectedHole, onSelectHole }: {
           </View>
         ))}
       </View>
+    </View>
+  );
+}
+
+// ─── Running totals strip ─────────────────────────────────────────────────────
+
+function RunningTotals({ round }: { round: Round }) {
+  const played = round.holes.filter((h) => h.strokes > 0);
+  const totalScore = played.reduce((s, h) => s + h.strokes, 0);
+  const totalPar   = played.reduce((s, h) => s + h.par, 0);
+  const totalPutts = played.reduce((s, h) => s + h.putts, 0);
+  const stp = totalScore - totalPar;
+  const parLabel = totalScore === 0 ? '—' : stp === 0 ? 'E' : stp > 0 ? `+${stp}` : String(stp);
+  const parColor = stp < 0 ? Colors.success : stp > 0 ? Colors.error : Colors.textSecondary;
+
+  return (
+    <View style={styles.runningTotals}>
+      <View style={styles.rTotal}>
+        <Text style={styles.rTotalVal}>{totalScore || '—'}</Text>
+        <Text style={styles.rTotalLabel}>Score</Text>
+      </View>
+      <View style={styles.rTotalDivider} />
+      <View style={styles.rTotal}>
+        <Text style={[styles.rTotalVal, totalScore > 0 && { color: parColor }]}>{parLabel}</Text>
+        <Text style={styles.rTotalLabel}>vs Par</Text>
+      </View>
+      <View style={styles.rTotalDivider} />
+      <View style={styles.rTotal}>
+        <Text style={styles.rTotalVal}>{totalPutts || '—'}</Text>
+        <Text style={styles.rTotalLabel}>Putts</Text>
+      </View>
+      <View style={styles.rTotalDivider} />
+      <View style={styles.rTotal}>
+        <Text style={styles.rTotalVal}>{played.length}/{round.holes.length}</Text>
+        <Text style={styles.rTotalLabel}>Holes</Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Round Detail Modal ───────────────────────────────────────────────────────
+
+function RoundDetailModal({
+  round, rounds, visible, onClose, onDelete, onSave,
+}: {
+  round: Round | null;
+  rounds: Round[];
+  visible: boolean;
+  onClose: () => void;
+  onDelete: (id: string) => void;
+  onSave: (id: string, holes: HoleScore[]) => void;
+}) {
+  const [editMode, setEditMode] = useState(false);
+  const [editHoles, setEditHoles] = useState<HoleScore[]>([]);
+  const [editSelectedHole, setEditSelectedHole] = useState(1);
+
+  useEffect(() => {
+    if (round) {
+      setEditHoles([...round.holes]);
+      setEditSelectedHole(round.holes[0]?.holeNumber ?? 1);
+      setEditMode(false);
+    }
+  }, [round?.id]);
+
+  if (!round) return null;
+
+  const stp = round.scoreToPar;
+  const parColor = stp < 0 ? Colors.success : stp > 0 ? Colors.error : Colors.text;
+  const parLabel = stp === 0 ? 'E' : stp > 0 ? `+${stp}` : String(stp);
+
+  function handleDelete() {
+    if (!round) return;
+    Alert.alert('Delete Round?', 'This will permanently remove this round.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: () => {
+          haptics.medium();
+          onDelete(round.id);
+        },
+      },
+    ]);
+  }
+
+  function handleSaveEdit() {
+    if (!round) return;
+    haptics.success();
+    onSave(round.id, editHoles);
+    setEditMode(false);
+  }
+
+  const currentEditHole = editHoles.find((h) => h.holeNumber === editSelectedHole);
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+      <SafeAreaView style={styles.modal}>
+        <View style={styles.modalHeader}>
+          {editMode ? (
+            <TouchableOpacity onPress={() => setEditMode(false)}>
+              <Text style={styles.modalCancel}>Cancel</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={onClose}>
+              <Text style={styles.modalCancel}>Close</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.modalTitle} numberOfLines={1}>{round.courseName}</Text>
+          {editMode ? (
+            <TouchableOpacity onPress={handleSaveEdit}>
+              <Text style={styles.modalStart}>Save</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={() => { haptics.medium(); setEditHoles([...round.holes]); setEditMode(true); }}>
+              <Text style={styles.modalStart}>Edit</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {editMode ? (
+          <>
+            <ScorecardGrid
+              round={{ ...round, holes: editHoles }}
+              selectedHole={editSelectedHole}
+              onSelectHole={(n) => { haptics.light(); setEditSelectedHole(n); }}
+            />
+            {currentEditHole && (
+              <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                <HoleInputCard
+                  hole={currentEditHole}
+                  onUpdate={(data) =>
+                    setEditHoles((prev) => prev.map((h) => h.holeNumber === editSelectedHole ? { ...h, ...data } : h))
+                  }
+                  onNext={() => {
+                    const next = editHoles.find((h) => h.holeNumber === editSelectedHole + 1);
+                    if (next) setEditSelectedHole(editSelectedHole + 1);
+                  }}
+                  isLastHole={editSelectedHole >= editHoles.length}
+                />
+              </ScrollView>
+            )}
+          </>
+        ) : (
+          <ScrollView contentContainerStyle={detailStyles.content} showsVerticalScrollIndicator={false}>
+            {/* Metadata */}
+            <View style={detailStyles.metaRow}>
+              <Text style={detailStyles.dateText}>
+                {new Date(round.date).toLocaleDateString('en-US', {
+                  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                })}
+              </Text>
+              {round.roundType && (
+                <View style={detailStyles.typeBadge}>
+                  <Text style={detailStyles.typeBadgeText}>
+                    {round.roundType.charAt(0).toUpperCase() + round.roundType.slice(1)}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Score headline */}
+            <View style={detailStyles.scoreRow}>
+              <Text style={detailStyles.scoreTotal}>{round.totalScore}</Text>
+              <Text style={[detailStyles.scorePar, { color: parColor }]}>{parLabel}</Text>
+            </View>
+
+            <SummaryStatsGrid round={round} rounds={rounds} />
+
+            {round.scoreDifferential !== undefined && (
+              <DifferentialCard
+                diff={round.scoreDifferential}
+                isDefault={usedDefaultRating(round.courseRating, round.slopeRating)}
+                pb={isPB(round.scoreDifferential, round.id, rounds)}
+              />
+            )}
+
+            <PostRoundScorecard round={round} />
+            <BestWorstHoles round={round} />
+
+            {(round.sgTotal !== undefined || round.sgOffTee !== undefined ||
+              round.sgApproach !== undefined || round.sgAroundGreen !== undefined ||
+              round.sgPutting !== undefined) && (
+              <PostRoundSG round={round} />
+            )}
+
+            {round.notes ? (
+              <View style={detailStyles.notesBox}>
+                <Text style={detailStyles.notesLabel}>Notes</Text>
+                <Text style={detailStyles.notesText}>{round.notes}</Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity style={detailStyles.deleteBtn} onPress={handleDelete} activeOpacity={0.8}>
+              <Text style={detailStyles.deleteBtnText}>Delete Round</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+// ─── Hole input ───────────────────────────────────────────────────────────────
+
+function Counter({
+  value, onDecrement, onIncrement, min = 0, max, formatVal,
+}: {
+  value: number;
+  onDecrement: () => void;
+  onIncrement: () => void;
+  min?: number;
+  max?: number;
+  formatVal?: (v: number) => string;
+}) {
+  return (
+    <View style={holeStyles.counter}>
+      <TouchableOpacity
+        style={[holeStyles.counterBtn, value <= min && holeStyles.counterBtnDisabled]}
+        onPress={() => { haptics.light(); onDecrement(); }}
+        disabled={value <= min}
+      >
+        <Text style={holeStyles.counterBtnText}>−</Text>
+      </TouchableOpacity>
+      <Text style={holeStyles.counterVal}>{formatVal ? formatVal(value) : (value || '—')}</Text>
+      <TouchableOpacity
+        style={[holeStyles.counterBtn, max !== undefined && value >= max && holeStyles.counterBtnDisabled]}
+        onPress={() => { haptics.light(); onIncrement(); }}
+        disabled={max !== undefined && value >= max}
+      >
+        <Text style={holeStyles.counterBtnText}>+</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function ToggleRow({
+  label, value, onYes, onNo,
+}: {
+  label: string;
+  value: boolean | undefined;
+  onYes: () => void;
+  onNo: () => void;
+}) {
+  return (
+    <View style={holeStyles.row}>
+      <Text style={holeStyles.rowLabel}>{label}</Text>
+      <View style={holeStyles.toggle}>
+        <TouchableOpacity
+          style={[holeStyles.toggleBtn, value === true && holeStyles.toggleBtnYes]}
+          onPress={() => { haptics.light(); onYes(); }}
+        >
+          <Text style={[holeStyles.toggleText, value === true && holeStyles.toggleTextActive]}>Yes</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[holeStyles.toggleBtn, value === false && holeStyles.toggleBtnNo]}
+          onPress={() => { haptics.light(); onNo(); }}
+        >
+          <Text style={[holeStyles.toggleText, value === false && holeStyles.toggleTextActive]}>No</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function SGStepRow({
+  label, value, unit, onDecrement, onIncrement,
+}: {
+  label: string;
+  value: number | undefined;
+  unit: string;
+  step: number;
+  onDecrement: () => void;
+  onIncrement: () => void;
+}) {
+  return (
+    <View style={holeStyles.sgRow}>
+      <Text style={holeStyles.sgLabel}>{label}</Text>
+      <View style={holeStyles.counter}>
+        <TouchableOpacity
+          style={[holeStyles.counterBtn, (!value || value <= 0) && holeStyles.counterBtnDisabled]}
+          onPress={() => { haptics.light(); onDecrement(); }}
+          disabled={!value || value <= 0}
+        >
+          <Text style={holeStyles.counterBtnText}>−</Text>
+        </TouchableOpacity>
+        <Text style={holeStyles.sgVal}>
+          {value ? `${value}${unit}` : <Text style={{ color: Colors.textLight }}>—</Text>}
+        </Text>
+        <TouchableOpacity
+          style={holeStyles.counterBtn}
+          onPress={() => { haptics.light(); onIncrement(); }}
+        >
+          <Text style={holeStyles.counterBtnText}>+</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const MISS_GRID: { dir: MissDirection; label: string }[][] = [
+  [{ dir: 'long-left', label: '↖' }, { dir: 'long', label: '↑' }, { dir: 'long-right', label: '↗' }],
+  [{ dir: 'left', label: '←' }, { dir: 'center', label: '◎' }, { dir: 'right', label: '→' }],
+  [{ dir: 'short-left', label: '↙' }, { dir: 'short', label: '↓' }, { dir: 'short-right', label: '↘' }],
+];
+
+function MissGrid({ value, onSelect }: { value: MissDirection | undefined; onSelect: (d: MissDirection) => void }) {
+  return (
+    <View style={{ gap: 4 }}>
+      {MISS_GRID.map((row, ri) => (
+        <View key={ri} style={{ flexDirection: 'row', gap: 4 }}>
+          {row.map(({ dir, label }) => {
+            const isCenter = dir === 'center';
+            const isActive = value === dir;
+            return (
+              <TouchableOpacity
+                key={dir}
+                style={[
+                  holeStyles.missCell,
+                  isCenter && holeStyles.missCellCenter,
+                  isActive && (isCenter ? holeStyles.missCellCenterActive : holeStyles.missCellActive),
+                ]}
+                onPress={() => { haptics.light(); onSelect(dir); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[holeStyles.missCellText, isActive && holeStyles.missCellTextActive]}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function HoleInputCard({
+  hole, onUpdate, onNext, isLastHole = false,
+}: {
+  hole: HoleScore;
+  onUpdate: (data: Partial<HoleScore>) => void;
+  onNext: () => void;
+  isLastHole?: boolean;
+}) {
+  const [showSG, setShowSG] = useState(false);
+  const scoreVsPar = hole.strokes > 0 ? hole.strokes - hole.par : null;
+  const puttsMax = Math.min(10, hole.strokes > 0 ? hole.strokes : 10);
+
+  return (
+    <View style={holeStyles.card}>
+      <View style={holeStyles.cardHeader}>
+        <Text style={holeStyles.holeLabel}>Hole {hole.holeNumber}</Text>
+        {scoreVsPar !== null && (
+          <View style={[
+            holeStyles.scoreBadge,
+            scoreVsPar < 0 ? holeStyles.scoreBadgeUnder
+              : scoreVsPar === 0 ? holeStyles.scoreBadgeEven
+              : holeStyles.scoreBadgeOver,
+          ]}>
+            <Text style={holeStyles.scoreBadgeText}>
+              {scoreVsPar === 0 ? 'Par' : scoreVsPar < 0 ? scoreVsPar : `+${scoreVsPar}`}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Par */}
+      <View style={holeStyles.row}>
+        <Text style={holeStyles.rowLabel}>Par</Text>
+        <View style={holeStyles.segmented}>
+          {([3, 4, 5] as const).map((p) => (
+            <TouchableOpacity
+              key={p}
+              style={[holeStyles.seg, hole.par === p && holeStyles.segActive]}
+              onPress={() => { haptics.light(); onUpdate({ par: p }); }}
+              activeOpacity={0.75}
+            >
+              <Text style={[holeStyles.segText, hole.par === p && holeStyles.segTextActive]}>{p}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Strokes — min 1 once set (0 = unplayed), max 20 */}
+      <View style={holeStyles.row}>
+        <Text style={holeStyles.rowLabel}>Strokes</Text>
+        <Counter
+          value={hole.strokes}
+          min={1}
+          max={20}
+          onDecrement={() => onUpdate({ strokes: Math.max(1, hole.strokes - 1) })}
+          onIncrement={() => onUpdate({ strokes: Math.min(20, hole.strokes + 1) })}
+        />
+      </View>
+
+      {/* Putts — min 0, max 10 (also capped to strokes) */}
+      <View style={holeStyles.row}>
+        <Text style={holeStyles.rowLabel}>Putts</Text>
+        <Counter
+          value={hole.putts}
+          min={0}
+          max={puttsMax}
+          onDecrement={() => onUpdate({ putts: Math.max(0, hole.putts - 1) })}
+          onIncrement={() => onUpdate({ putts: Math.min(puttsMax, hole.putts + 1) })}
+          formatVal={(v) => String(v)}
+        />
+      </View>
+
+      {/* Penalties — min 0, max 10 */}
+      <View style={holeStyles.row}>
+        <Text style={holeStyles.rowLabel}>Penalty Strokes</Text>
+        <Counter
+          value={hole.penaltyStrokes ?? 0}
+          min={0}
+          max={10}
+          onDecrement={() => onUpdate({ penaltyStrokes: Math.max(0, (hole.penaltyStrokes ?? 0) - 1) })}
+          onIncrement={() => onUpdate({ penaltyStrokes: Math.min(10, (hole.penaltyStrokes ?? 0) + 1) })}
+          formatVal={(v) => String(v)}
+        />
+      </View>
+
+      {/* Fairway (par 4/5 only) */}
+      {(hole.par === 4 || hole.par === 5) && (
+        <ToggleRow
+          label="Fairway Hit"
+          value={hole.fairwayHit}
+          onYes={() => onUpdate({ fairwayHit: true })}
+          onNo={() => onUpdate({ fairwayHit: false })}
+        />
+      )}
+
+      {/* GIR */}
+      <ToggleRow
+        label="Green in Regulation"
+        value={hole.greenInRegulation}
+        onYes={() => onUpdate({ greenInRegulation: true, upAndDown: undefined })}
+        onNo={() => onUpdate({ greenInRegulation: false })}
+      />
+
+      {/* Up & Down (only when GIR = false and strokes > 0) */}
+      {hole.greenInRegulation === false && hole.strokes > 0 && (
+        <ToggleRow
+          label="Up & Down"
+          value={hole.upAndDown}
+          onYes={() => onUpdate({ upAndDown: true })}
+          onNo={() => onUpdate({ upAndDown: false })}
+        />
+      )}
+
+      {/* Performance Details (collapsible) */}
+      <TouchableOpacity
+        style={holeStyles.sgToggleRow}
+        onPress={() => { haptics.light(); setShowSG(!showSG); }}
+        activeOpacity={0.7}
+      >
+        <Text style={holeStyles.sgToggleLabel}>Performance Details</Text>
+        <Text style={holeStyles.sgToggleHint}>
+          {showSG ? '▲ hide' : '▼ for Strokes Gained'}
+        </Text>
+      </TouchableOpacity>
+
+      {showSG && (
+        <View style={holeStyles.sgSection}>
+          <Text style={holeStyles.sgSectionNote}>
+            Optional. Used to calculate Strokes Gained across all 4 categories.
+          </Text>
+
+          <SGStepRow
+            label="Approach Distance"
+            value={hole.approachDistanceYards}
+            unit=" yds"
+            step={5}
+            onDecrement={() => onUpdate({ approachDistanceYards: Math.max(5, (hole.approachDistanceYards ?? 5) - 5) })}
+            onIncrement={() => onUpdate({ approachDistanceYards: Math.min(600, (hole.approachDistanceYards ?? 0) + 5) })}
+          />
+
+          {hole.approachDistanceYards && hole.approachDistanceYards > 0 && (
+            <View style={holeStyles.sgRow}>
+              <Text style={holeStyles.sgLabel}>Approach Lie</Text>
+              <View style={holeStyles.lieRow}>
+                {(['fairway', 'rough', 'sand', 'recovery'] as const).map((lie) => (
+                  <TouchableOpacity
+                    key={lie}
+                    style={[holeStyles.lieSeg, hole.approachLie === lie && holeStyles.lieSegActive]}
+                    onPress={() => { haptics.light(); onUpdate({ approachLie: lie }); }}
+                  >
+                    <Text style={[holeStyles.lieText, hole.approachLie === lie && holeStyles.lieTextActive]}>
+                      {lie === 'fairway' ? 'FW' : lie === 'rough' ? 'Rough' : lie === 'sand' ? 'Sand' : 'Rec'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {hole.putts > 0 && (
+            <SGStepRow
+              label="First Putt Distance"
+              value={hole.firstPuttDistanceFeet}
+              unit=" ft"
+              step={1}
+              onDecrement={() => onUpdate({ firstPuttDistanceFeet: Math.max(1, (hole.firstPuttDistanceFeet ?? 1) - 1) })}
+              onIncrement={() => onUpdate({ firstPuttDistanceFeet: (hole.firstPuttDistanceFeet ?? 0) + 1 })}
+            />
+          )}
+
+          <SGStepRow
+            label="Proximity to Hole"
+            value={hole.proximityFeet}
+            unit=" ft"
+            step={1}
+            onDecrement={() => onUpdate({ proximityFeet: Math.max(1, (hole.proximityFeet ?? 1) - 1) })}
+            onIncrement={() => onUpdate({ proximityFeet: (hole.proximityFeet ?? 0) + 1 })}
+          />
+
+          <View style={[holeStyles.sgRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 8 }]}>
+            <Text style={holeStyles.sgLabel}>Miss Direction</Text>
+            <MissGrid value={hole.missDirection} onSelect={(dir) => onUpdate({ missDirection: dir })} />
+          </View>
+        </View>
+      )}
+
+      {!isLastHole && (
+        <TouchableOpacity
+          style={holeStyles.nextBtn}
+          onPress={() => { haptics.medium(); onNext(); }}
+          activeOpacity={0.85}
+        >
+          <Text style={holeStyles.nextBtnText}>Next Hole →</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -1012,329 +1618,6 @@ const scStyles = StyleSheet.create({
   },
   legendText: { fontSize: 8, color: Colors.textLight, fontWeight: '600' },
 });
-
-function Counter({
-  value,
-  onDecrement,
-  onIncrement,
-  min = 0,
-  formatVal,
-}: {
-  value: number;
-  onDecrement: () => void;
-  onIncrement: () => void;
-  min?: number;
-  formatVal?: (v: number) => string;
-}) {
-  return (
-    <View style={holeStyles.counter}>
-      <TouchableOpacity
-        style={[holeStyles.counterBtn, value <= min && holeStyles.counterBtnDisabled]}
-        onPress={onDecrement}
-        disabled={value <= min}
-      >
-        <Text style={holeStyles.counterBtnText}>−</Text>
-      </TouchableOpacity>
-      <Text style={holeStyles.counterVal}>{formatVal ? formatVal(value) : (value || '—')}</Text>
-      <TouchableOpacity style={holeStyles.counterBtn} onPress={onIncrement}>
-        <Text style={holeStyles.counterBtnText}>+</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function ToggleRow({
-  label,
-  value,
-  onYes,
-  onNo,
-}: {
-  label: string;
-  value: boolean | undefined;
-  onYes: () => void;
-  onNo: () => void;
-}) {
-  return (
-    <View style={holeStyles.row}>
-      <Text style={holeStyles.rowLabel}>{label}</Text>
-      <View style={holeStyles.toggle}>
-        <TouchableOpacity
-          style={[holeStyles.toggleBtn, value === true && holeStyles.toggleBtnYes]}
-          onPress={onYes}
-        >
-          <Text style={[holeStyles.toggleText, value === true && holeStyles.toggleTextActive]}>Yes</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[holeStyles.toggleBtn, value === false && holeStyles.toggleBtnNo]}
-          onPress={onNo}
-        >
-          <Text style={[holeStyles.toggleText, value === false && holeStyles.toggleTextActive]}>No</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-function SGStepRow({
-  label,
-  value,
-  unit,
-  step,
-  onDecrement,
-  onIncrement,
-}: {
-  label: string;
-  value: number | undefined;
-  unit: string;
-  step: number;
-  onDecrement: () => void;
-  onIncrement: () => void;
-}) {
-  return (
-    <View style={holeStyles.sgRow}>
-      <Text style={holeStyles.sgLabel}>{label}</Text>
-      <View style={holeStyles.counter}>
-        <TouchableOpacity
-          style={[holeStyles.counterBtn, (!value || value <= 0) && holeStyles.counterBtnDisabled]}
-          onPress={onDecrement}
-          disabled={!value || value <= 0}
-        >
-          <Text style={holeStyles.counterBtnText}>−</Text>
-        </TouchableOpacity>
-        <Text style={holeStyles.sgVal}>
-          {value ? `${value}${unit}` : <Text style={{ color: Colors.textLight }}>—</Text>}
-        </Text>
-        <TouchableOpacity style={holeStyles.counterBtn} onPress={onIncrement}>
-          <Text style={holeStyles.counterBtnText}>+</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-const MISS_GRID: { dir: MissDirection; label: string }[][] = [
-  [{ dir: 'long-left', label: '↖' }, { dir: 'long', label: '↑' }, { dir: 'long-right', label: '↗' }],
-  [{ dir: 'left', label: '←' }, { dir: 'center', label: '◎' }, { dir: 'right', label: '→' }],
-  [{ dir: 'short-left', label: '↙' }, { dir: 'short', label: '↓' }, { dir: 'short-right', label: '↘' }],
-];
-
-function MissGrid({ value, onSelect }: { value: MissDirection | undefined; onSelect: (d: MissDirection) => void }) {
-  return (
-    <View style={{ gap: 4 }}>
-      {MISS_GRID.map((row, ri) => (
-        <View key={ri} style={{ flexDirection: 'row', gap: 4 }}>
-          {row.map(({ dir, label }) => {
-            const isCenter = dir === 'center';
-            const isActive = value === dir;
-            return (
-              <TouchableOpacity
-                key={dir}
-                style={[
-                  holeStyles.missCell,
-                  isCenter && holeStyles.missCellCenter,
-                  isActive && (isCenter ? holeStyles.missCellCenterActive : holeStyles.missCellActive),
-                ]}
-                onPress={() => onSelect(dir)}
-                activeOpacity={0.7}
-              >
-                <Text style={[holeStyles.missCellText, isActive && holeStyles.missCellTextActive]}>{label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function HoleInputCard({
-  hole,
-  onUpdate,
-  onNext,
-}: {
-  hole: HoleScore;
-  onUpdate: (data: Partial<HoleScore>) => void;
-  onNext: () => void;
-}) {
-  const [showSG, setShowSG] = useState(false);
-  const scoreVsPar = hole.strokes > 0 ? hole.strokes - hole.par : null;
-
-  return (
-    <View style={holeStyles.card}>
-      <View style={holeStyles.cardHeader}>
-        <Text style={holeStyles.holeLabel}>Hole {hole.holeNumber}</Text>
-        {scoreVsPar !== null && (
-          <View style={[
-            holeStyles.scoreBadge,
-            scoreVsPar < 0 ? holeStyles.scoreBadgeUnder
-              : scoreVsPar === 0 ? holeStyles.scoreBadgeEven
-              : holeStyles.scoreBadgeOver,
-          ]}>
-            <Text style={holeStyles.scoreBadgeText}>
-              {scoreVsPar === 0 ? 'Par' : scoreVsPar < 0 ? scoreVsPar : `+${scoreVsPar}`}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Par */}
-      <View style={holeStyles.row}>
-        <Text style={holeStyles.rowLabel}>Par</Text>
-        <View style={holeStyles.segmented}>
-          {([3, 4, 5] as const).map((p) => (
-            <TouchableOpacity
-              key={p}
-              style={[holeStyles.seg, hole.par === p && holeStyles.segActive]}
-              onPress={() => onUpdate({ par: p })}
-              activeOpacity={0.75}
-            >
-              <Text style={[holeStyles.segText, hole.par === p && holeStyles.segTextActive]}>{p}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Strokes */}
-      <View style={holeStyles.row}>
-        <Text style={holeStyles.rowLabel}>Strokes</Text>
-        <Counter
-          value={hole.strokes}
-          onDecrement={() => onUpdate({ strokes: Math.max(0, hole.strokes - 1) })}
-          onIncrement={() => onUpdate({ strokes: Math.min(20, hole.strokes + 1) })}
-        />
-      </View>
-
-      {/* Putts */}
-      <View style={holeStyles.row}>
-        <Text style={holeStyles.rowLabel}>Putts</Text>
-        <Counter
-          value={hole.putts}
-          onDecrement={() => onUpdate({ putts: Math.max(0, hole.putts - 1) })}
-          onIncrement={() => onUpdate({ putts: Math.min(hole.strokes > 0 ? hole.strokes : 20, hole.putts + 1) })}
-          formatVal={(v) => String(v)}
-        />
-      </View>
-
-      {/* Penalties */}
-      <View style={holeStyles.row}>
-        <Text style={holeStyles.rowLabel}>Penalty Strokes</Text>
-        <Counter
-          value={hole.penaltyStrokes ?? 0}
-          onDecrement={() => onUpdate({ penaltyStrokes: Math.max(0, (hole.penaltyStrokes ?? 0) - 1) })}
-          onIncrement={() => onUpdate({ penaltyStrokes: Math.min(10, (hole.penaltyStrokes ?? 0) + 1) })}
-          formatVal={(v) => String(v)}
-        />
-      </View>
-
-      {/* Fairway (par 4/5 only) */}
-      {(hole.par === 4 || hole.par === 5) && (
-        <ToggleRow
-          label="Fairway Hit"
-          value={hole.fairwayHit}
-          onYes={() => onUpdate({ fairwayHit: true })}
-          onNo={() => onUpdate({ fairwayHit: false })}
-        />
-      )}
-
-      {/* GIR */}
-      <ToggleRow
-        label="Green in Regulation"
-        value={hole.greenInRegulation}
-        onYes={() => onUpdate({ greenInRegulation: true, upAndDown: undefined })}
-        onNo={() => onUpdate({ greenInRegulation: false })}
-      />
-
-      {/* Up & Down (only when GIR = false and strokes > 0) */}
-      {hole.greenInRegulation === false && hole.strokes > 0 && (
-        <ToggleRow
-          label="Up & Down"
-          value={hole.upAndDown}
-          onYes={() => onUpdate({ upAndDown: true })}
-          onNo={() => onUpdate({ upAndDown: false })}
-        />
-      )}
-
-      {/* Strokes Gained inputs (collapsible) */}
-      <TouchableOpacity
-        style={holeStyles.sgToggleRow}
-        onPress={() => setShowSG(!showSG)}
-        activeOpacity={0.7}
-      >
-        <Text style={holeStyles.sgToggleLabel}>Performance Details</Text>
-        <Text style={holeStyles.sgToggleHint}>
-          {showSG ? '▲ hide' : '▼ for Strokes Gained'}
-        </Text>
-      </TouchableOpacity>
-
-      {showSG && (
-        <View style={holeStyles.sgSection}>
-          <Text style={holeStyles.sgSectionNote}>
-            Optional. Used to calculate Strokes Gained across all 4 categories.
-          </Text>
-
-          <SGStepRow
-            label="Approach Distance"
-            value={hole.approachDistanceYards}
-            unit=" yds"
-            step={5}
-            onDecrement={() => onUpdate({ approachDistanceYards: Math.max(5, (hole.approachDistanceYards ?? 5) - 5) })}
-            onIncrement={() => onUpdate({ approachDistanceYards: Math.min(600, (hole.approachDistanceYards ?? 0) + 5) })}
-          />
-
-          {hole.approachDistanceYards && hole.approachDistanceYards > 0 && (
-            <View style={holeStyles.sgRow}>
-              <Text style={holeStyles.sgLabel}>Approach Lie</Text>
-              <View style={holeStyles.lieRow}>
-                {(['fairway', 'rough', 'sand', 'recovery'] as const).map((lie) => (
-                  <TouchableOpacity
-                    key={lie}
-                    style={[holeStyles.lieSeg, hole.approachLie === lie && holeStyles.lieSegActive]}
-                    onPress={() => onUpdate({ approachLie: lie })}
-                  >
-                    <Text style={[holeStyles.lieText, hole.approachLie === lie && holeStyles.lieTextActive]}>
-                      {lie === 'fairway' ? 'FW' : lie === 'rough' ? 'Rough' : lie === 'sand' ? 'Sand' : 'Rec'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {hole.putts > 0 && (
-            <SGStepRow
-              label="First Putt Distance"
-              value={hole.firstPuttDistanceFeet}
-              unit=" ft"
-              step={1}
-              onDecrement={() => onUpdate({ firstPuttDistanceFeet: Math.max(1, (hole.firstPuttDistanceFeet ?? 1) - 1) })}
-              onIncrement={() => onUpdate({ firstPuttDistanceFeet: (hole.firstPuttDistanceFeet ?? 0) + 1 })}
-            />
-          )}
-
-          <SGStepRow
-            label="Proximity to Hole"
-            value={hole.proximityFeet}
-            unit=" ft"
-            step={1}
-            onDecrement={() => onUpdate({ proximityFeet: Math.max(1, (hole.proximityFeet ?? 1) - 1) })}
-            onIncrement={() => onUpdate({ proximityFeet: (hole.proximityFeet ?? 0) + 1 })}
-          />
-
-          <View style={[holeStyles.sgRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 8 }]}>
-            <Text style={holeStyles.sgLabel}>Miss Direction</Text>
-            <MissGrid value={hole.missDirection} onSelect={(dir) => onUpdate({ missDirection: dir })} />
-          </View>
-        </View>
-      )}
-
-      {hole.holeNumber < 18 && (
-        <TouchableOpacity style={holeStyles.nextBtn} onPress={onNext} activeOpacity={0.85}>
-          <Text style={holeStyles.nextBtnText}>Next Hole →</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-}
 
 const holeStyles = StyleSheet.create({
   card: {
@@ -1503,23 +1786,21 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   completeText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.background },
-  scoreSummary: {
+  // Running totals
+  runningTotals: {
     flexDirection: 'row',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    gap: Spacing.sm,
-  },
-  scoreBox: {
-    flex: 1,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
-    padding: Spacing.sm,
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
+    paddingVertical: Spacing.sm,
   },
-  scoreBoxVal: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
-  scoreBoxLabel: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  rTotal: { flex: 1, alignItems: 'center' },
+  rTotalVal: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text },
+  rTotalLabel: { fontSize: 10, color: Colors.textLight, fontWeight: '500', marginTop: 1 },
+  rTotalDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 4 },
   holeInputArea: { flex: 1 },
   noRoundContent: { padding: Spacing.lg },
   summaryCard: {
@@ -1709,6 +1990,49 @@ const styles = StyleSheet.create({
   roundTypeChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryPale },
   roundTypeText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
   roundTypeTextActive: { color: Colors.primary },
+  // Date picker row
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    paddingVertical: 2,
+  },
+  dateArrow: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  dateArrowText: { fontSize: FontSize.xl, color: Colors.primary, fontWeight: '300' },
+  dateText: { flex: 1, textAlign: 'center', fontSize: FontSize.base, fontWeight: '600', color: Colors.text },
+  // 9-hole toggle
+  nineHoleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  nineHoleLabel: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text },
+  nineHoleSub: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 1 },
+  nineHoleToggle: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.border,
+    padding: 3,
+    justifyContent: 'center',
+  },
+  nineHoleToggleOn: { backgroundColor: Colors.primary },
+  nineHoleThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#fff',
+  },
+  nineHoleThumbOn: { alignSelf: 'flex-end' },
   mentalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1740,10 +2064,15 @@ const styles = StyleSheet.create({
   },
   advancedToggleLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary, flex: 1 },
   advancedChevron: { fontSize: FontSize.xs, color: Colors.textLight, marginLeft: 6 },
+  // Unused legacy keys kept for safety
+  scoreSummary: { flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, gap: Spacing.sm },
+  scoreBox: { flex: 1, backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  scoreBoxVal: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
+  scoreBoxLabel: { fontSize: FontSize.xs, color: Colors.textSecondary },
 });
 
 const sumStyles = StyleSheet.create({
-  // ── Stats grid ──────────────────────────────────────────────────────────────
+  // Stats grid
   grid: { gap: 8, marginBottom: Spacing.md },
   statRow: { flexDirection: 'row', gap: 8 },
   statBox: {
@@ -1768,7 +2097,7 @@ const sumStyles = StyleSheet.create({
     paddingVertical: 1,
   },
   pbText: { fontSize: 8, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
-  // ── Differential card ────────────────────────────────────────────────────────
+  // Differential card
   diffCard: {
     backgroundColor: Colors.background,
     borderRadius: Radius.md,
@@ -1788,7 +2117,7 @@ const sumStyles = StyleSheet.create({
   diffTooltipIcon: { fontSize: FontSize.md, color: Colors.textLight },
   diffValue: { fontSize: 32, fontWeight: '800', color: Colors.text, letterSpacing: -1 },
   diffNote: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 4, lineHeight: 17 },
-  // ── Post-round scorecard ─────────────────────────────────────────────────────
+  // Post-round scorecard
   scorecardWrap: {
     backgroundColor: Colors.background,
     borderRadius: Radius.md,
@@ -1834,7 +2163,7 @@ const sumStyles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   legendSwatch: { width: 10, height: 10, borderRadius: 2 },
   legendText: { fontSize: 9, color: Colors.textLight, fontWeight: '600' },
-  // ── Best / worst hole callouts ───────────────────────────────────────────────
+  // Best / worst hole callouts
   calloutRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.md },
   callout: {
     flex: 1,
@@ -1863,6 +2192,7 @@ const sumStyles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   allParText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary, textAlign: 'center' },
+  // SG card
   sgCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
@@ -1887,4 +2217,48 @@ const sumStyles = StyleSheet.create({
   },
   sgChipLabel: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textLight },
   sgChipVal: { fontSize: FontSize.sm, fontWeight: '800', marginTop: 2 },
+});
+
+const detailStyles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
+  dateText: { fontSize: FontSize.sm, color: Colors.textSecondary, flex: 1 },
+  typeBadge: {
+    backgroundColor: Colors.primaryPale,
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.primary + '40',
+  },
+  typeBadgeText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  scoreRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.md, marginBottom: Spacing.lg },
+  scoreTotal: { fontSize: 48, fontWeight: '800', color: Colors.text, letterSpacing: -2 },
+  scorePar: { fontSize: FontSize.xxl, fontWeight: '800' },
+  notesBox: {
+    backgroundColor: Colors.background,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.md,
+  },
+  notesLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 6,
+  },
+  notesText: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
+  deleteBtn: {
+    marginTop: Spacing.lg,
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+    borderRadius: Radius.full,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  deleteBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.error },
 });
