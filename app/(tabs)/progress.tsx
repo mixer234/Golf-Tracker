@@ -5,10 +5,12 @@ import { useRoundStore } from '../../store/useRoundStore';
 import { useUserStore } from '../../store/useUserStore';
 import { Round, MissDirection } from '../../types';
 import { formatHandicap } from '../../components/HandicapDial';
-import { calcHandicapIndex } from '../../utils/whs';
-import { calcSGAverages, SGAverages } from '../../utils/strokesGained';
+import { calcHandicapIndex, whsDiffCount } from '../../utils/whs';
+import { calcSGAverages } from '../../utils/strokesGained';
 
-function avg(nums: number[]): number {
+// ── Stat helpers ───────────────────────────────────────────────────────────────
+
+function mean(nums: number[]): number {
   if (nums.length === 0) return 0;
   return nums.reduce((a, b) => a + b, 0) / nums.length;
 }
@@ -17,7 +19,9 @@ function girPct(rounds: Round[]): string {
   const completed = rounds.filter((r) => r.isComplete && r.greensInRegulation !== undefined);
   if (completed.length === 0) return '—';
   const totalGIR = completed.reduce((s, r) => s + r.greensInRegulation, 0);
-  const totalHoles = completed.length * 18;
+  // Use actual hole count per round so 9-hole rounds aren't counted as 18
+  const totalHoles = completed.reduce((s, r) => s + r.holes.length, 0);
+  if (totalHoles === 0) return '—';
   return `${Math.round((totalGIR / totalHoles) * 100)}%`;
 }
 
@@ -29,10 +33,16 @@ function fwPct(rounds: Round[]): string {
   return `${Math.round((hit / total) * 100)}%`;
 }
 
-function avgPutts(rounds: Round[]): string {
+// Returns average putts per HOLE (total putts / total holes played)
+function avgPuttsPerHole(rounds: Round[]): string {
   const completed = rounds.filter((r) => r.isComplete && r.totalPutts > 0);
   if (completed.length === 0) return '—';
-  return avg(completed.map((r) => r.totalPutts)).toFixed(1);
+  const totalPutts = completed.reduce((s, r) => s + r.totalPutts, 0);
+  const totalHoles = completed.reduce(
+    (s, r) => s + r.holes.filter((h) => h.strokes > 0).length, 0
+  );
+  if (totalHoles === 0) return '—';
+  return (totalPutts / totalHoles).toFixed(2);
 }
 
 function udPct(rounds: Round[]): string {
@@ -43,19 +53,46 @@ function udPct(rounds: Round[]): string {
   return `${Math.round((made / attempts) * 100)}%`;
 }
 
+// ── Main screen ────────────────────────────────────────────────────────────────
+
 export default function ProgressScreen() {
   const router = useRouter();
   const rounds = useRoundStore((s) => s.rounds);
   const profile = useUserStore((s) => s.profile);
 
   const completed = rounds.filter((r) => r.isComplete && r.totalScore > 0);
-  const last10 = completed.slice(0, 10);
-  const last5 = completed.slice(0, 5);
 
-  const recentAvg = last5.length > 0 ? avg(last5.map((r) => r.totalScore)) : null;
-  const prevAvg =
-    completed.length > 5 ? avg(completed.slice(5, 10).map((r) => r.totalScore)) : null;
-  const trend = recentAvg && prevAvg ? recentAvg - prevAvg : null;
+  // Fewer than 2 rounds → empty state
+  if (completed.length < 2) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          <Text style={styles.title}>Progress</Text>
+          <View style={styles.empty}>
+            <Text style={styles.emptyEmoji}>📊</Text>
+            <Text style={styles.emptyTitle}>Not enough data yet</Text>
+            <Text style={styles.emptyText}>
+              Complete at least 2 rounds and your performance trends will appear here.
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Scoring average: last 20 rounds (all if ≤ 20)
+  const last20 = completed.slice(0, 20);
+  const scoringAvg = mean(last20.map((r) => r.totalScore));
+
+  // Chart data
+  const last10 = completed.slice(0, 10);
+
+  // Trend: last 5 vs previous available rounds
+  const last5 = completed.slice(0, 5);
+  const prev5 = completed.slice(5, 10);
+  const recentAvg = mean(last5.map((r) => r.totalScore));
+  const prevAvg = prev5.length > 0 ? mean(prev5.map((r) => r.totalScore)) : null;
+  const trend = prevAvg !== null ? recentAvg - prevAvg : null;
 
   const differentials = completed
     .filter((r) => r.scoreDifferential !== undefined)
@@ -63,249 +100,315 @@ export default function ProgressScreen() {
   const calculatedHcp = calcHandicapIndex(differentials);
   const sgAverages = calcSGAverages(completed);
 
+  // WHS note: how many differentials WHS uses from the available pool
+  const diffPoolSize = Math.min(20, differentials.length);
+  const whsUsedCount = differentials.length > 0 ? whsDiffCount(diffPoolSize) : 0;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Progress</Text>
 
-        {completed.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>📊</Text>
-            <Text style={styles.emptyTitle}>No data yet</Text>
-            <Text style={styles.emptyText}>
-              Track a few rounds and your performance trends will appear here.
-            </Text>
+        {/* Trend Alert Card — only shows when 5+ rounds logged */}
+        {completed.length >= 5 && (
+          <TrendAlertCard
+            recentAvg={recentAvg}
+            prevAvg={prevAvg}
+            trend={trend}
+            recentCount={last5.length}
+            prevCount={prev5.length}
+          />
+        )}
+
+        {/* Stat Grid */}
+        <View style={styles.statsGrid}>
+          <StatCard
+            label="Scoring Avg"
+            value={scoringAvg.toFixed(1)}
+            sub={`Last ${last20.length} rounds`}
+            accent={Colors.primary}
+          />
+          <StatCard
+            label="GIR %"
+            value={girPct(completed)}
+            sub="Greens in regulation"
+            accent={Colors.info}
+          />
+          <StatCard
+            label="FW %"
+            value={fwPct(completed)}
+            sub="Fairways hit"
+            accent={Colors.info}
+          />
+          <StatCard
+            label="Avg Putts"
+            value={avgPuttsPerHole(completed)}
+            sub="Per hole"
+            accent={Colors.warning}
+          />
+          <StatCard
+            label="Up & Down"
+            value={udPct(completed)}
+            sub="Scrambling %"
+            accent={Colors.success}
+          />
+          <StatCard
+            label="WHS Index"
+            value={calculatedHcp !== null ? formatHandicap(calculatedHcp) : '—'}
+            sub={differentials.length > 0 ? `From ${differentials.length} rounds` : 'No ratings tracked'}
+            accent={Colors.accent}
+          />
+        </View>
+
+        {/* Scoring Trend Chart — shows from 1 round */}
+        {last10.length >= 1 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionDot} />
+              <Text style={styles.sectionTitle}>Scoring Trend</Text>
+            </View>
+            <View style={styles.chartCard}>
+              <ScoreChart rounds={[...last10].reverse()} />
+            </View>
           </View>
-        ) : (
-          <>
-            {/* Summary Cards */}
-            <View style={styles.statsGrid}>
-              <StatCard
-                label="Scoring Avg"
-                value={recentAvg ? recentAvg.toFixed(1) : '—'}
-                sub={`Last ${last5.length} rounds`}
-                trend={trend !== null ? (trend < 0 ? 'up' : trend > 0 ? 'down' : 'flat') : undefined}
-                trendValue={trend !== null ? `${Math.abs(trend).toFixed(1)} strokes` : undefined}
-                accent={Colors.primary}
-              />
-              <StatCard
-                label="GIR %"
-                value={girPct(completed)}
-                sub="Greens in regulation"
-                accent={Colors.info}
-              />
-              <StatCard
-                label="FW %"
-                value={fwPct(completed)}
-                sub="Fairways hit"
-                accent={Colors.info}
-              />
-              <StatCard
-                label="Avg Putts"
-                value={avgPutts(completed)}
-                sub="Per round"
-                accent={Colors.warning}
-              />
-              <StatCard
-                label="Up & Down"
-                value={udPct(completed)}
-                sub="Scrambling %"
-                accent={Colors.success}
-              />
-              {calculatedHcp !== null && (
-                <StatCard
-                  label="WHS Index"
-                  value={formatHandicap(calculatedHcp)}
-                  sub={`From ${differentials.length} rounds`}
-                  accent={Colors.accent}
-                />
-              )}
-            </View>
+        )}
 
-            {/* Score Chart */}
-            {last10.length >= 2 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionDot} />
-                  <Text style={styles.sectionTitle}>Scoring Trend</Text>
-                </View>
-                <View style={styles.chartCard}>
-                  <ScoreChart rounds={[...last10].reverse()} />
-                </View>
-              </View>
+        {/* Strokes Gained */}
+        <View style={styles.section}>
+          <View style={styles.sectionRow}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Strokes Gained vs. Scratch</Text>
+            {sgAverages && (
+              <TouchableOpacity onPress={() => router.push('/sg')} activeOpacity={0.7}>
+                <Text style={styles.sectionLink}>Full Analysis →</Text>
+              </TouchableOpacity>
             )}
-
-            {/* Strokes Gained */}
-            <View style={styles.section}>
-              <View style={styles.sectionRow}>
-                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Strokes Gained vs. Scratch</Text>
-                {sgAverages && (
-                  <TouchableOpacity onPress={() => router.push('/sg')} activeOpacity={0.7}>
-                    <Text style={styles.sectionLink}>Full Analysis →</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              {sgAverages ? (
-                <TouchableOpacity style={styles.sgCard} onPress={() => router.push('/sg')} activeOpacity={0.85}>
-                  <Text style={styles.sgNote}>
-                    Average per round · {sgAverages.roundCount} round{sgAverages.roundCount > 1 ? 's' : ''}
-                  </Text>
-                  <SGBar label="Off the Tee" value={sgAverages.sgOffTee} />
-                  <SGBar label="Approach" value={sgAverages.sgApproach} />
-                  <SGBar label="Around Green" value={sgAverages.sgAroundGreen} />
-                  <SGBar label="Putting" value={sgAverages.sgPutting} />
-                  <View style={styles.sgTotalRow}>
-                    <Text style={styles.sgTotalLabel}>TOTAL SG</Text>
-                    <Text style={[
-                      styles.sgTotalValue,
-                      sgAverages.sgTotal > 0 ? { color: Colors.success } : { color: Colors.error },
-                    ]}>
-                      {sgAverages.sgTotal > 0 ? '+' : ''}{sgAverages.sgTotal}
-                    </Text>
-                  </View>
-                  <Text style={styles.sgTapHint}>Tap for per-round breakdown →</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={[styles.sgCard, styles.sgEmpty]} onPress={() => router.push('/sg')} activeOpacity={0.85}>
-                  <Text style={styles.sgEmptyTitle}>Not enough data yet</Text>
-                  <Text style={styles.sgEmptyText}>
-                    Enter Approach Distance and First Putt Distance in the Performance Details section while tracking rounds to unlock Strokes Gained analysis.
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Scoring by Par Type */}
-            {completed.length >= 2 && <ParTypeSection rounds={completed} />}
-
-            {/* Round Segments */}
-            {completed.length >= 2 && <SegmentSection rounds={completed} />}
-
-            {/* Score Differential Chart */}
-            {differentials.length >= 3 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionDot} />
-                  <Text style={styles.sectionTitle}>Score Differentials</Text>
-                </View>
-                <View style={styles.chartCard}>
-                  <DifferentialChart
-                    rounds={[...completed].reverse().filter((r) => r.scoreDifferential !== undefined)}
-                  />
-                </View>
-                <Text style={styles.chartNote}>
-                  WHS Handicap Index uses the lowest {Math.min(8, Math.ceil(differentials.length * 0.4))} of your last {Math.min(20, differentials.length)} differentials
+          </View>
+          {sgAverages ? (
+            <TouchableOpacity style={styles.sgCard} onPress={() => router.push('/sg')} activeOpacity={0.85}>
+              <Text style={styles.sgNote}>
+                Average per round · {sgAverages.roundCount} round{sgAverages.roundCount > 1 ? 's' : ''}
+              </Text>
+              <SGBar label="Off the Tee" value={sgAverages.sgOffTee} />
+              <SGBar label="Approach" value={sgAverages.sgApproach} />
+              <SGBar label="Around Green" value={sgAverages.sgAroundGreen} />
+              <SGBar label="Putting" value={sgAverages.sgPutting} />
+              <View style={styles.sgTotalRow}>
+                <Text style={styles.sgTotalLabel}>TOTAL SG</Text>
+                <Text style={[
+                  styles.sgTotalValue,
+                  sgAverages.sgTotal > 0 ? { color: Colors.success } : { color: Colors.error },
+                ]}>
+                  {sgAverages.sgTotal > 0 ? '+' : ''}{sgAverages.sgTotal}
                 </Text>
               </View>
-            )}
+              <Text style={styles.sgTapHint}>Tap for per-round breakdown →</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={[styles.sgCard, styles.sgEmpty]} onPress={() => router.push('/sg')} activeOpacity={0.85}>
+              <Text style={styles.sgEmptyTitle}>Not enough data yet</Text>
+              <Text style={styles.sgEmptyText}>
+                Enter Approach Distance and First Putt Distance in the Performance Details section while tracking rounds to unlock Strokes Gained analysis.
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-            {/* Handicap Progress */}
-            {profile && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionDot} />
-                  <Text style={styles.sectionTitle}>Handicap Journey</Text>
+        {/* Scoring by Par Type */}
+        <ParTypeSection rounds={completed} />
+
+        {/* Round Segments */}
+        <SegmentSection rounds={completed} />
+
+        {/* Score Differential Chart */}
+        {differentials.length >= 3 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionDot} />
+              <Text style={styles.sectionTitle}>Score Differentials</Text>
+            </View>
+            <View style={styles.chartCard}>
+              <DifferentialChart
+                rounds={[...completed].reverse().filter((r) => r.scoreDifferential !== undefined)}
+              />
+            </View>
+            <Text style={styles.chartNote}>
+              WHS Index uses the lowest {whsUsedCount} of your last {diffPoolSize} differentials
+            </Text>
+          </View>
+        )}
+
+        {/* Handicap Progress */}
+        {profile && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionDot} />
+              <Text style={styles.sectionTitle}>Handicap Journey</Text>
+            </View>
+            <View style={styles.hcpCard}>
+              <View style={styles.hcpRow}>
+                <View style={styles.hcpItem}>
+                  <Text style={styles.hcpNum}>{formatHandicap(profile.handicap)}</Text>
+                  <Text style={styles.hcpSub}>Current</Text>
                 </View>
-                <View style={styles.hcpCard}>
-                  <View style={styles.hcpRow}>
-                    <View style={styles.hcpItem}>
-                      <Text style={styles.hcpNum}>{formatHandicap(profile.handicap)}</Text>
-                      <Text style={styles.hcpSub}>Current</Text>
-                    </View>
-                    {calculatedHcp !== null && (
-                      <>
-                        <View style={styles.hcpDivider} />
-                        <View style={styles.hcpItem}>
-                          <Text style={[styles.hcpNum, { color: Colors.accent }]}>
-                            {formatHandicap(calculatedHcp)}
-                          </Text>
-                          <Text style={styles.hcpSub}>WHS Calc</Text>
-                        </View>
-                      </>
-                    )}
+                {calculatedHcp !== null && (
+                  <>
                     <View style={styles.hcpDivider} />
                     <View style={styles.hcpItem}>
-                      <Text style={[styles.hcpNum, { color: Colors.primary }]}>
-                        {formatHandicap(profile.targetHandicap)}
+                      <Text style={[styles.hcpNum, { color: Colors.accent }]}>
+                        {formatHandicap(calculatedHcp)}
                       </Text>
-                      <Text style={styles.hcpSub}>Target</Text>
+                      <Text style={styles.hcpSub}>WHS Calc</Text>
                     </View>
-                  </View>
-                  <View style={styles.hcpBar}>
-                    <View style={styles.hcpTrack}>
-                      <View
-                        style={[
-                          styles.hcpFill,
-                          {
-                            width: profile.targetHandicap >= profile.handicap
-                              ? '5%'
-                              : `${Math.min(100, Math.max(5, ((profile.handicap - profile.targetHandicap) / profile.handicap) * 100))}%`,
-                          },
-                        ]}
-                      />
-                    </View>
-                    <Text style={styles.hcpGap}>
-                      {profile.handicap > profile.targetHandicap
-                        ? `${Math.abs(profile.handicap - profile.targetHandicap).toFixed(1)} strokes to goal`
-                        : 'Goal reached'}
-                    </Text>
-                  </View>
+                  </>
+                )}
+                <View style={styles.hcpDivider} />
+                <View style={styles.hcpItem}>
+                  <Text style={[styles.hcpNum, { color: Colors.primary }]}>
+                    {formatHandicap(profile.targetHandicap)}
+                  </Text>
+                  <Text style={styles.hcpSub}>Target</Text>
                 </View>
               </View>
-            )}
-
-            {/* Handicap History */}
-            {differentials.length >= 4 && (
-              <HandicapHistoryChart rounds={completed} />
-            )}
-
-            {/* Miss Pattern Heatmap */}
-            <MissHeatmap rounds={completed} />
-
-            {/* Key Stats */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionDot} />
-                <Text style={styles.sectionTitle}>All-Time Stats</Text>
-              </View>
-              <View style={styles.statsTable}>
-                <StatRow label="Rounds Played" value={completed.length.toString()} />
-                <StatRow
-                  label="Best Score"
-                  value={Math.min(...completed.map((r) => r.totalScore)).toString()}
-                />
-                <StatRow
-                  label="Worst Score"
-                  value={Math.max(...completed.map((r) => r.totalScore)).toString()}
-                />
-                <StatRow
-                  label="Rounds Under Par"
-                  value={completed.filter((r) => r.scoreToPar < 0).length.toString()}
-                />
-                <StatRow label="Avg Putts" value={avgPutts(completed)} />
-                <StatRow
-                  label="Total Penalties"
-                  value={completed.reduce((s, r) => s + (r.totalPenalties ?? 0), 0).toString()}
-                />
-                {differentials.length > 0 && (
-                  <StatRow
-                    label="Best Differential"
-                    value={Math.min(...differentials).toFixed(1)}
+              <View style={styles.hcpBar}>
+                <View style={styles.hcpTrack}>
+                  <View
+                    style={[
+                      styles.hcpFill,
+                      {
+                        width: profile.targetHandicap >= profile.handicap
+                          ? '5%'
+                          : `${Math.min(100, Math.max(5, ((profile.handicap - profile.targetHandicap) / profile.handicap) * 100))}%`,
+                      },
+                    ]}
                   />
-                )}
-                <StatRow
-                  label="Scrambling %"
-                  value={udPct(completed)}
-                  isLast
-                />
+                </View>
+                <Text style={styles.hcpGap}>
+                  {profile.handicap > profile.targetHandicap
+                    ? `${Math.abs(profile.handicap - profile.targetHandicap).toFixed(1)} strokes to goal`
+                    : 'Goal reached'}
+                </Text>
               </View>
             </View>
-          </>
+          </View>
         )}
+
+        {/* Handicap History */}
+        {differentials.length >= 4 && (
+          <HandicapHistoryChart rounds={completed} />
+        )}
+
+        {/* Miss Pattern Heatmap */}
+        <MissHeatmap rounds={completed} />
+
+        {/* All-Time Stats */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionDot} />
+            <Text style={styles.sectionTitle}>All-Time Stats</Text>
+          </View>
+          <View style={styles.statsTable}>
+            <StatRow label="Rounds Played" value={completed.length.toString()} />
+            <StatRow
+              label="Best Score"
+              value={Math.min(...completed.map((r) => r.totalScore)).toString()}
+            />
+            <StatRow
+              label="Worst Score"
+              value={Math.max(...completed.map((r) => r.totalScore)).toString()}
+            />
+            <StatRow
+              label="Rounds Under Par"
+              value={completed.filter((r) => r.scoreToPar < 0).length.toString()}
+            />
+            <StatRow label="Avg Putts/Hole" value={avgPuttsPerHole(completed)} />
+            <StatRow
+              label="Total Penalties"
+              value={completed.reduce((s, r) => s + (r.totalPenalties ?? 0), 0).toString()}
+            />
+            {differentials.length > 0 && (
+              <StatRow
+                label="Best Differential"
+                value={Math.min(...differentials).toFixed(1)}
+              />
+            )}
+            <StatRow
+              label="Scrambling %"
+              value={udPct(completed)}
+              isLast
+            />
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+// ── TrendAlertCard ─────────────────────────────────────────────────────────────
+
+function TrendAlertCard({
+  recentAvg,
+  prevAvg,
+  trend,
+  recentCount,
+  prevCount,
+}: {
+  recentAvg: number;
+  prevAvg: number | null;
+  trend: number | null;
+  recentCount: number;
+  prevCount: number;
+}) {
+  const improving = trend !== null && trend < -0.5;
+  const declining = trend !== null && trend > 0.5;
+  const neutral = !improving && !declining;
+
+  const icon = improving ? '📈' : declining ? '📉' : '➡️';
+  const color = improving ? Colors.success : declining ? Colors.error : Colors.textSecondary;
+  const borderColor = improving ? Colors.success + '50' : declining ? Colors.error + '50' : Colors.border;
+  const bg = improving ? Colors.success + '0A' : declining ? Colors.error + '0A' : Colors.surface;
+
+  let message: string;
+  if (trend === null || prevCount === 0) {
+    message = `Scoring avg last ${recentCount} rounds: ${recentAvg.toFixed(1)}`;
+  } else if (improving) {
+    message = `Scoring ${Math.abs(trend).toFixed(1)} strokes better than your previous ${prevCount} rounds`;
+  } else if (declining) {
+    message = `Scoring ${Math.abs(trend).toFixed(1)} strokes worse than your previous ${prevCount} rounds`;
+  } else {
+    message = `Scoring consistent with your previous ${prevCount} rounds`;
+  }
+
+  return (
+    <View style={[trendStyles.card, { backgroundColor: bg, borderColor }]}>
+      <Text style={trendStyles.icon}>{icon}</Text>
+      <View style={trendStyles.body}>
+        <Text style={[trendStyles.label, { color }]}>
+          {improving ? 'Improving' : declining ? 'Declining' : 'Consistent'}
+        </Text>
+        <Text style={trendStyles.message}>{message}</Text>
+      </View>
+    </View>
+  );
+}
+
+const trendStyles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+    ...Shadow.sm,
+  },
+  icon: { fontSize: 28 },
+  body: { flex: 1, gap: 2 },
+  label: { fontSize: FontSize.sm, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
+  message: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 18 },
+});
+
+// ── ParTypeSection ─────────────────────────────────────────────────────────────
 
 function ParTypeSection({ rounds }: { rounds: Round[] }) {
   const parTypes = [3, 4, 5] as const;
@@ -351,20 +454,27 @@ const parStyles = StyleSheet.create({
   vsPar: { fontSize: FontSize.sm, fontWeight: '700' },
 });
 
+// ── SegmentSection ─────────────────────────────────────────────────────────────
+
 function SegmentSection({ rounds }: { rounds: Round[] }) {
   const segments = [
     { label: 'Front 9', range: [1, 9] as [number, number] },
-    { label: 'Mid 6', range: [7, 12] as [number, number] },
     { label: 'Back 9', range: [10, 18] as [number, number] },
   ];
 
   const data = segments.map(({ label, range }) => {
-    const holes = rounds.flatMap((r) =>
-      r.holes.filter((h) => h.holeNumber >= range[0] && h.holeNumber <= range[1] && h.strokes > 0)
+    // Only count rounds that have scored holes in this range
+    const roundsWithData = rounds.filter((r) =>
+      r.holes.some((h) => h.holeNumber >= range[0] && h.holeNumber <= range[1] && h.strokes > 0)
     );
-    if (holes.length === 0) return { label, avgVsPar: null };
-    const avgVsPar = holes.reduce((s, h) => s + (h.strokes - h.par), 0) / rounds.length;
-    return { label, avgVsPar };
+    if (roundsWithData.length === 0) return { label, avgVsPar: null };
+    const totalVsPar = roundsWithData.reduce((sum, r) => {
+      const segHoles = r.holes.filter(
+        (h) => h.holeNumber >= range[0] && h.holeNumber <= range[1] && h.strokes > 0
+      );
+      return sum + segHoles.reduce((s, h) => s + (h.strokes - h.par), 0);
+    }, 0);
+    return { label, avgVsPar: totalVsPar / roundsWithData.length };
   });
 
   if (data.every((d) => d.avgVsPar === null)) return null;
@@ -394,33 +504,24 @@ function SegmentSection({ rounds }: { rounds: Round[] }) {
   );
 }
 
+// ── StatCard ───────────────────────────────────────────────────────────────────
+
 function StatCard({
   label,
   value,
   sub,
-  trend,
-  trendValue,
   accent,
 }: {
   label: string;
   value: string;
   sub: string;
-  trend?: 'up' | 'down' | 'flat';
-  trendValue?: string;
   accent?: string;
 }) {
-  const trendColor = trend === 'up' ? Colors.success : trend === 'down' ? Colors.error : Colors.textLight;
-  const trendIcon = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
   return (
     <View style={[cardStyles.card, accent ? { borderLeftColor: accent, borderLeftWidth: 3 } : {}]}>
       <Text style={cardStyles.overline}>{label.toUpperCase()}</Text>
       <Text style={cardStyles.value}>{value}</Text>
       <Text style={cardStyles.sub}>{sub}</Text>
-      {trend && trendValue && (
-        <Text style={[cardStyles.trend, { color: trendColor }]}>
-          {trendIcon} {trendValue}
-        </Text>
-      )}
     </View>
   );
 }
@@ -434,11 +535,12 @@ function StatRow({ label, value, isLast }: { label: string; value: string; isLas
   );
 }
 
+// ── SGBar ──────────────────────────────────────────────────────────────────────
+
 function SGBar({ label, value }: { label: string; value: number }) {
   const isPositive = value > 0;
   const isNeutral = Math.abs(value) < 0.1;
   const barColor = isNeutral ? Colors.border : isPositive ? Colors.success : Colors.error;
-  // Scale: ±4 strokes = full bar width
   const pct = Math.min(100, Math.abs(value) / 4 * 100);
 
   return (
@@ -496,18 +598,26 @@ const sgStyles = StyleSheet.create({
   value: { fontSize: FontSize.sm, fontWeight: '700', width: 44, textAlign: 'right' },
 });
 
+// ── ScoreChart ─────────────────────────────────────────────────────────────────
+
+function scoreTrendColor(scoreToPar: number): string {
+  if (scoreToPar < 0) return Colors.success;
+  if (scoreToPar === 0) return Colors.info ?? Colors.accent;
+  if (scoreToPar <= 5) return Colors.warning;
+  return Colors.error;
+}
+
 function ScoreChart({ rounds }: { rounds: Round[] }) {
+  if (rounds.length === 0) return null;
+
   const scores = rounds.map((r) => r.totalScore);
   const minS = Math.min(...scores) - 3;
   const maxS = Math.max(...scores) + 3;
-  const range = maxS - minS;
-  const chartH = 110;
-  const best = Math.min(...scores);
+  const range = Math.max(maxS - minS, 1);
 
-  // We'll compute positions as percentages using flex
   return (
     <View style={lcStyles.wrap}>
-      {/* Y axis labels */}
+      {/* Y axis */}
       <View style={lcStyles.yAxis}>
         <Text style={lcStyles.yLabel}>{maxS}</Text>
         <Text style={lcStyles.yLabel}>{Math.round(minS + range / 2)}</Text>
@@ -516,36 +626,26 @@ function ScoreChart({ rounds }: { rounds: Round[] }) {
 
       {/* Chart area */}
       <View style={lcStyles.chart}>
-        {/* Horizontal grid lines */}
         <View style={[lcStyles.gridLine, { top: 0 }]} />
         <View style={[lcStyles.gridLine, { top: '50%' }]} />
         <View style={[lcStyles.gridLine, { top: '100%' }]} />
 
-        {/* Bars as background fill */}
         <View style={lcStyles.barsRow}>
-          {rounds.map((round, i) => {
-            const heightPct = range > 0 ? ((maxS - round.totalScore) / range) * 100 : 50;
-            const isBest = round.totalScore === best;
-            const isLast = i === rounds.length - 1;
-            const barColor = isBest
-              ? Colors.accent
-              : isLast
-              ? Colors.primary
-              : Colors.primaryMid + '88';
+          {rounds.map((round) => {
+            const heightPct = ((maxS - round.totalScore) / range) * 100;
+            const barColor = scoreTrendColor(round.scoreToPar);
             return (
               <View key={round.id} style={lcStyles.barCol}>
+                <Text style={lcStyles.scoreLabel}>{round.totalScore}</Text>
                 <View style={{ flex: 1, justifyContent: 'flex-end' }}>
                   <View
                     style={[
                       lcStyles.bar,
-                      {
-                        height: `${Math.max(5, heightPct)}%`,
-                        backgroundColor: barColor,
-                      },
+                      { height: `${Math.max(5, heightPct)}%`, backgroundColor: barColor },
                     ]}
                   />
                 </View>
-                <View style={[lcStyles.dot, { backgroundColor: isBest ? Colors.accent : isLast ? Colors.primary : Colors.primaryMid }]} />
+                <View style={[lcStyles.dot, { backgroundColor: barColor }]} />
               </View>
             );
           })}
@@ -558,9 +658,8 @@ function ScoreChart({ rounds }: { rounds: Round[] }) {
 const lcStyles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
-    height: 130,
+    height: 150,
     gap: Spacing.xs,
-    paddingBottom: 0,
   },
   yAxis: {
     width: 28,
@@ -589,7 +688,7 @@ const lcStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 4,
-    paddingTop: 4,
+    paddingTop: 18, // room for score labels
     zIndex: 1,
   },
   barCol: {
@@ -599,11 +698,16 @@ const lcStyles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 0,
   },
+  scoreLabel: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    position: 'absolute',
+    top: 0,
+  },
   bar: {
     width: '80%',
     borderRadius: 4,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
   },
   dot: {
     width: 6,
@@ -614,15 +718,17 @@ const lcStyles = StyleSheet.create({
   },
 });
 
+// ── DifferentialChart ──────────────────────────────────────────────────────────
+
 function DifferentialChart({ rounds }: { rounds: Round[] }) {
   const diffs = rounds
     .filter((r) => r.scoreDifferential !== undefined)
     .map((r) => r.scoreDifferential as number);
   if (diffs.length === 0) return null;
 
-  const min = Math.min(...diffs) - 1;
-  const max = Math.max(...diffs) + 1;
-  const range = max - min;
+  const minD = Math.min(...diffs) - 1;
+  const maxD = Math.max(...diffs) + 1;
+  const range = Math.max(maxD - minD, 1);
   const chartHeight = 100;
   const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length;
   const bestDiff = Math.min(...diffs);
@@ -632,10 +738,9 @@ function DifferentialChart({ rounds }: { rounds: Round[] }) {
       <View style={chartStyles.chart}>
         {rounds
           .filter((r) => r.scoreDifferential !== undefined)
-          .map((round, i) => {
+          .map((round) => {
             const diff = round.scoreDifferential as number;
-            // Invert: lower differential (better) = taller bar
-            const barHeight = range > 0 ? ((max - diff) / range) * chartHeight : chartHeight / 2;
+            const barHeight = ((maxD - diff) / range) * chartHeight;
             const isBelowAvg = diff < avgDiff;
             const isBest = diff === bestDiff;
             return (
@@ -666,7 +771,6 @@ const chartStyles = StyleSheet.create({
   bar: { width: '100%', borderRadius: 4 },
   barLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text },
   barDate: { fontSize: 9, color: Colors.textLight, textAlign: 'center' },
-  chartHint: { fontSize: FontSize.xs, color: Colors.textLight, textAlign: 'center', marginTop: 6 },
 });
 
 const cardStyles = StyleSheet.create({
@@ -691,7 +795,6 @@ const cardStyles = StyleSheet.create({
   },
   value: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text },
   sub: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2 },
-  trend: { fontSize: FontSize.xs, fontWeight: '700', marginTop: 6 },
 });
 
 const rowStyles = StyleSheet.create({
@@ -708,16 +811,14 @@ const rowStyles = StyleSheet.create({
   value: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text },
 });
 
-// ─── Handicap History Chart ──────────────────────────────────────────────────
+// ── HandicapHistoryChart ───────────────────────────────────────────────────────
 
 function HandicapHistoryChart({ rounds }: { rounds: Round[] }) {
-  // rounds newest-first; reverse for chronological rolling calc
   const withDiffs = [...rounds].reverse().filter((r) => r.scoreDifferential !== undefined);
   if (withDiffs.length < 4) return null;
 
   const points: { label: string; hcp: number }[] = [];
   for (let i = 0; i < withDiffs.length; i++) {
-    // WHS expects newest-first slice
     const diffs = withDiffs.slice(0, i + 1).reverse().map((r) => r.scoreDifferential as number);
     const hcp = calcHandicapIndex(diffs);
     if (hcp !== null) {
@@ -793,7 +894,7 @@ const hcpHStyles = StyleSheet.create({
   note: { fontSize: FontSize.xs, color: Colors.textLight, textAlign: 'center', marginTop: Spacing.sm },
 });
 
-// ─── Miss Direction Heatmap ──────────────────────────────────────────────────
+// ── MissHeatmap ────────────────────────────────────────────────────────────────
 
 const MISS_GRID: MissDirection[][] = [
   ['long-left', 'long', 'long-right'],
@@ -907,7 +1008,7 @@ const missStyles = StyleSheet.create({
   insightValue: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.error },
 });
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ── Shared styles ──────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },

@@ -10,6 +10,8 @@ export function calcScoreDifferential(
 
 // WHS table: number of differentials to use based on rounds available
 const DIFF_COUNT_TABLE: [number, number][] = [
+  [1, 1],
+  [2, 1],
   [3, 1],
   [4, 1],
   [5, 1],
@@ -32,7 +34,7 @@ const DIFF_COUNT_TABLE: [number, number][] = [
 
 export function calcHandicapIndex(differentials: number[]): number | null {
   const available = differentials.slice(0, 20);
-  if (available.length < 3) return null;
+  if (available.length < 1) return null;
 
   const count = DIFF_COUNT_TABLE.find(([rounds]) => rounds === available.length)?.[1]
     ?? (available.length >= 20 ? 8 : null);
@@ -40,8 +42,16 @@ export function calcHandicapIndex(differentials: number[]): number | null {
 
   const sorted = [...available].sort((a, b) => a - b);
   const lowest = sorted.slice(0, count);
-  const avg = lowest.reduce((a, b) => a + b, 0) / lowest.length;
-  return Math.round(avg * 10) / 10;
+  const avgDiff = lowest.reduce((a, b) => a + b, 0) / lowest.length;
+  return Math.round(avgDiff * 0.96 * 10) / 10;
+}
+
+// WHS low-round count helper — returns how many differentials WHS uses for a given pool size
+export function whsDiffCount(poolSize: number): number {
+  const entry = DIFF_COUNT_TABLE.find(([rounds]) => rounds === poolSize);
+  if (entry) return entry[1];
+  if (poolSize >= 20) return 8;
+  return 1;
 }
 
 // Adjustments per WHS: +/- stroke adjustments based on exceptional rounds
