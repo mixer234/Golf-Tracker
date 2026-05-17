@@ -884,7 +884,7 @@ const heroStyles = StyleSheet.create({
   colNum: {
     fontSize: FontSize.display,
     fontWeight: '800',
-    color: '#ffffff',
+    color: Colors.text,
     letterSpacing: -2,
     lineHeight: 66,
   },

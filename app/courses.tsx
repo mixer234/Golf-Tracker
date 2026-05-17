@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.background },
-  scroll: { padding: Spacing.lg, gap: Spacing.sm, paddingBottom: Spacing.xxl },
+  scroll: { padding: Spacing.lg, gap: Spacing.sm, paddingBottom: 100 },
   empty: { alignItems: 'center', paddingTop: Spacing.xxl, gap: Spacing.md, paddingHorizontal: Spacing.lg },
   emptyEmoji: { fontSize: 56 },
   emptyTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },

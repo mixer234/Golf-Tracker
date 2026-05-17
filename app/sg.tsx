@@ -429,7 +429,7 @@ const cardStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
+  scroll: { padding: Spacing.lg, paddingBottom: 100 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

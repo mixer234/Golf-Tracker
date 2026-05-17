@@ -13,6 +13,7 @@ import {
   Dimensions,
   Platform,
   ActionSheetIOS,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { useRouter } from 'expo-router';
@@ -153,7 +154,7 @@ export default function VaultScreen() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* ── Filter strip ──────────────────────────────────────────────── */}
         <ScrollView
           horizontal
@@ -262,6 +263,10 @@ export default function VaultScreen() {
 
       {/* ── Rename modal ──────────────────────────────────────────────────── */}
       <Modal visible={renameVisible} transparent animationType="fade" onRequestClose={() => setRenameVisible(false)}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
         <View style={renameStyles.overlay}>
           <View style={renameStyles.card}>
             <Text style={renameStyles.title}>Rename Swing</Text>
@@ -286,6 +291,7 @@ export default function VaultScreen() {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 6,
     borderRadius: Radius.full,
   },
-  recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' },
+  recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.error },
   timerText: { fontSize: FontSize.base, fontWeight: '700', color: '#fff', fontVariant: ['tabular-nums'] },
   warnText: { fontSize: FontSize.sm, color: Colors.warning, fontWeight: '600' },
   readyText: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.6)', fontWeight: '500' },
@@ -479,11 +479,11 @@ const styles = StyleSheet.create({
   },
   recInner: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#ef4444',
+    backgroundColor: Colors.error,
   },
   stopInner: {
     width: 26, height: 26, borderRadius: 5,
-    backgroundColor: '#ef4444',
+    backgroundColor: Colors.error,
   },
 });
 
