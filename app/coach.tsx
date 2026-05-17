@@ -10,6 +10,8 @@ import { useUserStore } from '../store/useUserStore';
 import { useRoundStore } from '../store/useRoundStore';
 import { useCourseStore } from '../store/useCourseStore';
 import { sendCoachMessage, CoachMessage } from '../services/aiCoach';
+import { Toast, useToast } from '../components/Toast';
+import { checkConnection } from '../utils/network';
 
 const SUGGESTED_PROMPTS = [
   "Where should I focus to drop 3 shots?",
@@ -30,6 +32,7 @@ export default function CoachScreen() {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { showToast, toastProps } = useToast();
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -52,6 +55,12 @@ export default function CoachScreen() {
       return;
     }
 
+    const connected = await checkConnection();
+    if (!connected) {
+      showToast({ type: 'warning', title: 'No internet connection', message: 'Check your connection and try again.' });
+      return;
+    }
+
     const userMsg: CoachMessage = { role: 'user', content };
     const updated = [...messages, userMsg];
     setMessages(updated);
@@ -62,7 +71,12 @@ export default function CoachScreen() {
       const reply = await sendCoachMessage(updated, profile, rounds, courses, profile.apiKey);
       setMessages([...updated, { role: 'assistant', content: reply }]);
     } catch (err: any) {
-      Alert.alert('Coach unavailable', err.message ?? 'Something went wrong.');
+      const isNetwork = err instanceof TypeError;
+      showToast({
+        type: 'error',
+        title: isNetwork ? 'No internet connection' : 'Coach unavailable',
+        message: isNetwork ? 'Check your connection and try again.' : "Couldn't reach the AI. Try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -77,6 +91,7 @@ export default function CoachScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Toast {...toastProps} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>

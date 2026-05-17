@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Alert, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
@@ -10,6 +10,7 @@ import { useRoundStore } from '../../store/useRoundStore';
 import { GOAL_OPTIONS } from '../../constants/data';
 import { GoalType, TargetTimeline } from '../../types';
 import { generatePracticePlan } from '../../services/ai';
+import { checkConnection } from '../../utils/network';
 
 const TIMELINE_OPTIONS: { key: TargetTimeline; label: string; sub: string }[] = [
   { key: '3_months', label: '3 months', sub: 'Aggressive' },
@@ -30,7 +31,6 @@ export default function GoalsScreen() {
 
   const [selectedGoals, setSelectedGoals] = useState<GoalType[]>(profile?.goals ?? []);
   const [timeline, setTimeline] = useState<TargetTimeline>(profile?.targetTimeline ?? '6_months');
-  const [loading, setLoading] = useState(false);
 
   function toggleGoal(key: GoalType) {
     setSelectedGoals((prev) =>
@@ -51,17 +51,26 @@ export default function GoalsScreen() {
     const finalProfile = { ...profile, goals: selectedGoals, targetTimeline: timeline, hasCompletedOnboarding: true };
 
     if (profile.apiKey) {
-      setLoading(true);
-      setGenerating(true);
-      try {
-        const plan = await generatePracticePlan(finalProfile, rounds, profile.apiKey);
-        setPlan(plan);
-      } catch (err: any) {
-        setGenerationError(err.message ?? 'Could not generate plan');
-      } finally {
-        setLoading(false);
-        setGenerating(false);
-      }
+      checkConnection().then(async (connected) => {
+        if (!connected) {
+          setGenerationError("We'll generate your plan when you're connected");
+          return;
+        }
+        setGenerating(true);
+        try {
+          const plan = await generatePracticePlan(finalProfile, rounds, profile.apiKey);
+          setPlan(plan);
+        } catch (err: any) {
+          const isNetwork = err instanceof TypeError;
+          setGenerationError(
+            isNetwork
+              ? "We'll generate your plan when you're connected"
+              : (err.message ?? 'Could not generate plan'),
+          );
+        } finally {
+          setGenerating(false);
+        }
+      });
     }
 
     router.replace('/(tabs)');
@@ -130,20 +139,11 @@ export default function GoalsScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7} disabled={loading}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.doneBtn, loading && styles.doneBtnDisabled]}
-          onPress={handleFinish}
-          activeOpacity={0.85}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={Colors.background} />
-          ) : (
-            <Text style={styles.doneText}>Let's Go 🏌️</Text>
-          )}
+        <TouchableOpacity style={styles.doneBtn} onPress={handleFinish} activeOpacity={0.85}>
+          <Text style={styles.doneText}>Let's Go 🏌️</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

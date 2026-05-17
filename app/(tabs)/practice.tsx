@@ -21,6 +21,8 @@ import { Drill, DayOfWeek, ClubEntry } from '../../types';
 import { DEFAULT_BAG } from '../../store/useUserStore';
 import { useRouter } from 'expo-router';
 import { haptics } from '../../utils/haptics';
+import { Toast, useToast } from '../../components/Toast';
+import { checkConnection } from '../../utils/network';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const REST_DURATION = 30;
@@ -138,6 +140,8 @@ export default function PracticeScreen() {
   const [restSecondsLeft, setRestSecondsLeft] = useState(REST_DURATION);
   const [autoAdvanceCount, setAutoAdvanceCount] = useState<number | null>(null);
   const [skippedDrillIds, setSkippedDrillIds] = useState<string[]>([]);
+
+  const { showToast, toastProps } = useToast();
 
   const drillTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -409,14 +413,24 @@ export default function PracticeScreen() {
   }
 
   async function doGenerate() {
+    const connected = await checkConnection();
+    if (!connected) {
+      showToast({ type: 'warning', title: 'No internet connection', message: 'Check your connection and try again.' });
+      return;
+    }
     setGenerating(true);
     setGenerationError(null);
     try {
       const plan = await generatePracticePlan(profile!, rounds, profile!.apiKey!);
       setPlan(plan);
     } catch (err: any) {
+      const isNetwork = err instanceof TypeError;
       setGenerationError(err.message ?? 'Failed to generate plan');
-      Alert.alert('Generation Failed', err.message ?? 'Please check your API key and try again.');
+      showToast({
+        type: 'error',
+        title: isNetwork ? 'No internet connection' : "Couldn't generate your plan",
+        message: isNetwork ? 'Check your connection and try again.' : 'Tap to try again.',
+      });
     } finally {
       setGenerating(false);
     }
@@ -872,6 +886,7 @@ export default function PracticeScreen() {
       )}
     </>
     )}
+    <Toast {...toastProps} />
   </SafeAreaView>
   );
 }
