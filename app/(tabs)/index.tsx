@@ -1,7 +1,8 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  SafeAreaView, ActivityIndicator,
+  SafeAreaView, ActivityIndicator, RefreshControl,
 } from 'react-native';
+import { useState, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
@@ -10,7 +11,8 @@ import { useUserStore } from '../../store/useUserStore';
 import { useRoundStore } from '../../store/useRoundStore';
 import { usePracticeStore } from '../../store/usePracticeStore';
 import { generatePracticePlan } from '../../services/ai';
-import { Round, UserProfile, PracticePlan, DayOfWeek, WeaknessArea } from '../../types';
+import { haptics } from '../../utils/haptics';
+import { Round, UserProfile, PracticePlan, DayOfWeek, WeaknessArea, PracticeSession } from '../../types';
 import { WEEKLY_FOCUS_DATA } from '../../constants/data';
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
@@ -56,7 +58,7 @@ const DAY_ORDER: { name: DayOfWeek; letter: string }[] = [
 
 function getWeekDays(): { date: Date; dayName: DayOfWeek; letter: string }[] {
   const today = new Date();
-  const dow = today.getDay(); // 0=Sun, 1=Mon
+  const dow = today.getDay();
   const monday = new Date(today);
   monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
   monday.setHours(0, 0, 0, 0);
@@ -67,7 +69,6 @@ function getWeekDays(): { date: Date; dayName: DayOfWeek; letter: string }[] {
   });
 }
 
-// Default practice day distribution when no plan exists
 const DEFAULT_PRACTICE_DAYS: Record<number, DayOfWeek[]> = {
   1: ['Wednesday'],
   2: ['Tuesday', 'Saturday'],
@@ -121,6 +122,50 @@ function roundsThisMonth(rounds: Round[]): number {
   }).length;
 }
 
+// ─── Streak calculation ───────────────────────────────────────────────────────
+
+function calcStreak(sessions: PracticeSession[]): { current: number; longest: number } {
+  if (sessions.length === 0) return { current: 0, longest: 0 };
+
+  // Unique calendar dates that had at least one session, sorted ascending.
+  const uniqueDates = Array.from(
+    new Set(sessions.map((s) => s.date.split('T')[0]))
+  ).sort();
+
+  // Longest streak ever
+  let longest = 1;
+  let run = 1;
+  for (let i = 1; i < uniqueDates.length; i++) {
+    const prev = new Date(uniqueDates[i - 1]);
+    const curr = new Date(uniqueDates[i]);
+    const diff = Math.round((curr.getTime() - prev.getTime()) / 86400000);
+    if (diff === 1) {
+      run++;
+      if (run > longest) longest = run;
+    } else {
+      run = 1;
+    }
+  }
+
+  // Current streak: count backwards from today (or yesterday, to allow for not
+  // yet practising today without breaking the streak).
+  const todayStr = new Date().toISOString().split('T')[0];
+  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const dateSet = new Set(uniqueDates);
+
+  let current = 0;
+  const startStr = dateSet.has(todayStr) ? todayStr : dateSet.has(yesterdayStr) ? yesterdayStr : null;
+  if (startStr) {
+    const cursor = new Date(startStr);
+    while (dateSet.has(cursor.toISOString().split('T')[0])) {
+      current++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+  }
+
+  return { current, longest: Math.max(longest, current) };
+}
+
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function getHandicapCoachingLine(profile: UserProfile, rounds: Round[]): string {
@@ -165,10 +210,8 @@ function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: R
       end={{ x: 1, y: 1.2 }}
       style={heroStyles.card}
     >
-      {/* Overline */}
       <Text style={heroStyles.overline}>HANDICAP INDEX</Text>
 
-      {/* Numbers row */}
       <View style={heroStyles.row}>
         <View style={heroStyles.col}>
           <Text style={heroStyles.colLabel}>CURRENT</Text>
@@ -192,7 +235,6 @@ function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: R
         </View>
       </View>
 
-      {/* Thick progress bar */}
       {!achieved && (
         <View style={heroStyles.progressWrap}>
           <View style={heroStyles.progressTrack}>
@@ -205,7 +247,6 @@ function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: R
         </View>
       )}
 
-      {/* Stats strip */}
       {(recentGIR !== null || recentPutts !== null) && (
         <View style={heroStyles.statsStrip}>
           {recentGIR !== null && (
@@ -227,7 +268,6 @@ function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: R
         </View>
       )}
 
-      {/* Coaching insight */}
       <View style={heroStyles.insightRow}>
         <Text style={heroStyles.insightIcon}>💡</Text>
         <Text style={heroStyles.insightText}>{getHandicapCoachingLine(profile, rounds)}</Text>
@@ -288,7 +328,6 @@ function WeekCalendar({
                   {date.getDate()}
                 </Text>
               </View>
-              {/* Status indicator dot */}
               {hasDone ? (
                 <View style={[calStyles.dot, calStyles.dotDone]} />
               ) : isMissed ? (
@@ -316,6 +355,65 @@ function LegendItem({ color, label }: { color: string; label: string }) {
     <View style={calStyles.legendItem}>
       <View style={[calStyles.legendDot, { backgroundColor: color }]} />
       <Text style={calStyles.legendText}>{label}</Text>
+    </View>
+  );
+}
+
+function StreakCard({ sessions }: { sessions: PracticeSession[] }) {
+  const { current, longest } = calcStreak(sessions);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const weekDays = getWeekDays();
+  // One entry per calendar date that had a session
+  const sessionDateStrings = new Set(sessions.map((s) => s.date.split('T')[0]));
+
+  return (
+    <View style={streakStyles.card}>
+      <View style={streakStyles.headerRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={streakStyles.overline}>PRACTICE STREAK</Text>
+          {current === 0 ? (
+            <Text style={streakStyles.emptyText}>Start your streak today</Text>
+          ) : (
+            <View style={streakStyles.streakRow}>
+              <Text style={streakStyles.streakNum}>{current}</Text>
+              <Text style={streakStyles.streakUnit}> day{current !== 1 ? 's' : ''} 🔥</Text>
+            </View>
+          )}
+        </View>
+        <View style={streakStyles.longestBlock}>
+          <Text style={streakStyles.longestLabel}>Best</Text>
+          <Text style={streakStyles.longestNum}>{longest === 0 ? '—' : longest}</Text>
+        </View>
+      </View>
+
+      {/* 7-day session dots */}
+      <View style={streakStyles.dotsRow}>
+        {weekDays.map(({ date, dayName, letter }) => {
+          const isToday = isSameDay(date, today);
+          const isPast = date < today && !isToday;
+          const dateStr = date.toISOString().split('T')[0];
+          const hadSession = sessionDateStrings.has(dateStr);
+          const isFuture = date > today;
+
+          return (
+            <View key={dayName} style={streakStyles.dotCol}>
+              <Text style={[streakStyles.dotLabel, (isPast || isFuture) && !isToday && streakStyles.dotLabelFaded]}>
+                {letter}
+              </Text>
+              <View
+                style={[
+                  streakStyles.dot,
+                  hadSession && streakStyles.dotDone,
+                  isToday && !hadSession && streakStyles.dotToday,
+                  isPast && !hadSession && streakStyles.dotMissed,
+                  isFuture && streakStyles.dotFuture,
+                ]}
+              />
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -366,13 +464,29 @@ export default function DashboardScreen() {
   const profile = useUserStore((s) => s.profile);
   const rounds = useRoundStore((s) => s.rounds);
   const currentRound = useRoundStore((s) => s.currentRound);
-  const { currentPlan, isGenerating, generationError, setPlan, setGenerating, setGenerationError } =
+  const { currentPlan, sessions, isGenerating, generationError, setPlan, setGenerating, setGenerationError } =
     usePracticeStore();
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Stores are reactive — just let a brief tick pass so the spinner is visible.
+    setTimeout(() => setRefreshing(false), 600);
+  }, []);
 
   const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek;
   const todayPlan = currentPlan?.days.find((d) => d.day === todayName);
   const totalDrillsToday = todayPlan?.drills.length ?? 0;
   const completedToday = todayPlan?.completedDrillIds.length ?? 0;
+
+  // Last 3 completed rounds with a score
+  const recentRounds = rounds
+    .filter((r) => r.isComplete && r.totalScore > 0)
+    .slice(0, 3);
+
+  // First name with safe fallback for empty/blank name
+  const firstName = profile?.name?.trim().split(' ')[0] || 'Golfer';
 
   async function handleGeneratePlan() {
     if (!profile?.apiKey) {
@@ -395,15 +509,46 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+          />
+        }
+      >
 
         {/* ── Header ────────────────────────────────────── */}
         <View style={styles.header}>
           <Text style={styles.greeting}>
             {getGreeting()},{' '}
-            <Text style={styles.greetingName}>{profile.name.split(' ')[0]}</Text> 👋
+            <Text style={styles.greetingName}>{firstName}</Text> 👋
           </Text>
           <Text style={styles.date}>{formatHeaderDate()}</Text>
+        </View>
+
+        {/* ── Quick Actions ─────────────────────────────── */}
+        <View style={styles.quickActionsRow}>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => { haptics.medium(); router.push('/(tabs)/track'); }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.quickActionIcon}>⛳</Text>
+            <Text style={styles.quickActionLabel}>Track Round</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.quickAction, styles.quickActionPrimary]}
+            onPress={() => { haptics.medium(); router.push('/(tabs)/practice'); }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.quickActionIcon}>🎯</Text>
+            <Text style={[styles.quickActionLabel, styles.quickActionLabelPrimary]}>Practice</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Resume Round Banner ───────────────────────── */}
@@ -436,6 +581,9 @@ export default function DashboardScreen() {
         {/* ── This Week Calendar ────────────────────────── */}
         <WeekCalendar profile={profile} plan={currentPlan} />
 
+        {/* ── Streak ────────────────────────────────────── */}
+        <StreakCard sessions={sessions} />
+
         {/* ── Weekly Focus ──────────────────────────────── */}
         <WeeklyFocusCard profile={profile} plan={currentPlan} />
 
@@ -456,7 +604,9 @@ export default function DashboardScreen() {
               <View style={styles.practiceTop}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.practiceTheme}>{todayPlan.theme}</Text>
-                  <Text style={styles.practiceDur}>{todayPlan.duration} min session</Text>
+                  <Text style={styles.practiceDur}>
+                    {todayPlan.duration} min · {totalDrillsToday} drill{totalDrillsToday !== 1 ? 's' : ''}
+                  </Text>
                 </View>
                 <View style={styles.practiceProgress}>
                   <Text style={styles.progressNum}>{completedToday}/{totalDrillsToday}</Text>
@@ -473,7 +623,13 @@ export default function DashboardScreen() {
                   />
                 </View>
               )}
-              <Text style={styles.cardCta}>View full plan →</Text>
+              <Text style={styles.cardCta}>
+                {completedToday === 0
+                  ? 'Start Practice →'
+                  : completedToday >= totalDrillsToday
+                  ? 'Session complete ✓'
+                  : `Continue (${completedToday}/${totalDrillsToday} done) →`}
+              </Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.card}>
@@ -561,7 +717,7 @@ export default function DashboardScreen() {
               <Text style={styles.seeAll}>Track round →</Text>
             </TouchableOpacity>
           </View>
-          {rounds.length === 0 ? (
+          {recentRounds.length === 0 ? (
             <View style={[styles.card, styles.emptyCard]}>
               <Text style={styles.emptyTitle}>No rounds yet</Text>
               <Text style={styles.emptyText}>
@@ -569,7 +725,7 @@ export default function DashboardScreen() {
               </Text>
             </View>
           ) : (
-            rounds.slice(0, 3).map((round) => <RoundRow key={round.id} round={round} />)
+            recentRounds.map((round) => <RoundRow key={round.id} round={round} />)
           )}
         </View>
 
@@ -696,7 +852,6 @@ function StatPill({ label, accent }: { label: string; accent?: boolean }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-// Handicap hero card
 const heroStyles = StyleSheet.create({
   card: {
     borderRadius: Radius.xl,
@@ -814,7 +969,6 @@ const heroStyles = StyleSheet.create({
   },
 });
 
-// Week calendar
 const calStyles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
@@ -891,7 +1045,96 @@ const calStyles = StyleSheet.create({
   legendText: { fontSize: FontSize.xs, color: Colors.textLight },
 });
 
-// Weekly focus card
+const streakStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.warning,
+    ...Shadow.sm,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  overline: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    letterSpacing: 0.8,
+    marginBottom: 3,
+  },
+  emptyText: {
+    fontSize: FontSize.sm,
+    color: Colors.textLight,
+    fontStyle: 'italic',
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  streakNum: {
+    fontSize: FontSize.xxl,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  streakUnit: {
+    fontSize: FontSize.base,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  longestBlock: {
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    borderLeftWidth: 1,
+    borderLeftColor: Colors.border,
+  },
+  longestLabel: {
+    fontSize: FontSize.xs,
+    color: Colors.textLight,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  longestNum: {
+    fontSize: FontSize.xl,
+    fontWeight: '800',
+    color: Colors.accent,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  dotCol: { flex: 1, alignItems: 'center', gap: 5 },
+  dotLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  dotLabelFaded: { opacity: 0.4 },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.borderLight,
+  },
+  dotDone: { backgroundColor: Colors.success },
+  dotToday: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
+  dotMissed: { backgroundColor: Colors.border },
+  dotFuture: { backgroundColor: Colors.borderLight },
+});
+
 const focusStyles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
@@ -955,7 +1198,6 @@ const focusStyles = StyleSheet.create({
   },
 });
 
-// Stat boxes
 const statStyles = StyleSheet.create({
   box: {
     flex: 1,
@@ -972,7 +1214,6 @@ const statStyles = StyleSheet.create({
   label: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 3, lineHeight: 16 },
 });
 
-// Trend insight card
 const trendStyles = StyleSheet.create({
   card: {
     flexDirection: 'row',
@@ -990,7 +1231,6 @@ const trendStyles = StyleSheet.create({
   text: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
 });
 
-// Round rows
 const roundStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
@@ -1030,14 +1270,42 @@ const pillStyles = StyleSheet.create({
   textAccent: { color: Colors.accent },
 });
 
-// Main screen layout
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 100 },
+  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 120 },
   header: { marginBottom: Spacing.md },
   greeting: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.text },
   greetingName: { fontWeight: '800' },
   date: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  quickAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow.sm,
+  },
+  quickActionPrimary: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  quickActionIcon: { fontSize: 18 },
+  quickActionLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  quickActionLabelPrimary: { color: Colors.background },
   statsRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
