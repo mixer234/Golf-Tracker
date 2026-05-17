@@ -204,12 +204,29 @@ export default function ProgressScreen() {
               <Text style={styles.sgTapHint}>Tap for per-round breakdown →</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={[styles.sgCard, styles.sgEmpty]} onPress={() => router.push('/sg')} activeOpacity={0.85}>
-              <Text style={styles.sgEmptyTitle}>Not enough data yet</Text>
+            <View style={[styles.sgCard, styles.sgEmpty]}>
+              <Text style={styles.sgEmptyIcon}>🎯</Text>
+              <Text style={styles.sgEmptyHeading}>Unlock Strokes Gained</Text>
               <Text style={styles.sgEmptyText}>
-                Enter Approach Distance and First Putt Distance in the Performance Details section while tracking rounds to unlock Strokes Gained analysis.
+                Track your approach distances and first putt distances during rounds to see exactly where you're gaining and losing shots.
               </Text>
-            </TouchableOpacity>
+              <View style={styles.sgStepList}>
+                {[
+                  'Start a round',
+                  'On each hole, tap "Performance Details"',
+                  'Enter approach distance and first putt distance',
+                  'Your strokes gained analysis appears here',
+                ].map((step, i) => (
+                  <View key={i} style={styles.sgStepRow}>
+                    <View style={styles.sgStepNum}><Text style={styles.sgStepNumText}>{i + 1}</Text></View>
+                    <Text style={styles.sgStepText}>{step}</Text>
+                  </View>
+                ))}
+              </View>
+              <TouchableOpacity style={styles.sgStartBtn} onPress={() => router.push('/(tabs)/track')} activeOpacity={0.85}>
+                <Text style={styles.sgStartBtnText}>Start a Round →</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -1052,8 +1069,26 @@ const styles = StyleSheet.create({
     ...Shadow.sm,
   },
   sgEmpty: { alignItems: 'center', paddingVertical: Spacing.lg },
-  sgEmptyTitle: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textSecondary, marginBottom: 6 },
-  sgEmptyText: { fontSize: FontSize.sm, color: Colors.textLight, textAlign: 'center', lineHeight: 20 },
+  sgEmptyIcon: { fontSize: 40, marginBottom: Spacing.sm },
+  sgEmptyHeading: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text, marginBottom: 8 },
+  sgEmptyText: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: Spacing.md },
+  sgStepList: { width: '100%', gap: Spacing.sm, marginBottom: Spacing.md },
+  sgStepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  sgStepNum: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1,
+  },
+  sgStepNumText: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.background },
+  sgStepText: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, flex: 1 },
+  sgStartBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.xs,
+  },
+  sgStartBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.background },
   sgNote: { fontSize: FontSize.xs, color: Colors.textLight, marginBottom: Spacing.sm },
   sgTotalRow: {
     flexDirection: 'row',

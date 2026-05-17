@@ -150,6 +150,16 @@ export default function SetupScreen() {
             <HandicapDial value={targetHandicap} onChange={setTargetHandicap} />
           </View>
         </View>
+
+        {/* SG tip — shown only for sub-20 handicap players */}
+        {!noHandicap && handicap < 20 && (
+          <View style={styles.sgTip}>
+            <Text style={styles.sgTipIcon}>✦</Text>
+            <Text style={styles.sgTipText}>
+              For players under 20 handicap: enter shot distances during rounds to unlock Strokes Gained analysis.
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -248,6 +258,19 @@ const styles = StyleSheet.create({
   checkmark: { color: Colors.background, fontSize: 12, fontWeight: '800' },
   noHcpText: { fontSize: FontSize.sm, color: Colors.textSecondary, flex: 1 },
   dialWrap: { alignItems: 'center', marginTop: Spacing.xs },
+  sgTip: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    backgroundColor: Colors.accentLight,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    marginBottom: Spacing.sm,
+  },
+  sgTipIcon: { fontSize: 12, color: Colors.accent, fontWeight: '700', marginTop: 2 },
+  sgTipText: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 18, flex: 1 },
   footer: {
     flexDirection: 'row',
     paddingHorizontal: Spacing.xl,

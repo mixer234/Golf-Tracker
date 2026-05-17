@@ -254,6 +254,7 @@ export default function TrackScreen() {
                 onUpdate={(data) => updateHole(selectedHole, data)}
                 onNext={() => { if (selectedHole < currentRound.holes.length) setSelectedHole(selectedHole + 1); }}
                 isLastHole={selectedHole >= currentRound.holes.length}
+                autoExpand={rounds.filter((r) => r.isComplete).length < 3}
               />
             </ScrollView>
           )}
@@ -1355,14 +1356,15 @@ function MissGrid({ value, onSelect }: { value: MissDirection | undefined; onSel
 }
 
 function HoleInputCard({
-  hole, onUpdate, onNext, isLastHole = false,
+  hole, onUpdate, onNext, isLastHole = false, autoExpand = false,
 }: {
   hole: HoleScore;
   onUpdate: (data: Partial<HoleScore>) => void;
   onNext: () => void;
   isLastHole?: boolean;
+  autoExpand?: boolean;
 }) {
-  const [showSG, setShowSG] = useState(false);
+  const [showSG, setShowSG] = useState(autoExpand);
   const scoreVsPar = hole.strokes > 0 ? hole.strokes - hole.par : null;
   const puttsMax = Math.min(10, hole.strokes > 0 ? hole.strokes : 10);
 
@@ -1473,9 +1475,14 @@ function HoleInputCard({
         onPress={() => { haptics.light(); setShowSG(!showSG); }}
         activeOpacity={0.7}
       >
-        <Text style={holeStyles.sgToggleLabel}>Performance Details</Text>
+        <View style={holeStyles.sgToggleLabelRow}>
+          <Text style={holeStyles.sgToggleIcon}>✦</Text>
+          <Text style={holeStyles.sgToggleLabel}>
+            {showSG ? 'Performance Details' : 'Performance Details · Tap to unlock Strokes Gained'}
+          </Text>
+        </View>
         <Text style={holeStyles.sgToggleHint}>
-          {showSG ? '▲ hide' : '▼ for Strokes Gained'}
+          {showSG ? '▲ hide' : '▼'}
         </Text>
       </TouchableOpacity>
 
@@ -1700,7 +1707,9 @@ const holeStyles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     marginTop: Spacing.xs,
   },
-  sgToggleLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
+  sgToggleLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 },
+  sgToggleIcon: { fontSize: 11, color: Colors.accent, fontWeight: '700' },
+  sgToggleLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary, flex: 1 },
   sgToggleHint: { fontSize: FontSize.xs, color: Colors.primary },
   sgSection: {
     backgroundColor: Colors.background,

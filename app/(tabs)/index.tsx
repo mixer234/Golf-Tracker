@@ -2,7 +2,8 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   SafeAreaView, ActivityIndicator, RefreshControl,
 } from 'react-native';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
@@ -14,6 +15,8 @@ import { generatePracticePlan } from '../../services/ai';
 import { haptics } from '../../utils/haptics';
 import { Round, UserProfile, PracticePlan, DayOfWeek, WeaknessArea, PracticeSession } from '../../types';
 import { WEEKLY_FOCUS_DATA } from '../../constants/data';
+
+const SG_TIP_KEY = '@golf_sg_tip_dismissed';
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
@@ -468,12 +471,29 @@ export default function DashboardScreen() {
     usePracticeStore();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [showSGTip, setShowSGTip] = useState(false);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Stores are reactive — just let a brief tick pass so the spinner is visible.
     setTimeout(() => setRefreshing(false), 600);
   }, []);
+
+  // Show SG tip when there are completed rounds with no SG data, up to 5 such rounds,
+  // and the user hasn't dismissed it yet.
+  useEffect(() => {
+    const completed = rounds.filter((r) => r.isComplete && r.totalScore > 0);
+    const noSGRounds = completed.filter((r) => !r.sgTotal).length;
+    if (noSGRounds === 0 || noSGRounds > 5) { setShowSGTip(false); return; }
+    AsyncStorage.getItem(SG_TIP_KEY).then((val) => {
+      setShowSGTip(val !== 'true');
+    });
+  }, [rounds]);
+
+  function dismissSGTip() {
+    haptics.light();
+    setShowSGTip(false);
+    AsyncStorage.setItem(SG_TIP_KEY, 'true');
+  }
 
   const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek;
   const todayPlan = currentPlan?.days.find((d) => d.day === todayName);
@@ -564,6 +584,23 @@ export default function DashboardScreen() {
             </View>
             <Text style={styles.resumeArrow}>Resume →</Text>
           </TouchableOpacity>
+        )}
+
+        {/* ── SG Discovery Tip ─────────────────────────── */}
+        {showSGTip && (
+          <View style={styles.sgTipCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sgTipTitle}>
+                💡 Tip: Unlock Strokes Gained
+              </Text>
+              <Text style={styles.sgTipBody}>
+                Enter approach distances during your round to unlock Strokes Gained — golf's most powerful stat.
+              </Text>
+            </View>
+            <TouchableOpacity onPress={dismissSGTip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.sgTipDismiss}>✕</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* ── Handicap Hero ─────────────────────────────── */}
@@ -1425,4 +1462,20 @@ const styles = StyleSheet.create({
   resumeTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.warning },
   resumeSub: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
   resumeArrow: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.warning },
+  sgTipCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.accentLight,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    ...Shadow.sm,
+  },
+  sgTipTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text, marginBottom: 4 },
+  sgTipBody: { fontSize: FontSize.xs, color: Colors.textSecondary, lineHeight: 16 },
+  sgTipDismiss: { fontSize: 16, color: Colors.textLight, fontWeight: '600', paddingLeft: 4 },
 });

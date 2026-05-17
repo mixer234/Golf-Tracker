@@ -147,13 +147,27 @@ export default function SGScreen() {
 
         {withSG.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>📊</Text>
-            <Text style={styles.emptyTitle}>No SG data yet</Text>
+            <Text style={styles.emptyIcon}>🎯</Text>
+            <Text style={styles.emptyTitle}>Unlock Strokes Gained</Text>
             <Text style={styles.emptyText}>
-              When tracking rounds, expand{' '}
-              <Text style={{ color: Colors.primary, fontWeight: '700' }}>Performance Details</Text>{' '}
-              on each hole and enter Approach Distance and First Putt Distance to unlock Strokes Gained analysis.
+              Track your approach distances and first putt distances during rounds to see exactly where you're gaining and losing shots.
             </Text>
+            <View style={styles.stepList}>
+              {[
+                'Start a round',
+                'On each hole, tap "Performance Details"',
+                'Enter approach distance and first putt distance',
+                'Your strokes gained analysis appears here',
+              ].map((step, i) => (
+                <View key={i} style={styles.stepRow}>
+                  <View style={styles.stepNum}><Text style={styles.stepNumText}>{i + 1}</Text></View>
+                  <Text style={styles.stepText}>{step}</Text>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.startBtn} onPress={() => router.back()} activeOpacity={0.85}>
+              <Text style={styles.startBtnText}>Start a Round →</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <>
@@ -483,8 +497,25 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     ...Shadow.sm,
   },
-  empty: { alignItems: 'center', paddingTop: Spacing.xxl, gap: Spacing.md },
-  emptyEmoji: { fontSize: 64 },
-  emptyTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
-  emptyText: { fontSize: FontSize.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 24, marginTop: 4 },
+  empty: { alignItems: 'center', paddingTop: Spacing.xl, paddingHorizontal: Spacing.md, gap: Spacing.md },
+  emptyIcon: { fontSize: 48 },
+  emptyTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text, textAlign: 'center' },
+  emptyText: { fontSize: FontSize.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 24 },
+  stepList: { width: '100%', gap: Spacing.sm },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  stepNum: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1,
+  },
+  stepNumText: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.background },
+  stepText: { fontSize: FontSize.base, color: Colors.textSecondary, lineHeight: 22, flex: 1 },
+  startBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.xxl,
+    marginTop: Spacing.sm,
+  },
+  startBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
 });
