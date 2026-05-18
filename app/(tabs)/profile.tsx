@@ -462,6 +462,31 @@ export default function ProfileScreen() {
           <InfoRow label="Experience" value={profile.experienceLevel} isLast />
         </View>
 
+        {/* ── Display Settings ── */}
+        <SectionHeader title="Display Settings" />
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.toggleRow}
+            onPress={() => { updateProfile({ advancedStatsMode: !profile.advancedStatsMode }); }}
+            activeOpacity={0.75}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.toggleLabel}>Advanced Stats Mode</Text>
+              <Text style={styles.toggleSub}>
+                Always show GIR, fairways, up & down, and Strokes Gained inputs regardless of handicap.
+              </Text>
+            </View>
+            <View style={[styles.toggleSwitch, profile.advancedStatsMode && styles.toggleSwitchOn]}>
+              <View style={[styles.toggleThumb, profile.advancedStatsMode && styles.toggleThumbOn]} />
+            </View>
+          </TouchableOpacity>
+          {!profile.advancedStatsMode && (profile.handicap >= 28) && (
+            <Text style={styles.toggleHint}>
+              Currently simplified — tracking strokes and putts only (handicap ≥ 28).
+            </Text>
+          )}
+        </View>
+
         {/* ── Claude AI Settings ── */}
         <SectionHeader title="Claude AI Settings" />
         <View style={styles.card}>
@@ -789,5 +814,24 @@ const styles = StyleSheet.create({
 
   // Reset / version
   resetText: { fontSize: FontSize.base, color: Colors.error, fontWeight: '600', textAlign: 'center', paddingVertical: Spacing.xs },
+
+  // Toggle row (Advanced Stats Mode)
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  toggleLabel: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text, marginBottom: 2 },
+  toggleSub: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 17, flexShrink: 1 },
+  toggleHint: {
+    fontSize: FontSize.xs, color: Colors.primary, marginTop: Spacing.sm,
+    paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.borderLight,
+  },
+  toggleSwitch: {
+    width: 46, height: 26, borderRadius: 13,
+    backgroundColor: Colors.border, justifyContent: 'center', paddingHorizontal: 2,
+  },
+  toggleSwitchOn: { backgroundColor: Colors.primary },
+  toggleThumb: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: Colors.background,
+  },
+  toggleThumbOn: { alignSelf: 'flex-end' },
   versionText: { fontSize: FontSize.xs, color: Colors.textLight, textAlign: 'center', marginBottom: Spacing.xxl, marginTop: Spacing.sm },
 });

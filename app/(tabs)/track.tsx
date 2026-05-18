@@ -16,6 +16,7 @@ import {
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useRoundStore } from '../../store/useRoundStore';
 import { useCourseStore } from '../../store/useCourseStore';
+import { useUserStore } from '../../store/useUserStore';
 import { HoleScore, Round, RoundType, MissDirection, TeeColor } from '../../types';
 import {
   getBestHole, getWorstHole, getGirPct, getFairwayPct,
@@ -113,6 +114,8 @@ export default function TrackScreen() {
     recalcAndSaveRound,
   } = useRoundStore();
   const { courses } = useCourseStore();
+  const profile = useUserStore((s) => s.profile);
+  const isSimplified = (profile?.handicap ?? 0) >= 28 && !profile?.advancedStatsMode;
 
   // New round modal state
   const [showNewRound, setShowNewRound] = useState(false);
@@ -255,6 +258,7 @@ export default function TrackScreen() {
                 onNext={() => { if (selectedHole < currentRound.holes.length) setSelectedHole(selectedHole + 1); }}
                 isLastHole={selectedHole >= currentRound.holes.length}
                 autoExpand={rounds.filter((r) => r.isComplete).length < 3}
+                isSimplified={isSimplified}
               />
             </ScrollView>
           )}
@@ -652,6 +656,7 @@ export default function TrackScreen() {
           recalcAndSaveRound(id, holes);
           // detailRound will auto-update on next render via rounds store
         }}
+        isSimplified={isSimplified}
       />
     </SafeAreaView>
   );
@@ -1066,7 +1071,7 @@ function RunningTotals({ round }: { round: Round }) {
 // ─── Round Detail Modal ───────────────────────────────────────────────────────
 
 function RoundDetailModal({
-  round, rounds, visible, onClose, onDelete, onSave,
+  round, rounds, visible, onClose, onDelete, onSave, isSimplified = false,
 }: {
   round: Round | null;
   rounds: Round[];
@@ -1074,6 +1079,7 @@ function RoundDetailModal({
   onClose: () => void;
   onDelete: (id: string) => void;
   onSave: (id: string, holes: HoleScore[]) => void;
+  isSimplified?: boolean;
 }) {
   const [editMode, setEditMode] = useState(false);
   const [editHoles, setEditHoles] = useState<HoleScore[]>([]);
@@ -1159,6 +1165,7 @@ function RoundDetailModal({
                     if (next) setEditSelectedHole(editSelectedHole + 1);
                   }}
                   isLastHole={editSelectedHole >= editHoles.length}
+                  isSimplified={isSimplified}
                 />
               </ScrollView>
             )}
@@ -1356,15 +1363,17 @@ function MissGrid({ value, onSelect }: { value: MissDirection | undefined; onSel
 }
 
 function HoleInputCard({
-  hole, onUpdate, onNext, isLastHole = false, autoExpand = false,
+  hole, onUpdate, onNext, isLastHole = false, autoExpand = false, isSimplified = false,
 }: {
   hole: HoleScore;
   onUpdate: (data: Partial<HoleScore>) => void;
   onNext: () => void;
   isLastHole?: boolean;
   autoExpand?: boolean;
+  isSimplified?: boolean;
 }) {
   const [showSG, setShowSG] = useState(autoExpand);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const scoreVsPar = hole.strokes > 0 ? hole.strokes - hole.par : null;
   const puttsMax = Math.min(10, hole.strokes > 0 ? hole.strokes : 10);
 
@@ -1441,8 +1450,21 @@ function HoleInputCard({
         />
       </View>
 
-      {/* Fairway (par 4/5 only) */}
-      {(hole.par === 4 || hole.par === 5) && (
+      {/* Advanced stats toggle (beginner mode only) */}
+      {isSimplified && (
+        <TouchableOpacity
+          style={holeStyles.advancedToggleBtn}
+          onPress={() => { haptics.light(); setShowAdvanced(!showAdvanced); }}
+          activeOpacity={0.75}
+        >
+          <Text style={holeStyles.advancedToggleText}>
+            {showAdvanced ? 'Hide advanced stats ▲' : 'Show advanced stats ▼'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Fairway (par 4/5 only) — hidden in simplified mode */}
+      {(!isSimplified || showAdvanced) && (hole.par === 4 || hole.par === 5) && (
         <ToggleRow
           label="Fairway Hit"
           value={hole.fairwayHit}
@@ -1451,16 +1473,18 @@ function HoleInputCard({
         />
       )}
 
-      {/* GIR */}
-      <ToggleRow
-        label="Green in Regulation"
-        value={hole.greenInRegulation}
-        onYes={() => onUpdate({ greenInRegulation: true, upAndDown: undefined })}
-        onNo={() => onUpdate({ greenInRegulation: false })}
-      />
+      {/* GIR — hidden in simplified mode */}
+      {(!isSimplified || showAdvanced) && (
+        <ToggleRow
+          label="Green in Regulation"
+          value={hole.greenInRegulation}
+          onYes={() => onUpdate({ greenInRegulation: true, upAndDown: undefined })}
+          onNo={() => onUpdate({ greenInRegulation: false })}
+        />
+      )}
 
-      {/* Up & Down (only when GIR = false and strokes > 0) */}
-      {hole.greenInRegulation === false && hole.strokes > 0 && (
+      {/* Up & Down (only when GIR = false and strokes > 0) — hidden in simplified mode */}
+      {(!isSimplified || showAdvanced) && hole.greenInRegulation === false && hole.strokes > 0 && (
         <ToggleRow
           label="Up & Down"
           value={hole.upAndDown}
@@ -1469,82 +1493,86 @@ function HoleInputCard({
         />
       )}
 
-      {/* Performance Details (collapsible) */}
-      <TouchableOpacity
-        style={holeStyles.sgToggleRow}
-        onPress={() => { haptics.light(); setShowSG(!showSG); }}
-        activeOpacity={0.7}
-      >
-        <View style={holeStyles.sgToggleLabelRow}>
-          <Text style={holeStyles.sgToggleIcon}>✦</Text>
-          <Text style={holeStyles.sgToggleLabel}>
-            {showSG ? 'Performance Details' : 'Performance Details · Tap to unlock Strokes Gained'}
-          </Text>
-        </View>
-        <Text style={holeStyles.sgToggleHint}>
-          {showSG ? '▲ hide' : '▼'}
-        </Text>
-      </TouchableOpacity>
+      {/* Performance Details (collapsible) — hidden in simplified mode */}
+      {(!isSimplified || showAdvanced) && (
+        <>
+          <TouchableOpacity
+            style={holeStyles.sgToggleRow}
+            onPress={() => { haptics.light(); setShowSG(!showSG); }}
+            activeOpacity={0.7}
+          >
+            <View style={holeStyles.sgToggleLabelRow}>
+              <Text style={holeStyles.sgToggleIcon}>✦</Text>
+              <Text style={holeStyles.sgToggleLabel}>
+                {showSG ? 'Performance Details' : 'Performance Details · Tap to unlock Strokes Gained'}
+              </Text>
+            </View>
+            <Text style={holeStyles.sgToggleHint}>
+              {showSG ? '▲ hide' : '▼'}
+            </Text>
+          </TouchableOpacity>
 
-      {showSG && (
-        <View style={holeStyles.sgSection}>
-          <Text style={holeStyles.sgSectionNote}>
-            Optional. Used to calculate Strokes Gained across all 4 categories.
-          </Text>
+          {showSG && (
+            <View style={holeStyles.sgSection}>
+              <Text style={holeStyles.sgSectionNote}>
+                Optional. Used to calculate Strokes Gained across all 4 categories.
+              </Text>
 
-          <SGStepRow
-            label="Approach Distance"
-            value={hole.approachDistanceYards}
-            unit=" yds"
-            step={5}
-            onDecrement={() => onUpdate({ approachDistanceYards: Math.max(5, (hole.approachDistanceYards ?? 5) - 5) })}
-            onIncrement={() => onUpdate({ approachDistanceYards: Math.min(600, (hole.approachDistanceYards ?? 0) + 5) })}
-          />
+              <SGStepRow
+                label="Approach Distance"
+                value={hole.approachDistanceYards}
+                unit=" yds"
+                step={5}
+                onDecrement={() => onUpdate({ approachDistanceYards: Math.max(5, (hole.approachDistanceYards ?? 5) - 5) })}
+                onIncrement={() => onUpdate({ approachDistanceYards: Math.min(600, (hole.approachDistanceYards ?? 0) + 5) })}
+              />
 
-          {hole.approachDistanceYards && hole.approachDistanceYards > 0 && (
-            <View style={holeStyles.sgRow}>
-              <Text style={holeStyles.sgLabel}>Approach Lie</Text>
-              <View style={holeStyles.lieRow}>
-                {(['fairway', 'rough', 'sand', 'recovery'] as const).map((lie) => (
-                  <TouchableOpacity
-                    key={lie}
-                    style={[holeStyles.lieSeg, hole.approachLie === lie && holeStyles.lieSegActive]}
-                    onPress={() => { haptics.light(); onUpdate({ approachLie: lie }); }}
-                  >
-                    <Text style={[holeStyles.lieText, hole.approachLie === lie && holeStyles.lieTextActive]}>
-                      {lie === 'fairway' ? 'FW' : lie === 'rough' ? 'Rough' : lie === 'sand' ? 'Sand' : 'Rec'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              {hole.approachDistanceYards && hole.approachDistanceYards > 0 && (
+                <View style={holeStyles.sgRow}>
+                  <Text style={holeStyles.sgLabel}>Approach Lie</Text>
+                  <View style={holeStyles.lieRow}>
+                    {(['fairway', 'rough', 'sand', 'recovery'] as const).map((lie) => (
+                      <TouchableOpacity
+                        key={lie}
+                        style={[holeStyles.lieSeg, hole.approachLie === lie && holeStyles.lieSegActive]}
+                        onPress={() => { haptics.light(); onUpdate({ approachLie: lie }); }}
+                      >
+                        <Text style={[holeStyles.lieText, hole.approachLie === lie && holeStyles.lieTextActive]}>
+                          {lie === 'fairway' ? 'FW' : lie === 'rough' ? 'Rough' : lie === 'sand' ? 'Sand' : 'Rec'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {hole.putts > 0 && (
+                <SGStepRow
+                  label="First Putt Distance"
+                  value={hole.firstPuttDistanceFeet}
+                  unit=" ft"
+                  step={1}
+                  onDecrement={() => onUpdate({ firstPuttDistanceFeet: Math.max(1, (hole.firstPuttDistanceFeet ?? 1) - 1) })}
+                  onIncrement={() => onUpdate({ firstPuttDistanceFeet: (hole.firstPuttDistanceFeet ?? 0) + 1 })}
+                />
+              )}
+
+              <SGStepRow
+                label="Proximity to Hole"
+                value={hole.proximityFeet}
+                unit=" ft"
+                step={1}
+                onDecrement={() => onUpdate({ proximityFeet: Math.max(1, (hole.proximityFeet ?? 1) - 1) })}
+                onIncrement={() => onUpdate({ proximityFeet: (hole.proximityFeet ?? 0) + 1 })}
+              />
+
+              <View style={[holeStyles.sgRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 8 }]}>
+                <Text style={holeStyles.sgLabel}>Miss Direction</Text>
+                <MissGrid value={hole.missDirection} onSelect={(dir) => onUpdate({ missDirection: dir })} />
               </View>
             </View>
           )}
-
-          {hole.putts > 0 && (
-            <SGStepRow
-              label="First Putt Distance"
-              value={hole.firstPuttDistanceFeet}
-              unit=" ft"
-              step={1}
-              onDecrement={() => onUpdate({ firstPuttDistanceFeet: Math.max(1, (hole.firstPuttDistanceFeet ?? 1) - 1) })}
-              onIncrement={() => onUpdate({ firstPuttDistanceFeet: (hole.firstPuttDistanceFeet ?? 0) + 1 })}
-            />
-          )}
-
-          <SGStepRow
-            label="Proximity to Hole"
-            value={hole.proximityFeet}
-            unit=" ft"
-            step={1}
-            onDecrement={() => onUpdate({ proximityFeet: Math.max(1, (hole.proximityFeet ?? 1) - 1) })}
-            onIncrement={() => onUpdate({ proximityFeet: (hole.proximityFeet ?? 0) + 1 })}
-          />
-
-          <View style={[holeStyles.sgRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 8 }]}>
-            <Text style={holeStyles.sgLabel}>Miss Direction</Text>
-            <MissGrid value={hole.missDirection} onSelect={(dir) => onUpdate({ missDirection: dir })} />
-          </View>
-        </View>
+        </>
       )}
 
       {!isLastHole && (
@@ -1742,6 +1770,14 @@ const holeStyles = StyleSheet.create({
   lieSegActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   lieText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textSecondary },
   lieTextActive: { color: Colors.background },
+  advancedToggleBtn: {
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  advancedToggleText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.primary },
   nextBtn: {
     marginTop: Spacing.xl,
     backgroundColor: Colors.primary,

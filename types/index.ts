@@ -90,6 +90,7 @@ export interface UserProfile {
   hasCompletedOnboarding: boolean;
   apiKey: string;
   createdAt: string;
+  advancedStatsMode?: boolean;
 }
 
 export interface HoleScore {

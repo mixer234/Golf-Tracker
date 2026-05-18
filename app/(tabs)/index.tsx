@@ -177,6 +177,14 @@ function getHandicapCoachingLine(profile: UserProfile, rounds: Round[]): string 
   if (completed.length === 0) return 'Start tracking rounds to see your progress.';
 
   const avgPutts = completed.reduce((s, r) => s + r.totalPutts, 0) / completed.length;
+
+  // Beginner tips: focus on simple, achievable wins
+  if (profile.handicap >= 28) {
+    if (avgPutts > 38) return `Averaging ${avgPutts.toFixed(0)} putts per round — try to 2-putt every green and you'll save strokes fast.`;
+    if (avgPutts > 34) return `Focus on getting the ball onto the green and avoiding big numbers — consistency beats perfection.`;
+    return `Every round you log helps build your game. Keep it simple: one shot at a time.`;
+  }
+
   const girPct = completed.reduce((s, r) => s + r.greensInRegulation, 0) / (completed.length * 18);
   const udAttempts = completed.reduce((s, r) => s + r.upAndDownAttempts, 0);
   const udMade = completed.reduce((s, r) => s + r.upAndDowns, 0);
@@ -605,21 +613,37 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         )}
 
-        {/* ── SG Discovery Tip ─────────────────────────── */}
+        {/* ── SG Discovery Tip / Beginner Tip ─────────── */}
         {showSGTip && (
-          <View style={styles.sgTipCard}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sgTipTitle}>
-                💡 Tip: Unlock Strokes Gained
-              </Text>
-              <Text style={styles.sgTipBody}>
-                Enter approach distances during your round to unlock Strokes Gained — golf's most powerful stat.
-              </Text>
+          profile.handicap >= 28 ? (
+            <View style={styles.sgTipCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sgTipTitle}>
+                  🏌️ Beginner tip
+                </Text>
+                <Text style={styles.sgTipBody}>
+                  Focus on strokes and putts for now. As your game improves you can unlock fairways, GIR, and Strokes Gained tracking.
+                </Text>
+              </View>
+              <TouchableOpacity onPress={dismissSGTip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.sgTipDismiss}>✕</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={dismissSGTip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.sgTipDismiss}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          ) : (
+            <View style={styles.sgTipCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sgTipTitle}>
+                  💡 Tip: Unlock Strokes Gained
+                </Text>
+                <Text style={styles.sgTipBody}>
+                  Enter approach distances during your round to unlock Strokes Gained — golf's most powerful stat.
+                </Text>
+              </View>
+              <TouchableOpacity onPress={dismissSGTip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.sgTipDismiss}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          )
         )}
 
         {/* ── Diagnostic reminder card ─────────────────── */}
