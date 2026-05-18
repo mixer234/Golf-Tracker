@@ -25,6 +25,24 @@ import { Toast, useToast } from '../../components/Toast';
 import { checkConnection } from '../../utils/network';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const FACILITY_EMOJI: Record<string, string> = {
+  driving_range: '🏌️',
+  putting_green: '⛳',
+  chipping_area: '🎯',
+  full_course: '🏌️',
+  simulator: '🖥️',
+  home_net: '🏠',
+};
+
+const FACILITY_SHORT: Record<string, string> = {
+  driving_range: 'Range',
+  putting_green: 'Putting Green',
+  chipping_area: 'Chipping Area',
+  full_course: 'Course',
+  simulator: 'Simulator',
+  home_net: 'Home Net',
+};
 const REST_DURATION = 30;
 const RING_SIZE = 200;
 const RING_STROKE = 10;
@@ -702,7 +720,9 @@ export default function PracticeScreen() {
           <Text style={styles.emptyTitle}>No practice plan yet</Text>
           <Text style={styles.emptyText}>
             {profile?.apiKey
-              ? 'Generate a personalized weekly plan based on your handicap, weaknesses, and goals.'
+              ? profile.facilities && profile.facilities.length > 0
+                ? `Drills tailored to your ${profile.facilities.length === 1 ? FACILITY_SHORT[profile.facilities[0]] ?? 'facility' : `${profile.facilities.length} facilities`} — generated from your handicap, weaknesses, and goals.`
+                : 'Generate a personalized weekly plan based on your handicap, weaknesses, and goals.'
               : 'Add your Claude API key in Profile to unlock AI-generated practice plans.'}
           </Text>
           {generationError && <Text style={styles.errorText}>⚠️ {generationError}</Text>}
@@ -1088,6 +1108,13 @@ function DrillCard({
                   {drill.difficulty}
                 </Text>
               </View>
+              {drill.facility && drill.facility !== 'anywhere' && (
+                <View style={drillStyles.facilityBadge}>
+                  <Text style={drillStyles.facilityText}>
+                    {FACILITY_EMOJI[drill.facility] ?? '📍'} {FACILITY_SHORT[drill.facility] ?? drill.facility}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -1201,6 +1228,15 @@ const drillStyles = StyleSheet.create({
   durationText: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600' },
   diffBadge: { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1 },
   diffText: { fontSize: FontSize.xs, fontWeight: '700', textTransform: 'capitalize' },
+  facilityBadge: {
+    backgroundColor: Colors.background,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  facilityText: { fontSize: FontSize.xs, color: Colors.textLight, fontWeight: '600' },
   chevron: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 4 },
   expandedContent: {
     paddingHorizontal: Spacing.md,

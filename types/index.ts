@@ -153,6 +153,7 @@ export interface Drill {
   duration: number;
   category: WeaknessArea;
   difficulty: DifficultyLevel;
+  facility?: string;
   equipment: string[];
   instructions: string[];
   focusPoints: string[];

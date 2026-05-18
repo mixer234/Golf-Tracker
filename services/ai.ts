@@ -4,17 +4,27 @@ import { GolferFingerprint } from '../types/diagnostic';
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-4-6';
 
+const ALL_FACILITIES = ['driving_range', 'putting_green', 'chipping_area', 'full_course', 'simulator', 'home_net'] as const;
+
+const FACILITY_LABELS: Record<string, string> = {
+  driving_range: 'Driving Range',
+  putting_green: 'Putting Green',
+  chipping_area: 'Chipping Area',
+  full_course: 'Full Course Access',
+  simulator: 'Golf Simulator',
+  home_net: 'Home Net / Backyard',
+};
+
 function formatFacilities(facilities: string[]): string {
-  const labels: Record<string, string> = {
-    driving_range: 'Driving Range',
-    putting_green: 'Putting Green',
-    chipping_area: 'Chipping Area',
-    full_course: 'Full Course Access',
-    simulator: 'Golf Simulator',
-    home_net: 'Home Net / Backyard',
-  };
-  if (!facilities || facilities.length === 0) return 'Driving Range (assumed)';
-  return facilities.map((f) => labels[f] ?? f).join(', ');
+  if (!facilities || facilities.length === 0) return 'Driving Range';
+  return facilities.map((f) => FACILITY_LABELS[f] ?? f).join(', ');
+}
+
+function formatMissingFacilities(facilities: string[]): string {
+  const present = new Set(facilities ?? []);
+  const missing = ALL_FACILITIES.filter((f) => !present.has(f));
+  if (missing.length === 0) return 'None — all facilities available.';
+  return missing.map((f) => FACILITY_LABELS[f]).join(', ');
 }
 
 function formatWeaknesses(weaknesses: WeaknessArea[]): string {
@@ -94,7 +104,24 @@ export async function generatePracticePlan(
   const sessionLength = Number.isFinite(rawLength) && rawLength > 0 ? rawLength : 60;
   const hoursPerWeek = Math.round((practiceDays * sessionLength) / 60);
 
-  const systemPrompt = `You are an expert PGA-certified golf coach. Generate highly personalized, actionable practice plans based on the golfer's data. Always return valid JSON only — no explanations, no markdown, just raw JSON.`;
+  const playerFacilities = profile.facilities && profile.facilities.length > 0
+    ? profile.facilities
+    : ['driving_range'];
+
+  const systemPrompt = `You are an expert PGA-certified golf coach. Generate highly personalized, actionable practice plans based on the golfer's data. Always return valid JSON only — no explanations, no markdown, just raw JSON.
+
+STRICT FACILITY RULE — This overrides all other instructions:
+The player ONLY has access to the following facilities: ${formatFacilities(playerFacilities)}.
+You MUST NOT prescribe any drill that requires a facility not in that list.
+Every drill's "facility" field MUST be one of: driving_range, putting_green, chipping_area, full_course, simulator, home_net, anywhere.
+Facility definitions:
+- driving_range: Full-swing practice hitting balls with visible ball flight (outdoors or covered range bay).
+- putting_green: Dedicated green surface with real holes for putting practice.
+- chipping_area: Short-game area for chips, pitches, and bunker shots within 50 yards.
+- full_course: A real golf course — use for on-course drills and playing lessons.
+- simulator: Indoor launch monitor or simulator bay — can replicate driving range drills.
+- home_net: Backyard net or indoor space for swing training without ball flight visibility.
+- anywhere: No facility required — mental, stretching, or video-review drills.`;
 
   const userPrompt = `Generate a personalized weekly golf practice plan for this player:
 
@@ -105,10 +132,9 @@ PLAYER PROFILE:
 - Weaknesses: ${formatWeaknesses(profile.weaknesses)}
 - Goals: ${profile.goals.map((g) => safeStr(g, 40)).join(', ')}
 - Practice time available: ${hoursPerWeek} hours/week
-- Available facilities: ${formatFacilities(profile.facilities ?? [])}
+- Available facilities: ${formatFacilities(playerFacilities)}
+- Facilities NOT available (do NOT prescribe drills for these): ${formatMissingFacilities(playerFacilities)}
 ${Number.isFinite(profile.ballSpeed) && (profile.ballSpeed ?? 0) > 0 ? `- Ball Speed: ${profile.ballSpeed} mph` : ''}
-
-IMPORTANT: Only generate drills that can be performed at the player's available facilities. Do not prescribe driving range drills if the player only has a putting green, etc.
 ${fingerprint ? '\n' + formatFingerprint(fingerprint) + '\n' : ''}
 RECENT PERFORMANCE (last 5 rounds):
 ${formatRecentRounds(rounds)}
@@ -129,6 +155,7 @@ Create a ${practiceDays}-day practice plan. Return ONLY this exact JSON structur
           "duration": 15,
           "category": "putting",
           "difficulty": "intermediate",
+          "facility": "putting_green",
           "equipment": ["item1", "item2"],
           "instructions": ["Step 1", "Step 2", "Step 3"],
           "focusPoints": ["Key focus 1", "Key focus 2"]
@@ -141,6 +168,8 @@ Create a ${practiceDays}-day practice plan. Return ONLY this exact JSON structur
 
 Valid category values: driving, long_irons, mid_irons, short_irons, wedges, bunkers, chipping, putting, mental, course_management
 Valid difficulty values: beginner, intermediate, advanced
+Valid facility values: driving_range, putting_green, chipping_area, full_course, simulator, home_net, anywhere
+REMINDER: Only use facility values from the player's available facilities list above, or "anywhere".
 Allocate practice time proportionally based on weaknesses. Each day should have 3-5 drills totaling the day's duration.`;
 
   const response = await fetch(ANTHROPIC_API_URL, {
