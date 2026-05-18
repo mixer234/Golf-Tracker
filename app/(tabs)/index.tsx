@@ -16,6 +16,7 @@ import { haptics } from '../../utils/haptics';
 import { Round, UserProfile, PracticePlan, DayOfWeek, WeaknessArea, PracticeSession } from '../../types';
 import { WEEKLY_FOCUS_DATA } from '../../constants/data';
 import { useTerminology } from '../../utils/useHandicap';
+import GlossaryTooltip from '../../components/ui/GlossaryTooltip';
 
 const SG_TIP_KEY = '@golf_sg_tip_dismissed';
 const DIAGNOSTIC_REMINDER_KEY = '@golf_diagnostic_reminder_shown';
@@ -266,13 +267,17 @@ function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: R
           {recentGIR !== null && (
             <View style={heroStyles.statChip}>
               <Text style={heroStyles.statChipNum}>{recentGIR}/18</Text>
-              <Text style={heroStyles.statChipLabel}>{t('gir')} avg</Text>
+              <GlossaryTooltip statKey="gir">
+                <Text style={heroStyles.statChipLabel}>{t('gir')} avg</Text>
+              </GlossaryTooltip>
             </View>
           )}
           {recentPutts !== null && (
             <View style={heroStyles.statChip}>
               <Text style={heroStyles.statChipNum}>{recentPutts}</Text>
-              <Text style={heroStyles.statChipLabel}>{t('putts')} avg</Text>
+              <GlossaryTooltip statKey="putts">
+                <Text style={heroStyles.statChipLabel}>{t('putts')} avg</Text>
+              </GlossaryTooltip>
             </View>
           )}
           <View style={heroStyles.statChip}>

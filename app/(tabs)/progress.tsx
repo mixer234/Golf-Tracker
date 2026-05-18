@@ -8,6 +8,8 @@ import { formatHandicap } from '../../components/HandicapDial';
 import { calcHandicapIndex, whsDiffCount } from '../../utils/whs';
 import { calcSGAverages } from '../../utils/strokesGained';
 import { useTerminology } from '../../utils/useHandicap';
+import GlossaryTooltip from '../../components/ui/GlossaryTooltip';
+import { GlossaryKey } from '../../data/glossary';
 
 // ── Stat helpers ───────────────────────────────────────────────────────────────
 
@@ -129,36 +131,42 @@ export default function ProgressScreen() {
             value={scoringAvg.toFixed(1)}
             sub={`Last ${last20.length} rounds`}
             accent={Colors.primary}
+            statKey="scoringAverage"
           />
           <StatCard
             label={t('gir')}
             value={girPct(completed)}
             sub="Greens in regulation"
             accent={Colors.info}
+            statKey="gir"
           />
           <StatCard
             label={t('fairways')}
             value={fwPct(completed)}
             sub="Fairways hit"
             accent={Colors.info}
+            statKey="fairways"
           />
           <StatCard
             label={t('putts')}
             value={avgPuttsPerHole(completed)}
             sub="Per hole"
             accent={Colors.warning}
+            statKey="putts"
           />
           <StatCard
             label={t('upAndDown')}
             value={udPct(completed)}
             sub={t('scrambling')}
             accent={Colors.success}
+            statKey="upAndDown"
           />
           <StatCard
             label={t('whsIndex')}
             value={calculatedHcp !== null ? formatHandicap(calculatedHcp) : '—'}
             sub={differentials.length > 0 ? `From ${differentials.length} rounds` : 'No ratings tracked'}
             accent={Colors.accent}
+            statKey="whsIndex"
           />
         </View>
 
@@ -190,10 +198,10 @@ export default function ProgressScreen() {
               <Text style={styles.sgNote}>
                 Average per round · {sgAverages.roundCount} round{sgAverages.roundCount > 1 ? 's' : ''}
               </Text>
-              <SGBar label={t('sgOffTee')} value={sgAverages.sgOffTee} />
-              <SGBar label={t('sgApproach')} value={sgAverages.sgApproach} />
-              <SGBar label={t('sgAroundGreen')} value={sgAverages.sgAroundGreen} />
-              <SGBar label={t('sgPutting')} value={sgAverages.sgPutting} />
+              <SGBar label={t('sgOffTee')}     value={sgAverages.sgOffTee}     statKey="sgOffTee" />
+              <SGBar label={t('sgApproach')}   value={sgAverages.sgApproach}   statKey="sgApproach" />
+              <SGBar label={t('sgAroundGreen')} value={sgAverages.sgAroundGreen} statKey="sgAroundGreen" />
+              <SGBar label={t('sgPutting')}    value={sgAverages.sgPutting}    statKey="sgPutting" />
               <View style={styles.sgTotalRow}>
                 <Text style={styles.sgTotalLabel}>TOTAL SG</Text>
                 <Text style={[
@@ -530,15 +538,20 @@ function StatCard({
   value,
   sub,
   accent,
+  statKey,
 }: {
   label: string;
   value: string;
   sub: string;
   accent?: string;
+  statKey?: GlossaryKey;
 }) {
+  const labelEl = <Text style={cardStyles.overline}>{label.toUpperCase()}</Text>;
   return (
     <View style={[cardStyles.card, accent ? { borderLeftColor: accent, borderLeftWidth: 3 } : {}]}>
-      <Text style={cardStyles.overline}>{label.toUpperCase()}</Text>
+      {statKey ? (
+        <GlossaryTooltip statKey={statKey}>{labelEl}</GlossaryTooltip>
+      ) : labelEl}
       <Text style={cardStyles.value}>{value}</Text>
       <Text style={cardStyles.sub}>{sub}</Text>
     </View>
@@ -556,15 +569,19 @@ function StatRow({ label, value, isLast }: { label: string; value: string; isLas
 
 // ── SGBar ──────────────────────────────────────────────────────────────────────
 
-function SGBar({ label, value }: { label: string; value: number }) {
+function SGBar({ label, value, statKey }: { label: string; value: number; statKey?: GlossaryKey }) {
   const isPositive = value > 0;
   const isNeutral = Math.abs(value) < 0.1;
   const barColor = isNeutral ? Colors.border : isPositive ? Colors.success : Colors.error;
   const pct = Math.min(100, Math.abs(value) / 4 * 100);
 
+  const labelEl = <Text style={[sgStyles.label, statKey ? { width: undefined, flexShrink: 1 } : {}]}>{label}</Text>;
+
   return (
     <View style={sgStyles.row}>
-      <Text style={sgStyles.label}>{label}</Text>
+      {statKey ? (
+        <GlossaryTooltip statKey={statKey} style={sgStyles.labelWrap}>{labelEl}</GlossaryTooltip>
+      ) : labelEl}
       <View style={sgStyles.barWrap}>
         <View style={sgStyles.track}>
           <View style={sgStyles.centerLine} />
@@ -590,6 +607,7 @@ const sgStyles = StyleSheet.create({
     gap: Spacing.sm,
   },
   label: { fontSize: FontSize.sm, color: Colors.textSecondary, width: 110 },
+  labelWrap: { width: 126 },
   barWrap: { flex: 1 },
   track: {
     height: 8,

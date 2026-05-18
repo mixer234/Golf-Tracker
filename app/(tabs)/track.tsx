@@ -25,6 +25,8 @@ import {
 } from '../../utils/roundStats';
 import { haptics } from '../../utils/haptics';
 import { useTerminology } from '../../utils/useHandicap';
+import GlossaryTooltip from '../../components/ui/GlossaryTooltip';
+import { GlossaryKey } from '../../data/glossary';
 
 const TEE_COLORS: { key: TeeColor; label: string; color: string }[] = [
   { key: 'black', label: 'Black', color: '#1a1a1a' },
@@ -684,24 +686,27 @@ function SummaryStatsGrid({ round, rounds }: { round: Round; rounds: Round[] }) 
       <View style={sumStyles.statRow}>
         <SumStatBox label="Score"    value={String(round.totalScore)} pb={pb} />
         <SumStatBox label="vs Par"   value={parLabel}                 color={parColor} />
-        <SumStatBox label={t('gir')}      value={girPct  !== null ? `${girPct}%`  : '—'} />
+        <SumStatBox label={t('gir')}        value={girPct   !== null ? `${girPct}%`        : '—'} statKey="gir" />
       </View>
       <View style={sumStyles.statRow}>
-        <SumStatBox label={t('fairways')} value={fwPct   !== null ? `${fwPct}%`   : '—'} />
-        <SumStatBox label={t('putts')}    value={avgP   !== null ? avgP.toFixed(1) : '—'} />
-        <SumStatBox label={t('scrambling')} value={scramPct !== null ? `${scramPct}%` : '—'} />
+        <SumStatBox label={t('fairways')}   value={fwPct    !== null ? `${fwPct}%`        : '—'} statKey="fairways" />
+        <SumStatBox label={t('putts')}      value={avgP     !== null ? avgP.toFixed(1)    : '—'} statKey="putts" />
+        <SumStatBox label={t('scrambling')} value={scramPct !== null ? `${scramPct}%`     : '—'} statKey="scrambling" />
       </View>
     </View>
   );
 }
 
 function SumStatBox({
-  label, value, color, pb,
-}: { label: string; value: string; color?: string; pb?: boolean }) {
+  label, value, color, pb, statKey,
+}: { label: string; value: string; color?: string; pb?: boolean; statKey?: GlossaryKey }) {
+  const labelText = <Text style={sumStyles.statLabel}>{label.toUpperCase()}</Text>;
   return (
     <View style={sumStyles.statBox}>
       <View style={sumStyles.statLabelRow}>
-        <Text style={sumStyles.statLabel}>{label.toUpperCase()}</Text>
+        {statKey ? (
+          <GlossaryTooltip statKey={statKey}>{labelText}</GlossaryTooltip>
+        ) : labelText}
         {pb && <View style={sumStyles.pbBadge}><Text style={sumStyles.pbText}>PB</Text></View>}
       </View>
       <Text style={[sumStyles.statValue, color ? { color } : undefined]}>{value}</Text>
@@ -716,21 +721,10 @@ function DifferentialCard({
   return (
     <View style={sumStyles.diffCard}>
       <View style={sumStyles.diffHeader}>
-        <View style={sumStyles.diffLeft}>
+        <GlossaryTooltip statKey="differential" style={sumStyles.diffLeft}>
           <Text style={sumStyles.diffLabel}>{t('differential').toUpperCase()}</Text>
           {pb && <View style={sumStyles.pbBadge}><Text style={sumStyles.pbText}>PB</Text></View>}
-        </View>
-        <TouchableOpacity
-          onPress={() =>
-            Alert.alert(
-              'Score Differential',
-              'Your scoring differential is used to calculate your WHS handicap index.\n\nFormula: (113 ÷ Slope Rating) × (Score − Course Rating)\n\nLower is better.',
-            )
-          }
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={sumStyles.diffTooltipIcon}>ⓘ</Text>
-        </TouchableOpacity>
+        </GlossaryTooltip>
       </View>
       <Text style={[sumStyles.diffValue, diff < 0 && { color: Colors.success }]}>
         {diff > 0 ? '+' : ''}{diff.toFixed(1)}
