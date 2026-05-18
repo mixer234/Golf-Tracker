@@ -97,10 +97,11 @@ export async function generatePracticePlan(
   rounds: Round[],
   apiKey: string,
   fingerprint?: GolferFingerprint | null,
+  sessionLengthOverride?: number,
 ): Promise<PracticePlan> {
   const rawDays = profile.practiceDaysPerWeek ?? 3;
   const practiceDays = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 5) : 3;
-  const rawLength = profile.sessionLengthMinutes ?? 60;
+  const rawLength = sessionLengthOverride ?? profile.sessionLengthMinutes ?? 60;
   const sessionLength = Number.isFinite(rawLength) && rawLength > 0 ? rawLength : 60;
   const hoursPerWeek = Math.round((practiceDays * sessionLength) / 60);
 
@@ -131,10 +132,18 @@ PLAYER PROFILE:
 - Target Handicap: ${profile.targetHandicap}
 - Weaknesses: ${formatWeaknesses(profile.weaknesses)}
 - Goals: ${profile.goals.map((g) => safeStr(g, 40)).join(', ')}
-- Practice time available: ${hoursPerWeek} hours/week
+- Practice time available: ${hoursPerWeek} hours/week (${practiceDays} days × ${sessionLength} min)
 - Available facilities: ${formatFacilities(playerFacilities)}
 - Facilities NOT available (do NOT prescribe drills for these): ${formatMissingFacilities(playerFacilities)}
 ${Number.isFinite(profile.ballSpeed) && (profile.ballSpeed ?? 0) > 0 ? `- Ball Speed: ${profile.ballSpeed} mph` : ''}
+SESSION LENGTH: ${sessionLength} minutes per session.
+Count drill durations carefully:
+- 15 min: 2–3 short drills (4–6 mins each)
+- 30 min: 3–4 drills (6–8 mins each)
+- 45 min: 4–5 drills (7–9 mins each)
+- 60 min: 5–6 drills (8–10 mins each)
+- 90 min: 6–8 drills (10–12 mins each)
+The total duration of all drills in each day MUST sum to exactly ${sessionLength} minutes. Do not exceed this.
 ${fingerprint ? '\n' + formatFingerprint(fingerprint) + '\n' : ''}
 RECENT PERFORMANCE (last 5 rounds):
 ${formatRecentRounds(rounds)}

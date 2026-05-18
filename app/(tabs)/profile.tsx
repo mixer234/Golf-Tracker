@@ -12,7 +12,9 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
+import { STORAGE_KEYS } from '../../constants/storageKeys';
 import { useUserStore } from '../../store/useUserStore';
 import { usePracticeStore } from '../../store/usePracticeStore';
 import { useRoundStore } from '../../store/useRoundStore';
@@ -347,7 +349,10 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   key={opt.value}
                   style={[styles.chip, isSelected && styles.chipSelected]}
-                  onPress={() => updateProfile({ sessionLengthMinutes: opt.value })}
+                  onPress={() => {
+                    updateProfile({ sessionLengthMinutes: opt.value });
+                    AsyncStorage.setItem(STORAGE_KEYS.SESSION_LENGTH_PREFERENCE, String(opt.value));
+                  }}
                   activeOpacity={0.75}
                 >
                   <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>

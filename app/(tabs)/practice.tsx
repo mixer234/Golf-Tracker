@@ -11,8 +11,10 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle } from 'react-native-svg';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
+import { STORAGE_KEYS } from '../../constants/storageKeys';
 import { useUserStore } from '../../store/useUserStore';
 import { useRoundStore } from '../../store/useRoundStore';
 import { usePracticeStore } from '../../store/usePracticeStore';
@@ -25,6 +27,14 @@ import { Toast, useToast } from '../../components/Toast';
 import { checkConnection } from '../../utils/network';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const SESSION_PILLS = [
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 45, label: '45 min' },
+  { value: 60, label: '60 min' },
+  { value: 90, label: '90 min' },
+];
 
 const FACILITY_EMOJI: Record<string, string> = {
   driving_range: '🏌️',
@@ -136,6 +146,7 @@ export default function PracticeScreen() {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const updateClub = useUserStore((s) => s.updateClub);
+  const updateProfile = useUserStore((s) => s.updateProfile);
   const rounds = useRoundStore((s) => s.rounds);
   const {
     currentPlan, isGenerating, generationError, setPlan, setGenerating,
@@ -151,6 +162,22 @@ export default function PracticeScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [completedInSession, setCompletedInSession] = useState<string[]>([]);
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Session length preference ───────────────────────────────────────────────
+  const [selectedLength, setSelectedLength] = useState<number>(
+    profile?.sessionLengthMinutes ?? 60
+  );
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEYS.SESSION_LENGTH_PREFERENCE).then((val) => {
+      const parsed = val ? parseInt(val, 10) : null;
+      if (parsed && SESSION_PILLS.some((p) => p.value === parsed)) {
+        setSelectedLength(parsed);
+      } else if (profile?.sessionLengthMinutes) {
+        setSelectedLength(profile.sessionLengthMinutes);
+      }
+    });
+  }, []);
 
   // ── New session state ───────────────────────────────────────────────────────
   const [sessionPhase, setSessionPhase] = useState<'drill' | 'rest' | 'celebration'>('drill');
@@ -422,7 +449,7 @@ export default function PracticeScreen() {
         : 'This will replace your current practice plan. Continue?';
       Alert.alert('Regenerate Plan?', message, [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Regenerate', style: 'destructive', onPress: doGenerate },
+        { text: 'Regenerate', style: 'destructive', onPress: () => doGenerate() },
       ]);
       return;
     }
@@ -430,7 +457,7 @@ export default function PracticeScreen() {
     doGenerate();
   }
 
-  async function doGenerate() {
+  async function doGenerate(lengthOverride?: number) {
     const connected = await checkConnection();
     if (!connected) {
       showToast({ type: 'warning', title: 'No internet connection', message: 'Check your connection and try again.' });
@@ -439,7 +466,7 @@ export default function PracticeScreen() {
     setGenerating(true);
     setGenerationError(null);
     try {
-      const plan = await generatePracticePlan(profile!, rounds, profile!.apiKey!);
+      const plan = await generatePracticePlan(profile!, rounds, profile!.apiKey!, undefined, lengthOverride ?? selectedLength);
       setPlan(plan);
     } catch (err: any) {
       const isNetwork = err instanceof TypeError;
@@ -451,6 +478,37 @@ export default function PracticeScreen() {
       });
     } finally {
       setGenerating(false);
+    }
+  }
+
+  // ── Session length selector handler ────────────────────────────────────────
+  async function applySessionLength(length: number) {
+    setSelectedLength(length);
+    await AsyncStorage.setItem(STORAGE_KEYS.SESSION_LENGTH_PREFERENCE, String(length));
+    updateProfile({ sessionLengthMinutes: length });
+  }
+
+  function handleSessionLengthPress(length: number) {
+    haptics.light();
+    if (length === selectedLength) return;
+
+    if (currentPlan) {
+      Alert.alert(
+        'Change Session Length?',
+        `Regenerate plan for ${length} min sessions?`,
+        [
+          { text: 'Keep current', style: 'cancel' },
+          {
+            text: 'Yes',
+            onPress: async () => {
+              await applySessionLength(length);
+              doGenerate(length);
+            },
+          },
+        ]
+      );
+    } else {
+      applySessionLength(length);
     }
   }
 
@@ -714,6 +772,8 @@ export default function PracticeScreen() {
         )}
       </View>
 
+      <SessionLengthSelector selected={selectedLength} onSelect={handleSessionLengthPress} />
+
       {!currentPlan && !isGenerating ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🎯</Text>
@@ -800,15 +860,20 @@ export default function PracticeScreen() {
             )}
             {dayPlan ? (
               <>
-                <View style={styles.dayHeader}>
-                  <View>
-                    <Text style={styles.dayTitle}>{dayPlan.day}</Text>
-                    <Text style={styles.dayTheme}>{dayPlan.theme}</Text>
-                  </View>
-                  <View style={styles.durationBadge}>
-                    <Text style={styles.durationText}>{dayPlan.duration} min</Text>
-                  </View>
-                </View>
+                {(() => {
+                  const actualMins = dayPlan.drills.reduce((sum, d) => sum + d.duration, 0);
+                  return (
+                    <View style={styles.dayHeader}>
+                      <View>
+                        <Text style={styles.dayTitle}>{dayPlan.day}</Text>
+                        <Text style={styles.dayTheme}>{dayPlan.theme}</Text>
+                      </View>
+                      <View style={styles.durationBadge}>
+                        <Text style={styles.durationText}>{actualMins} min session</Text>
+                      </View>
+                    </View>
+                  );
+                })()}
 
                 <View style={styles.progressRow}>
                   <Text style={styles.progressLabel}>
@@ -1052,6 +1117,72 @@ const histStyles = StyleSheet.create({
   pctFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: Radius.full },
   pctLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary, minWidth: 28, textAlign: 'right' },
   rowTime: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary, minWidth: 30, textAlign: 'right' },
+});
+
+// ── SessionLengthSelector ─────────────────────────────────────────────────────
+
+function SessionLengthSelector({
+  selected,
+  onSelect,
+}: {
+  selected: number;
+  onSelect: (length: number) => void;
+}) {
+  return (
+    <View style={sessionStyles.wrap}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={sessionStyles.row}
+      >
+        {SESSION_PILLS.map((pill) => (
+          <TouchableOpacity
+            key={pill.value}
+            style={[sessionStyles.pill, selected === pill.value && sessionStyles.pillActive]}
+            onPress={() => onSelect(pill.value)}
+            activeOpacity={0.75}
+          >
+            <Text style={[sessionStyles.pillText, selected === pill.value && sessionStyles.pillTextActive]}>
+              {pill.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+const sessionStyles = StyleSheet.create({
+  wrap: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    alignItems: 'center',
+  },
+  pill: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  pillActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  pillText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  pillTextActive: {
+    color: Colors.background,
+    fontWeight: '700',
+  },
 });
 
 // ── DrillCard (unchanged) ──────────────────────────────────────────────────────

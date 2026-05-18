@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
+import { STORAGE_KEYS } from '../../constants/storageKeys';
 import { useUserStore } from '../../store/useUserStore';
 import { PracticeFacility } from '../../types';
 
@@ -46,6 +48,7 @@ export default function ScheduleScreen() {
 
   function handleNext() {
     updateProfile({ practiceDaysPerWeek: days, sessionLengthMinutes: sessionLength, facilities });
+    AsyncStorage.setItem(STORAGE_KEYS.SESSION_LENGTH_PREFERENCE, String(sessionLength));
     router.push('/onboarding/game');
   }
 
