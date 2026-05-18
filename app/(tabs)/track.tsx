@@ -24,6 +24,7 @@ import {
   HoleResult,
 } from '../../utils/roundStats';
 import { haptics } from '../../utils/haptics';
+import { useTerminology } from '../../utils/useHandicap';
 
 const TEE_COLORS: { key: TeeColor; label: string; color: string }[] = [
   { key: 'black', label: 'Black', color: '#1a1a1a' },
@@ -665,6 +666,7 @@ export default function TrackScreen() {
 // ─── Post-round summary components ───────────────────────────────────────────
 
 function SummaryStatsGrid({ round, rounds }: { round: Round; rounds: Round[] }) {
+  const t = useTerminology();
   const stp = round.scoreToPar;
   const parLabel = stp === 0 ? 'E' : stp > 0 ? `+${stp}` : String(stp);
   const parColor = stp < 0 ? Colors.success : stp > 0 ? Colors.error : Colors.textSecondary;
@@ -682,12 +684,12 @@ function SummaryStatsGrid({ round, rounds }: { round: Round; rounds: Round[] }) 
       <View style={sumStyles.statRow}>
         <SumStatBox label="Score"    value={String(round.totalScore)} pb={pb} />
         <SumStatBox label="vs Par"   value={parLabel}                 color={parColor} />
-        <SumStatBox label="GIR"      value={girPct  !== null ? `${girPct}%`  : '—'} />
+        <SumStatBox label={t('gir')}      value={girPct  !== null ? `${girPct}%`  : '—'} />
       </View>
       <View style={sumStyles.statRow}>
-        <SumStatBox label="Fairways" value={fwPct   !== null ? `${fwPct}%`   : '—'} />
-        <SumStatBox label="Avg Putts" value={avgP   !== null ? avgP.toFixed(1) : '—'} />
-        <SumStatBox label="Scrambling" value={scramPct !== null ? `${scramPct}%` : '—'} />
+        <SumStatBox label={t('fairways')} value={fwPct   !== null ? `${fwPct}%`   : '—'} />
+        <SumStatBox label={t('putts')}    value={avgP   !== null ? avgP.toFixed(1) : '—'} />
+        <SumStatBox label={t('scrambling')} value={scramPct !== null ? `${scramPct}%` : '—'} />
       </View>
     </View>
   );
@@ -710,11 +712,12 @@ function SumStatBox({
 function DifferentialCard({
   diff, isDefault, pb,
 }: { diff: number; isDefault: boolean; pb: boolean }) {
+  const t = useTerminology();
   return (
     <View style={sumStyles.diffCard}>
       <View style={sumStyles.diffHeader}>
         <View style={sumStyles.diffLeft}>
-          <Text style={sumStyles.diffLabel}>SCORE DIFFERENTIAL</Text>
+          <Text style={sumStyles.diffLabel}>{t('differential').toUpperCase()}</Text>
           {pb && <View style={sumStyles.pbBadge}><Text style={sumStyles.pbText}>PB</Text></View>}
         </View>
         <TouchableOpacity
@@ -882,11 +885,12 @@ function HoleCallout({ result, type }: { result: HoleResult; type: 'best' | 'wor
 }
 
 function PostRoundSG({ round }: { round: Round }) {
+  const t = useTerminology();
   const cats = [
-    { label: 'OTT', full: 'Off Tee',      val: round.sgOffTee },
-    { label: 'APP', full: 'Approach',      val: round.sgApproach },
-    { label: 'ARG', full: 'Around Green',  val: round.sgAroundGreen },
-    { label: 'PUT', full: 'Putting',       val: round.sgPutting },
+    { label: 'OTT', full: t('sgOffTee'),         val: round.sgOffTee },
+    { label: 'APP', full: t('sgApproach'),        val: round.sgApproach },
+    { label: 'ARG', full: t('sgAroundGreen'),     val: round.sgAroundGreen },
+    { label: 'PUT', full: t('sgPutting'),         val: round.sgPutting },
   ];
 
   function isValid(v: number | undefined | null): v is number {
@@ -1035,6 +1039,7 @@ function ScorecardGrid({ round, selectedHole, onSelectHole }: {
 // ─── Running totals strip ─────────────────────────────────────────────────────
 
 function RunningTotals({ round }: { round: Round }) {
+  const t = useTerminology();
   const played = round.holes.filter((h) => h.strokes > 0);
   const totalScore = played.reduce((s, h) => s + h.strokes, 0);
   const totalPar   = played.reduce((s, h) => s + h.par, 0);
@@ -1057,7 +1062,7 @@ function RunningTotals({ round }: { round: Round }) {
       <View style={styles.rTotalDivider} />
       <View style={styles.rTotal}>
         <Text style={styles.rTotalVal}>{totalPutts || '—'}</Text>
-        <Text style={styles.rTotalLabel}>Putts</Text>
+        <Text style={styles.rTotalLabel}>{t('putts')}</Text>
       </View>
       <View style={styles.rTotalDivider} />
       <View style={styles.rTotal}>
@@ -1372,6 +1377,7 @@ function HoleInputCard({
   autoExpand?: boolean;
   isSimplified?: boolean;
 }) {
+  const t = useTerminology();
   const [showSG, setShowSG] = useState(autoExpand);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const scoreVsPar = hole.strokes > 0 ? hole.strokes - hole.par : null;
@@ -1519,7 +1525,7 @@ function HoleInputCard({
               </Text>
 
               <SGStepRow
-                label="Approach Distance"
+                label={t('approachDistance')}
                 value={hole.approachDistanceYards}
                 unit=" yds"
                 step={5}
@@ -1558,7 +1564,7 @@ function HoleInputCard({
               )}
 
               <SGStepRow
-                label="Proximity to Hole"
+                label={t('proximity')}
                 value={hole.proximityFeet}
                 unit=" ft"
                 step={1}

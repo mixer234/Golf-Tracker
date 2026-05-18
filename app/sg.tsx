@@ -4,12 +4,13 @@ import { Colors, Spacing, Radius, FontSize, Shadow } from '../constants/theme';
 import { useRoundStore } from '../store/useRoundStore';
 import { calcSGAverages } from '../utils/strokesGained';
 import { Round } from '../types';
+import { useTerminology } from '../utils/useHandicap';
 
 const SG_CATEGORIES = [
-  { key: 'sgOffTee' as const, label: 'Off the Tee', short: 'OTT', emoji: '🏌️' },
-  { key: 'sgApproach' as const, label: 'Approach', short: 'APP', emoji: '🎯' },
-  { key: 'sgAroundGreen' as const, label: 'Around Green', short: 'ARG', emoji: '🌿' },
-  { key: 'sgPutting' as const, label: 'Putting', short: 'PUT', emoji: '⛳' },
+  { key: 'sgOffTee' as const, termKey: 'sgOffTee' as const, short: 'OTT', emoji: '🏌️' },
+  { key: 'sgApproach' as const, termKey: 'sgApproach' as const, short: 'APP', emoji: '🎯' },
+  { key: 'sgAroundGreen' as const, termKey: 'sgAroundGreen' as const, short: 'ARG', emoji: '🌿' },
+  { key: 'sgPutting' as const, termKey: 'sgPutting' as const, short: 'PUT', emoji: '⛳' },
 ];
 
 function sgColor(v: number): string {
@@ -109,6 +110,7 @@ function RoundSGCard({ round }: { round: Round }) {
 
 export default function SGScreen() {
   const router = useRouter();
+  const t = useTerminology();
   const rounds = useRoundStore((s) => s.rounds);
   const completed = rounds.filter((r) => r.isComplete && r.totalScore > 0);
   const withSG = completed.filter((r) => r.sgTotal !== undefined && r.sgTotal !== null);
@@ -179,10 +181,10 @@ export default function SGScreen() {
                   <Text style={styles.sectionSub}>({averages.roundCount} round{averages.roundCount > 1 ? 's' : ''})</Text>
                 </Text>
                 <View style={styles.overallCard}>
-                  {SG_CATEGORIES.map(({ key, label, emoji }) => (
+                  {SG_CATEGORIES.map(({ key, termKey, emoji }) => (
                     <SGOverallBar
                       key={key}
-                      label={`${emoji} ${label}`}
+                      label={`${emoji} ${t(termKey)}`}
                       value={averages[key]}
                       maxAbs={maxAbs}
                     />
@@ -214,7 +216,7 @@ export default function SGScreen() {
 
             {/* Category breakdown explainer */}
             <View style={styles.explainerGrid}>
-              {SG_CATEGORIES.map(({ key, short, label, emoji }) => {
+              {SG_CATEGORIES.map(({ key, termKey, short, emoji }) => {
                 const val = averages ? averages[key] : null;
                 const col = val !== null ? sgColor(val) : Colors.textSecondary;
                 return (
@@ -224,7 +226,7 @@ export default function SGScreen() {
                     <Text style={[styles.explainerVal, { color: col }]}>
                       {val !== null ? sgSign(val) : '—'}
                     </Text>
-                    <Text style={styles.explainerLabel}>{label}</Text>
+                    <Text style={styles.explainerLabel}>{t(termKey)}</Text>
                   </View>
                 );
               })}

@@ -15,6 +15,7 @@ import { generatePracticePlan } from '../../services/ai';
 import { haptics } from '../../utils/haptics';
 import { Round, UserProfile, PracticePlan, DayOfWeek, WeaknessArea, PracticeSession } from '../../types';
 import { WEEKLY_FOCUS_DATA } from '../../constants/data';
+import { useTerminology } from '../../utils/useHandicap';
 
 const SG_TIP_KEY = '@golf_sg_tip_dismissed';
 const DIAGNOSTIC_REMINDER_KEY = '@golf_diagnostic_reminder_shown';
@@ -198,6 +199,7 @@ function getHandicapCoachingLine(profile: UserProfile, rounds: Round[]): string 
 }
 
 function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: Round[] }) {
+  const t = useTerminology();
   const gap = profile.handicap - profile.targetHandicap;
   const achieved = gap <= 0;
   const absGap = Math.abs(gap);
@@ -264,13 +266,13 @@ function HandicapHeroCard({ profile, rounds }: { profile: UserProfile; rounds: R
           {recentGIR !== null && (
             <View style={heroStyles.statChip}>
               <Text style={heroStyles.statChipNum}>{recentGIR}/18</Text>
-              <Text style={heroStyles.statChipLabel}>GIR avg</Text>
+              <Text style={heroStyles.statChipLabel}>{t('gir')} avg</Text>
             </View>
           )}
           {recentPutts !== null && (
             <View style={heroStyles.statChip}>
               <Text style={heroStyles.statChipNum}>{recentPutts}</Text>
-              <Text style={heroStyles.statChipLabel}>putts avg</Text>
+              <Text style={heroStyles.statChipLabel}>{t('putts')} avg</Text>
             </View>
           )}
           <View style={heroStyles.statChip}>
@@ -906,6 +908,7 @@ function TrendInsightCard({ rounds }: { rounds: Round[] }) {
 }
 
 function RoundRow({ round }: { round: Round }) {
+  const t = useTerminology();
   const date = new Date(round.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const stp = round.scoreToPar;
   const parLabel = stp === 0 ? 'E' : stp > 0 ? `+${stp}` : String(stp);
@@ -934,8 +937,8 @@ function RoundRow({ round }: { round: Round }) {
           </View>
         </View>
         <View style={roundStyles.pills}>
-          <StatPill label={`${round.greensInRegulation}/18 GIR`} />
-          <StatPill label={`${round.totalPutts} putts`} />
+          <StatPill label={`${round.greensInRegulation}/18 ${t('gir')}`} />
+          <StatPill label={`${round.totalPutts} ${t('putts').toLowerCase()}`} />
           {udPct !== null && <StatPill label={`${udPct}% U&D`} />}
           {round.scoreDifferential !== undefined && (
             <StatPill label={`${round.scoreDifferential > 0 ? '+' : ''}${round.scoreDifferential.toFixed(1)} diff`} accent />

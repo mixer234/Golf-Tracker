@@ -7,6 +7,7 @@ import { Round, MissDirection } from '../../types';
 import { formatHandicap } from '../../components/HandicapDial';
 import { calcHandicapIndex, whsDiffCount } from '../../utils/whs';
 import { calcSGAverages } from '../../utils/strokesGained';
+import { useTerminology } from '../../utils/useHandicap';
 
 // ── Stat helpers ───────────────────────────────────────────────────────────────
 
@@ -59,6 +60,7 @@ export default function ProgressScreen() {
   const router = useRouter();
   const rounds = useRoundStore((s) => s.rounds);
   const profile = useUserStore((s) => s.profile);
+  const t = useTerminology();
 
   const completed = rounds.filter((r) => r.isComplete && r.totalScore > 0);
 
@@ -123,37 +125,37 @@ export default function ProgressScreen() {
         {/* Stat Grid */}
         <View style={styles.statsGrid}>
           <StatCard
-            label="Scoring Avg"
+            label={t('scoringAverage')}
             value={scoringAvg.toFixed(1)}
             sub={`Last ${last20.length} rounds`}
             accent={Colors.primary}
           />
           <StatCard
-            label="GIR %"
+            label={t('gir')}
             value={girPct(completed)}
             sub="Greens in regulation"
             accent={Colors.info}
           />
           <StatCard
-            label="FW %"
+            label={t('fairways')}
             value={fwPct(completed)}
             sub="Fairways hit"
             accent={Colors.info}
           />
           <StatCard
-            label="Avg Putts"
+            label={t('putts')}
             value={avgPuttsPerHole(completed)}
             sub="Per hole"
             accent={Colors.warning}
           />
           <StatCard
-            label="Up & Down"
+            label={t('upAndDown')}
             value={udPct(completed)}
-            sub="Scrambling %"
+            sub={t('scrambling')}
             accent={Colors.success}
           />
           <StatCard
-            label="WHS Index"
+            label={t('whsIndex')}
             value={calculatedHcp !== null ? formatHandicap(calculatedHcp) : '—'}
             sub={differentials.length > 0 ? `From ${differentials.length} rounds` : 'No ratings tracked'}
             accent={Colors.accent}
@@ -176,7 +178,7 @@ export default function ProgressScreen() {
         {/* Strokes Gained */}
         <View style={styles.section}>
           <View style={styles.sectionRow}>
-            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Strokes Gained vs. Scratch</Text>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t('strokesGained')}</Text>
             {sgAverages && (
               <TouchableOpacity onPress={() => router.push('/sg')} activeOpacity={0.7}>
                 <Text style={styles.sectionLink}>Full Analysis →</Text>
@@ -188,10 +190,10 @@ export default function ProgressScreen() {
               <Text style={styles.sgNote}>
                 Average per round · {sgAverages.roundCount} round{sgAverages.roundCount > 1 ? 's' : ''}
               </Text>
-              <SGBar label="Off the Tee" value={sgAverages.sgOffTee} />
-              <SGBar label="Approach" value={sgAverages.sgApproach} />
-              <SGBar label="Around Green" value={sgAverages.sgAroundGreen} />
-              <SGBar label="Putting" value={sgAverages.sgPutting} />
+              <SGBar label={t('sgOffTee')} value={sgAverages.sgOffTee} />
+              <SGBar label={t('sgApproach')} value={sgAverages.sgApproach} />
+              <SGBar label={t('sgAroundGreen')} value={sgAverages.sgAroundGreen} />
+              <SGBar label={t('sgPutting')} value={sgAverages.sgPutting} />
               <View style={styles.sgTotalRow}>
                 <Text style={styles.sgTotalLabel}>TOTAL SG</Text>
                 <Text style={[
@@ -241,7 +243,7 @@ export default function ProgressScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionDot} />
-              <Text style={styles.sectionTitle}>Score Differentials</Text>
+              <Text style={styles.sectionTitle}>{t('differential')}s</Text>
             </View>
             <View style={styles.chartCard}>
               <DifferentialChart
@@ -337,19 +339,19 @@ export default function ProgressScreen() {
               label="Rounds Under Par"
               value={completed.filter((r) => r.scoreToPar < 0).length.toString()}
             />
-            <StatRow label="Avg Putts/Hole" value={avgPuttsPerHole(completed)} />
+            <StatRow label={t('putts')} value={avgPuttsPerHole(completed)} />
             <StatRow
               label="Total Penalties"
               value={completed.reduce((s, r) => s + (r.totalPenalties ?? 0), 0).toString()}
             />
             {differentials.length > 0 && (
               <StatRow
-                label="Best Differential"
+                label={`Best ${t('differential')}`}
                 value={Math.min(...differentials).toFixed(1)}
               />
             )}
             <StatRow
-              label="Scrambling %"
+              label={t('scrambling')}
               value={udPct(completed)}
               isLast
             />
