@@ -604,7 +604,7 @@ const gpStyles = StyleSheet.create({
     padding: Spacing.md,
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.sm,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: Colors.border,
     gap: Spacing.sm,
     ...Shadow.sm,
@@ -638,7 +638,7 @@ const gpStyles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
   },
-  btnPrimaryText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.background },
+  btnPrimaryText: { fontSize: FontSize.sm, fontWeight: '700', color: '#ffffff' },
 });
 
 function InfoRow({ label, value, isLast }: { label: string; value: string; isLast?: boolean }) {
@@ -654,7 +654,7 @@ const headerStyles = StyleSheet.create({
   title: {
     fontSize: FontSize.xs,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: Colors.textLight,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginTop: Spacing.lg,
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Shadow.sm,
   },
-  avatarText: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.background },
+  avatarText: { fontSize: FontSize.xl, fontWeight: '800', color: '#ffffff' },
   userName: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
   userSince: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
   nameEditRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
   },
-  nameBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.background },
+  nameBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: '#ffffff' },
   nameCancelBtn: { paddingHorizontal: 4 },
   nameCancelText: { fontSize: FontSize.base, color: Colors.textSecondary },
 
@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: Colors.border,
     ...Shadow.sm,
     marginBottom: Spacing.xs,
@@ -754,7 +754,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
   },
-  saveBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  saveBtnText: { fontSize: FontSize.base, fontWeight: '700', color: '#ffffff' },
   cancelBtn: {
     flex: 1,
     borderRadius: Radius.full,
@@ -775,14 +775,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: Radius.full,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surfaceAlt,
   },
   chipSelected: { backgroundColor: Colors.primaryPale, borderColor: Colors.primary },
   chipEmoji: { fontSize: 14 },
   chipText: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.textSecondary },
-  chipTextSelected: { color: Colors.primary, fontWeight: '700' },
+  chipTextSelected: { color: Colors.primary, fontWeight: '600' },
   chipCheck: { fontSize: 12, color: Colors.primary, fontWeight: '700' },
 
   // API Key
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
-  saveApiBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.background },
+  saveApiBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: '#ffffff' },
   keyStatus: { fontSize: FontSize.xs, color: Colors.success, fontWeight: '600' },
   keyStatusEmpty: { fontSize: FontSize.xs, color: Colors.textLight },
 
@@ -832,10 +832,10 @@ const styles = StyleSheet.create({
     width: 46, height: 26, borderRadius: 13,
     backgroundColor: Colors.border, justifyContent: 'center', paddingHorizontal: 2,
   },
-  toggleSwitchOn: { backgroundColor: Colors.primary },
+  toggleSwitchOn: { backgroundColor: Colors.darkGreen },
   toggleThumb: {
     width: 22, height: 22, borderRadius: 11,
-    backgroundColor: Colors.background,
+    backgroundColor: '#ffffff',
   },
   toggleThumbOn: { alignSelf: 'flex-end' },
   versionText: { fontSize: FontSize.xs, color: Colors.textLight, textAlign: 'center', marginBottom: Spacing.xxl, marginTop: Spacing.sm },

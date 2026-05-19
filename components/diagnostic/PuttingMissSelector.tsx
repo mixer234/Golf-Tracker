@@ -135,5 +135,5 @@ const styles = StyleSheet.create({
   },
   variesChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   variesText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
-  variesTextActive: { color: Colors.background },
+  variesTextActive: { color: '#ffffff' },
 });

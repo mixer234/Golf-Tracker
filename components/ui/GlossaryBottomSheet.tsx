@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   closeBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     borderRadius: Radius.full,
     paddingVertical: 14,
     alignItems: 'center',
@@ -127,6 +127,6 @@ const styles = StyleSheet.create({
   closeBtnText: {
     fontSize: FontSize.base,
     fontWeight: '700',
-    color: Colors.background,
+    color: '#ffffff',
   },
 });

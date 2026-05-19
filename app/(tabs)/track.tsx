@@ -31,7 +31,7 @@ import { GlossaryKey } from '../../data/glossary';
 const TEE_COLORS: { key: TeeColor; label: string; color: string }[] = [
   { key: 'black', label: 'Black', color: '#1a1a1a' },
   { key: 'blue',  label: 'Blue',  color: '#3b82f6' },
-  { key: 'white', label: 'White', color: '#e8f0e9' },
+  { key: 'white', label: 'White', color: '#d0d0d0' },
   { key: 'red',   label: 'Red',   color: '#ef4444' },
   { key: 'gold',  label: 'Gold',  color: '#d4af37' },
 ];
@@ -1595,9 +1595,8 @@ const scStyles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.sm,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: Colors.border,
-    ...Shadow.sm,
   },
   row: { flexDirection: 'row', gap: 2, marginBottom: 2 },
   divider: { height: 1, backgroundColor: Colors.border, marginVertical: 3 },
@@ -1625,7 +1624,7 @@ const scStyles = StyleSheet.create({
     color: Colors.text,
     lineHeight: 16,
   },
-  cellScoreUnder: { color: Colors.background },
+  cellScoreUnder: { color: Colors.primary },
   totalCell: {
     width: 30,
     alignItems: 'center',
@@ -1660,9 +1659,8 @@ const holeStyles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     padding: Spacing.lg,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: Colors.border,
-    ...Shadow.md,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1701,7 +1699,7 @@ const holeStyles = StyleSheet.create({
   },
   segActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   segText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textSecondary },
-  segTextActive: { color: Colors.background },
+  segTextActive: { color: '#ffffff' },
   counter: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   counterBtn: {
     width: 36,
@@ -1769,7 +1767,7 @@ const holeStyles = StyleSheet.create({
   },
   lieSegActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   lieText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textSecondary },
-  lieTextActive: { color: Colors.background },
+  lieTextActive: { color: '#ffffff' },
   advancedToggleBtn: {
     marginTop: Spacing.sm,
     paddingVertical: Spacing.sm,
@@ -1785,7 +1783,7 @@ const holeStyles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  nextBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  nextBtnText: { fontSize: FontSize.base, fontWeight: '700', color: '#ffffff' },
   missCell: {
     width: 44,
     height: 36,
@@ -1830,7 +1828,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     backgroundColor: Colors.primary,
   },
-  completeText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.background },
+  completeText: { fontSize: FontSize.sm, fontWeight: '700', color: '#ffffff' },
   // Running totals
   runningTotals: {
     flexDirection: 'row',
@@ -1852,10 +1850,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.primary,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
     marginBottom: Spacing.lg,
-    ...Shadow.md,
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -1930,7 +1927,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: Spacing.xxl,
   },
-  startButtonText: { fontSize: FontSize.md, fontWeight: '700', color: Colors.background },
+  startButtonText: { fontSize: FontSize.md, fontWeight: '700', color: '#ffffff' },
   historySection: { gap: Spacing.sm },
   historyTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, marginBottom: Spacing.xs },
   historyRow: {

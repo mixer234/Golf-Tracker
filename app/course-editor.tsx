@@ -11,7 +11,7 @@ import { CourseHole, TeeColor } from '../types';
 const TEE_COLORS: { key: TeeColor; label: string; color: string }[] = [
   { key: 'black', label: 'Black', color: '#1a1a1a' },
   { key: 'blue',  label: 'Blue',  color: '#3b82f6' },
-  { key: 'white', label: 'White', color: '#e8f0e9' },
+  { key: 'white', label: 'White', color: '#d0d0d0' },
   { key: 'red',   label: 'Red',   color: '#ef4444' },
   { key: 'gold',  label: 'Gold',  color: '#d4af37' },
 ];
@@ -228,7 +228,7 @@ function HoleRow({
               onPress={() => onParChange(hole.holeNumber, p)}
               activeOpacity={0.75}
             >
-              <Text style={[rowStyles.parBtnText, hole.par === p && { color: Colors.background }]}>{p}</Text>
+              <Text style={[rowStyles.parBtnText, hole.par === p && { color: '#ffffff' }]}>{p}</Text>
             </TouchableOpacity>
           ))}
         </View>

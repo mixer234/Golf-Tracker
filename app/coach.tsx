@@ -221,7 +221,7 @@ function StatBadge({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: Colors.surface },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -229,6 +229,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
@@ -270,7 +271,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.border,
-    ...Shadow.sm,
   },
   statBadgeValue: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.primary },
   statBadgeLabel: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600', marginTop: 2 },
@@ -296,30 +296,28 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
   },
-  avatarText: { fontSize: 12, fontWeight: '800', color: Colors.background },
+  avatarText: { fontSize: 12, fontWeight: '800', color: '#ffffff' },
   bubble: {
     maxWidth: '80%',
-    borderRadius: Radius.lg,
+    borderRadius: 16,
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
   },
   bubbleUser: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryPale,
     borderBottomRightRadius: 4,
   },
   bubbleAssistant: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: Colors.darkGreen,
     borderBottomLeftRadius: 4,
   },
-  bubbleText: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
-  bubbleTextUser: { color: Colors.background },
+  bubbleText: { fontSize: FontSize.sm, color: '#ffffff', lineHeight: 20 },
+  bubbleTextUser: { color: Colors.text },
 
   loadingBubble: {
     flexDirection: 'row',
@@ -337,7 +335,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
   },
   textInput: {
     flex: 1,
@@ -355,11 +353,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadow.sm,
   },
   sendBtnDisabled: { opacity: 0.4 },
-  sendBtnText: { fontSize: 18, fontWeight: '800', color: Colors.background },
+  sendBtnText: { fontSize: 18, fontWeight: '800', color: '#ffffff' },
 });

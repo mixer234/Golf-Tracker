@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   thumbActive: { transform: [{ scale: 1.2 }] },
-  thumbLabel: { fontSize: 9, fontWeight: '800', color: Colors.background },
+  thumbLabel: { fontSize: 9, fontWeight: '800', color: '#ffffff' },
   markers: { flexDirection: 'row', justifyContent: 'space-between' },
   markerText: { fontSize: FontSize.xs, color: Colors.textLight, fontWeight: '600' },
   markerLabel: { fontSize: FontSize.xs, color: Colors.textLight, textAlign: 'center' },

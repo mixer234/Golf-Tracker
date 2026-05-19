@@ -54,7 +54,7 @@ function TypingDots() {
 
 const dotStyles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 4, paddingVertical: 8 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.darkGreen },
 });
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -558,7 +558,7 @@ function PlayerBubble({ text }: { text: string }) {
 // ── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: Colors.surface },
 
   // Header
   header: {
@@ -567,6 +567,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
@@ -576,7 +577,7 @@ const styles = StyleSheet.create({
   progressBar: {
     height: 3,
     width: 100,
-    backgroundColor: Colors.border,
+    backgroundColor: 'rgba(0,0,0,0.06)',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -591,33 +592,31 @@ const styles = StyleSheet.create({
   coachRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, maxWidth: '88%' },
   coachAvatar: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 2, flexShrink: 0,
   },
-  coachAvatarText: { fontSize: 12, fontWeight: '800', color: Colors.background },
+  coachAvatarText: { fontSize: 12, fontWeight: '800', color: '#ffffff' },
   coachBubble: {
     flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
+    backgroundColor: Colors.darkGreen,
+    borderRadius: 16,
     borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
     paddingHorizontal: Spacing.md,
     paddingVertical: 12,
   },
-  coachBubbleText: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
+  coachBubbleText: { fontSize: FontSize.sm, color: '#ffffff', lineHeight: 20 },
 
   playerRow: { flexDirection: 'row', justifyContent: 'flex-end' },
   playerBubble: {
     maxWidth: '75%',
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
+    backgroundColor: Colors.primaryPale,
+    borderRadius: 16,
     borderBottomRightRadius: 4,
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
   },
-  playerBubbleText: { fontSize: FontSize.sm, color: Colors.background, lineHeight: 18 },
+  playerBubbleText: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 18 },
 
   typingBubble: {
     flexDirection: 'row',
@@ -629,7 +628,7 @@ const styles = StyleSheet.create({
   inputArea: {
     borderTopWidth: 1,
     borderTopColor: Colors.border,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,
@@ -661,13 +660,13 @@ const styles = StyleSheet.create({
   skipBtnText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
   confirmBtn: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     paddingVertical: 14,
     alignItems: 'center',
     borderRadius: Radius.full,
   },
   confirmBtnDisabled: { opacity: 0.35 },
-  confirmBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  confirmBtnText: { fontSize: FontSize.base, fontWeight: '700', color: '#ffffff' },
 
   // Completion
   extractingWrap: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.md },
@@ -679,26 +678,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     gap: Spacing.md,
-    ...Shadow.md,
   },
   completionTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text, textAlign: 'center' },
   completionSubtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center' },
   priorityRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   priorityNum: {
     width: 24, height: 24, borderRadius: 12,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     alignItems: 'center', justifyContent: 'center',
   },
-  priorityNumText: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.background },
+  priorityNumText: { fontSize: FontSize.xs, fontWeight: '800', color: '#ffffff' },
   priorityArea: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text, flex: 1 },
   noFpText: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center' },
   primaryBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     paddingVertical: 16,
     borderRadius: Radius.full,
     alignItems: 'center',
   },
-  primaryBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  primaryBtnText: { fontSize: FontSize.base, fontWeight: '700', color: '#ffffff' },
   secondaryBtn: {
     paddingVertical: 12,
     alignItems: 'center',
@@ -722,12 +720,12 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
   sheetBody: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20 },
   sheetPrimaryBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     paddingVertical: 16,
     borderRadius: Radius.full,
     alignItems: 'center',
   },
-  sheetPrimaryText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  sheetPrimaryText: { fontSize: FontSize.base, fontWeight: '700', color: '#ffffff' },
   sheetSecondaryBtn: {
     paddingVertical: 14,
     alignItems: 'center',

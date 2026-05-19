@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)',
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
-  settingChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryPale },
+  settingChipActive: { borderColor: Colors.primary, backgroundColor: 'rgba(59,109,17,0.2)' },
   settingChipSlowMo: { borderColor: Colors.warning, backgroundColor: 'rgba(251,191,36,0.15)' },
   settingText: { fontSize: FontSize.sm, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
   settingTextActive: { color: Colors.primary },
@@ -531,9 +531,9 @@ const saveStyles = StyleSheet.create({
   saveBtn: {
     flex: 2, paddingVertical: 14, borderRadius: Radius.full,
     alignItems: 'center',
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
   },
-  saveBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  saveBtnText: { fontSize: FontSize.base, fontWeight: '700', color: '#ffffff' },
 });
 
 const permStyles = StyleSheet.create({
@@ -542,7 +542,7 @@ const permStyles = StyleSheet.create({
   title: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.sm, textAlign: 'center' },
   sub: { fontSize: FontSize.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: Spacing.xl },
   btn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 14, paddingHorizontal: Spacing.xxl, marginBottom: Spacing.md },
-  btnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  btnText: { fontSize: FontSize.base, fontWeight: '700', color: '#ffffff' },
   cancelBtn: { paddingVertical: 8 },
   cancelText: { fontSize: FontSize.base, color: Colors.textSecondary },
 });

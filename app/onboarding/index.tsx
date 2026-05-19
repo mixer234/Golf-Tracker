@@ -47,7 +47,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#ffffff',
   },
   content: {
     flex: 1,
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: Radius.full,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: Colors.primaryPale,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
@@ -71,17 +71,17 @@ const styles = StyleSheet.create({
     fontSize: 52,
   },
   appName: {
-    fontSize: FontSize.xxxl,
-    fontWeight: '800',
-    color: Colors.background,
-    letterSpacing: -1,
+    fontSize: FontSize.xxl,
+    fontWeight: '600',
+    color: Colors.text,
+    letterSpacing: -0.5,
     marginBottom: Spacing.sm,
   },
   tagline: {
-    fontSize: FontSize.lg,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: FontSize.base,
+    color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 28,
+    lineHeight: 20,
   },
   features: {
     gap: Spacing.md,
@@ -89,7 +89,9 @@ const styles = StyleSheet.create({
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
     borderRadius: Radius.md,
     padding: Spacing.md,
     gap: Spacing.md,
@@ -100,16 +102,20 @@ const styles = StyleSheet.create({
   featureText: {
     flex: 1,
     fontSize: FontSize.base,
-    color: 'rgba(255,255,255,0.9)',
-    lineHeight: 22,
+    color: Colors.textSecondary,
+    lineHeight: 20,
   },
   footer: {
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.xl,
+    paddingTop: Spacing.md,
     gap: Spacing.sm,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 0.5,
+    borderTopColor: Colors.border,
   },
   button: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.darkGreen,
     borderRadius: Radius.full,
     paddingVertical: 18,
     alignItems: 'center',
@@ -117,11 +123,11 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: FontSize.md,
     fontWeight: '700',
-    color: Colors.primary,
+    color: '#ffffff',
   },
   disclaimer: {
     textAlign: 'center',
     fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.6)',
+    color: Colors.textSecondary,
   },
 });
