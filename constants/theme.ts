@@ -20,6 +20,7 @@ export const Colors = {
   errorBg: '#fdf0f0',
   warning: '#ba7517',
   warningBg: '#faeeda',
+  info: '#3b82f6',
 };
 
 export const Spacing = {
