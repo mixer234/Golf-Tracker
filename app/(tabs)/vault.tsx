@@ -15,6 +15,7 @@ import {
   ActionSheetIOS,
   KeyboardAvoidingView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
@@ -149,7 +150,10 @@ export default function VaultScreen() {
               onPress={() => router.push('/vault/record')}
               activeOpacity={0.85}
             >
-              <Text style={styles.recordBtnText}>🎥  Record</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="videocam" size={16} color="#ffffff" />
+                <Text style={styles.recordBtnText}>Record</Text>
+              </View>
             </TouchableOpacity>
           )}
         </View>
@@ -200,7 +204,10 @@ export default function VaultScreen() {
               onPress={() => router.push('/vault/record')}
               activeOpacity={0.85}
             >
-              <Text style={styles.recordBtnText}>🎥  Record a Swing</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="videocam" size={16} color="#ffffff" />
+                <Text style={styles.recordBtnText}>Record a Swing</Text>
+              </View>
             </TouchableOpacity>
           </View>
         ) : filtered.length === 0 ? (
@@ -361,7 +368,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.sm,
   },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary },
+  title: { fontSize: FontSize.xxl, fontWeight: '500', color: Colors.textPrimary },
   headerBtns: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   compareBtn: {
     paddingHorizontal: 14,
@@ -389,12 +396,12 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: Radius.circle,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: 'rgba(0,0,0,0.1)',
     backgroundColor: Colors.surface,
   },
-  filterChipActive: { borderColor: Colors.darkGreen, backgroundColor: Colors.paleGreen },
+  filterChipActive: { borderColor: Colors.darkGreen, backgroundColor: Colors.darkGreen },
   filterText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
-  filterTextActive: { color: Colors.darkGreen },
+  filterTextActive: { color: '#ffffff' },
   // Upsell
   upsellCard: {
     flexDirection: 'row',
@@ -414,10 +421,12 @@ const styles = StyleSheet.create({
   upsellSub: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
   // Empty state
   emptyState: {
+    flex: 1,
     alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xxl,
+    justifyContent: 'center',
+    paddingHorizontal: 32,
     gap: Spacing.md,
+    paddingTop: 60,
   },
   emptyIcon: { fontSize: 72, marginBottom: Spacing.sm },
   emptyTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },

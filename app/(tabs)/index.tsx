@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
-import { formatHandicap } from '../../components/HandicapDial';
+import { formatHandicap, formatTargetHandicap } from '../../components/HandicapDial';
 import { useUserStore } from '../../store/useUserStore';
 import { useRoundStore } from '../../store/useRoundStore';
 import { usePracticeStore } from '../../store/usePracticeStore';
@@ -15,6 +15,7 @@ import SkeletonHome from '../../components/skeletons/SkeletonHome';
 import { useToast } from '../../hooks/useToast';
 import { checkConnectivity } from '../../hooks/useNetworkStatus';
 import { haptics } from '../../utils/haptics';
+import { envApiKey } from '../../config/ai';
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -49,7 +50,7 @@ function HandicapCard({ profile }: { profile: UserProfile }) {
         <View style={[hStyles.col, { alignItems: 'flex-end' }]}>
           <Text style={hStyles.label}>TARGET</Text>
           <Text style={[hStyles.num, { color: Colors.lightGreen }]} numberOfLines={1} adjustsFontSizeToFit>
-            {formatHandicap(profile.targetHandicap)}
+            {formatTargetHandicap(profile.targetHandicap)}
           </Text>
         </View>
       </View>
@@ -99,7 +100,8 @@ export default function DashboardScreen() {
   const doneDrills = todayPlan?.completedDrillIds.length ?? 0;
 
   async function handleGeneratePlan() {
-    if (!profile?.apiKey) { router.push('/(tabs)/profile'); return; }
+    const effectiveApiKey = profile.apiKey || envApiKey;
+    if (!effectiveApiKey) { router.push('/(tabs)/profile'); return; }
 
     const connected = await checkConnectivity();
     if (!connected) {
@@ -116,7 +118,7 @@ export default function DashboardScreen() {
     setGenerating(true);
     setGenerationError(null);
     try {
-      const plan = await generatePracticePlan(profile, rounds, profile.apiKey);
+      const plan = await generatePracticePlan(profile, rounds, effectiveApiKey);
       haptics.success();
       setPlan(plan);
     } catch (err: any) {
@@ -146,6 +148,7 @@ export default function DashboardScreen() {
 
   if (!profile) return null;
 
+  const effectiveApiKey = profile.apiKey || envApiKey;
   const firstName = profile.name.split(' ')[0];
   const recentRounds = rounds.slice(0, 3);
 
@@ -155,14 +158,25 @@ export default function DashboardScreen() {
 
         {/* Header */}
         <View style={s.header}>
-          <Text style={s.greeting} numberOfLines={1}>
-            {getGreeting()}, <Text style={s.name}>{firstName}</Text>
-          </Text>
-          <Text style={s.avg}>Avg score: {avgScore(rounds)}</Text>
+          <Text style={s.greetingSmall}>{getGreeting().toUpperCase()}</Text>
+          <Text style={s.nameLarge}>{firstName}</Text>
         </View>
 
         {/* Handicap */}
         <HandicapCard profile={profile} />
+
+        {/* Coach Insight */}
+        <View style={s.insightCard}>
+          <View style={s.insightHeader}>
+            <View style={s.insightDot} />
+            <Text style={s.insightLabel}>COACH INSIGHT</Text>
+          </View>
+          <Text style={s.insightText} numberOfLines={3}>
+            {profile.weaknesses?.length > 0
+              ? `Focus area this week: ${profile.weaknesses[0].replace(/_/g, ' ')}. Consistent practice builds lasting improvement.`
+              : 'Complete your game assessment in Profile to unlock personalised insights.'}
+          </Text>
+        </View>
 
         {/* Quick actions */}
         <View style={s.actions}>
@@ -216,23 +230,11 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           ) : (
             <View style={s.card}>
-              {!profile.apiKey ? (
-                <>
-                  <Text style={s.emptyTitle}>No plan yet</Text>
-                  <Text style={s.emptyText}>Add your Claude API key in Profile to unlock AI plans.</Text>
-                  <TouchableOpacity style={s.genBtn} onPress={() => { haptics.light(); router.push('/(tabs)/profile'); }}>
-                    <Text style={s.genBtnText}>Add API Key</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <Text style={s.emptyTitle}>Ready to train?</Text>
-                  <Text style={s.emptyText}>Generate your personalised weekly plan.</Text>
-                  <TouchableOpacity style={s.genBtn} onPress={handleGeneratePlan}>
-                    <Text style={s.genBtnText}>Generate Plan 🎯</Text>
-                  </TouchableOpacity>
-                </>
-              )}
+              <Text style={s.emptyTitle}>Ready to train?</Text>
+              <Text style={s.emptyText}>Generate your personalised weekly plan.</Text>
+              <TouchableOpacity style={s.genBtn} onPress={handleGeneratePlan}>
+                <Text style={s.genBtnText}>Generate Plan 🎯</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -305,9 +307,22 @@ const s = StyleSheet.create({
   scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 100 },
 
   header: { marginBottom: Spacing.md },
-  greeting: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.textPrimary },
-  name: { fontWeight: '800' },
-  avg: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
+  greetingSmall: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textMuted, letterSpacing: 0.8, marginBottom: 2 },
+  nameLarge: { fontSize: FontSize.xxl, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.5, marginBottom: 0 },
+
+  insightCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    ...Shadow.card,
+  },
+  insightHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  insightDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.midGreen },
+  insightLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.midGreen, letterSpacing: 0.8 },
+  insightText: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 18 },
 
   actions: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   actionBtn: {

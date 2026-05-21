@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/theme';
 import { usePracticeStore } from '../../store/usePracticeStore';
@@ -8,22 +9,22 @@ import { useRoundStore } from '../../store/useRoundStore';
 function TabIcon({
   focused,
   label,
-  emoji,
+  icon,
   badge,
 }: {
   focused: boolean;
   label: string;
-  emoji: string;
+  icon: keyof typeof Ionicons.glyphMap;
   badge?: boolean;
 }) {
   return (
     <View style={styles.tabItem}>
       <View style={[styles.indicator, focused && styles.indicatorActive]} />
       <View style={styles.emojiWrap}>
-        <Text style={[styles.emoji, focused && styles.emojiActive]}>{emoji}</Text>
+        <Ionicons name={icon} size={22} color={focused ? Colors.darkGreen : Colors.textLight} />
         {badge && <View style={styles.badge} />}
       </View>
-      <Text style={[styles.label, focused && styles.labelActive]}>{label}</Text>
+      <Text style={[styles.label, focused && styles.labelActive]} allowFontScaling={false} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
@@ -57,13 +58,15 @@ export default function TabLayout() {
           paddingBottom: Math.max(bottomInset, MIN_BOTTOM_PAD),
         },
         tabBarShowLabel: false,
+        tabBarLabelStyle: { fontSize: 9, letterSpacing: 0.3, textTransform: 'uppercase' },
+        tabBarAllowFontScaling: false,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} label="Home" emoji="🏠" />
+            <TabIcon focused={focused} label="Home" icon={focused ? 'home' : 'home-outline'} />
           ),
         }}
       />
@@ -71,7 +74,7 @@ export default function TabLayout() {
         name="practice"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} label="Practice" emoji="🎯" badge={hasPracticeBadge} />
+            <TabIcon focused={focused} label="Practice" icon={focused ? 'barbell' : 'barbell-outline'} badge={hasPracticeBadge} />
           ),
         }}
       />
@@ -79,7 +82,7 @@ export default function TabLayout() {
         name="track"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} label="Round" emoji="⛳" badge={hasRoundBadge} />
+            <TabIcon focused={focused} label="Round" icon={focused ? 'flag' : 'flag-outline'} badge={hasRoundBadge} />
           ),
         }}
       />
@@ -87,7 +90,7 @@ export default function TabLayout() {
         name="vault"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} label="Vault" emoji="🎥" />
+            <TabIcon focused={focused} label="Vault" icon={focused ? 'videocam' : 'videocam-outline'} />
           ),
         }}
       />
@@ -95,7 +98,7 @@ export default function TabLayout() {
         name="progress"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} label="Stats" emoji="📈" />
+            <TabIcon focused={focused} label="Stats" icon={focused ? 'bar-chart' : 'bar-chart-outline'} />
           ),
         }}
       />
@@ -103,7 +106,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} label="Profile" emoji="👤" />
+            <TabIcon focused={focused} label="Profile" icon={focused ? 'person' : 'person-outline'} />
           ),
         }}
       />
@@ -111,7 +114,7 @@ export default function TabLayout() {
   );
 }
 
-// The content area of the tab bar (indicator + emoji + label) without any
+// The content area of the tab bar (indicator + icon + label) without any
 // bottom safe area padding. Derived from the original 80 - 16 = 64.
 const TAB_CONTENT_HEIGHT = 64;
 // Minimum bottom padding on devices without a home indicator.
@@ -143,14 +146,6 @@ const styles = StyleSheet.create({
   emojiWrap: {
     position: 'relative',
   },
-  emoji: {
-    fontSize: 20,
-    opacity: 0.4,
-  },
-  emojiActive: {
-    fontSize: 20,
-    opacity: 1,
-  },
   badge: {
     position: 'absolute',
     top: -1,
@@ -166,7 +161,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: Colors.textLight,
     fontWeight: '500',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
   labelActive: {

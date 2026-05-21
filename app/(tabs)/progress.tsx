@@ -70,14 +70,16 @@ export default function ProgressScreen() {
   if (completed.length < 2) {
     return (
       <SafeAreaView style={styles.container}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { flex: 1 }]}>
           <Text style={styles.title}>Progress</Text>
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>📊</Text>
-            <Text style={styles.emptyTitle}>Not enough data yet</Text>
-            <Text style={styles.emptyText}>
-              Complete at least 2 rounds and your performance trends will appear here.
-            </Text>
+          <View style={styles.emptyWrapper}>
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>📊</Text>
+              <Text style={styles.emptyTitle}>Not enough data yet</Text>
+              <Text style={styles.emptyText}>
+                Complete at least 2 rounds and your performance trends will appear here.
+              </Text>
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -1043,7 +1045,8 @@ const missStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scroll: { padding: Spacing.lg, paddingBottom: 100 },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary, marginBottom: Spacing.lg },
+  title: { fontSize: FontSize.xxl, fontWeight: '500', color: Colors.textPrimary, marginBottom: Spacing.lg },
+  emptyWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: Spacing.xxl, gap: Spacing.md },
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary },

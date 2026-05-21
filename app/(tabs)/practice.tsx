@@ -415,7 +415,9 @@ export default function PracticeScreen() {
       </View>
 
       {!currentPlan && !isGenerating ? (
-        <EmptyPracticePlan onPress={handleGenerate} />
+        <View style={styles.emptyWrapper}>
+          <EmptyPracticePlan onPress={handleGenerate} />
+        </View>
       ) : isGenerating ? (
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={Colors.darkGreen} />
@@ -767,7 +769,7 @@ const drillStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, marginBottom: Spacing.sm },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary },
+  title: { fontSize: FontSize.xxl, fontWeight: '500', color: Colors.textPrimary },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
   dayScroll: { maxHeight: 60 },
   dayScrollContent: { paddingHorizontal: Spacing.lg, gap: Spacing.sm, alignItems: 'center' },
@@ -821,6 +823,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkGreen,
     borderRadius: Radius.circle,
   },
+  emptyWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyState: {
     flex: 1,
     alignItems: 'center',

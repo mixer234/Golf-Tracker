@@ -29,6 +29,10 @@ export function formatHandicap(v: number): string {
   return String(n);
 }
 
+export function formatTargetHandicap(v: number): string {
+  return `${Math.abs(Math.round(v))}.0`;
+}
+
 interface HandicapDialProps {
   value: number;
   onChange: (val: number) => void;

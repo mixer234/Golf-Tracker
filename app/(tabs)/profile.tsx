@@ -20,7 +20,7 @@ import { usePracticeStore } from '../../store/usePracticeStore';
 import { useRoundStore } from '../../store/useRoundStore';
 import { WEAKNESS_OPTIONS, GOAL_OPTIONS } from '../../constants/data';
 import { WeaknessArea, GoalType, ExperienceLevel, PracticeFacility, MissTendency } from '../../types';
-import { HandicapDial, formatHandicap, HCP_MIN, HCP_MAX } from '../../components/HandicapDial';
+import { HandicapDial, formatHandicap, formatTargetHandicap, HCP_MIN, HCP_MAX } from '../../components/HandicapDial';
 import Constants from 'expo-constants';
 import { GolferFingerprint } from '../../types/diagnostic';
 
@@ -287,7 +287,7 @@ export default function ProfileScreen() {
               <View style={styles.hcpDivider} />
               <TouchableOpacity onPress={openTargetEditor} activeOpacity={0.7} style={[styles.hcpTouchable, styles.hcpTouchableRight]}>
                 <Text style={styles.hcpLabel}>TARGET</Text>
-                <Text style={[styles.hcpValue, styles.hcpValueTarget]}>{formatHandicap(profile.targetHandicap)}</Text>
+                <Text style={[styles.hcpValue, styles.hcpValueTarget]}>{formatTargetHandicap(profile.targetHandicap)}</Text>
                 <Text style={styles.hcpEditHint}>Tap to update</Text>
               </TouchableOpacity>
             </View>
@@ -634,9 +634,10 @@ const gpStyles = StyleSheet.create({
   emptyText: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 18 },
   btnPrimary: {
     backgroundColor: Colors.darkGreen,
-    borderRadius: Radius.circle,
-    paddingVertical: 10,
+    borderRadius: 12,
+    paddingVertical: 12,
     alignItems: 'center',
+    alignSelf: 'stretch',
   },
   btnPrimaryText: { fontSize: FontSize.sm, fontWeight: '700', color: '#ffffff' },
 });
@@ -652,11 +653,11 @@ function InfoRow({ label, value, isLast }: { label: string; value: string; isLas
 
 const headerStyles = StyleSheet.create({
   title: {
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.textLight,
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.08,
     marginTop: Spacing.lg,
     marginBottom: Spacing.xs,
     paddingHorizontal: 2,
@@ -673,7 +674,7 @@ const infoStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scroll: { padding: Spacing.lg, paddingBottom: 100 },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary, marginBottom: Spacing.lg },
+  title: { fontSize: FontSize.xxl, fontWeight: '500', color: Colors.textPrimary, marginBottom: Spacing.lg },
 
   // User card
   userCard: {
