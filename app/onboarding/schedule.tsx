@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
+import { STORAGE_KEYS } from '../../constants/storageKeys';
 import { useUserStore } from '../../store/useUserStore';
 import { PracticeFacility } from '../../types';
 
@@ -46,6 +48,7 @@ export default function ScheduleScreen() {
 
   function handleNext() {
     updateProfile({ practiceDaysPerWeek: days, sessionLengthMinutes: sessionLength, facilities });
+    AsyncStorage.setItem(STORAGE_KEYS.SESSION_LENGTH_PREFERENCE, String(sessionLength));
     router.push('/onboarding/game');
   }
 
@@ -159,17 +162,17 @@ function ProgressDots({ current, total }: { current: number; total: number }) {
 
 const dotStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.lg },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.border },
-  dotActive: { backgroundColor: Colors.lightGreen },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.1)' },
+  dotActive: { backgroundColor: Colors.darkGreen },
   dotCurrent: { width: 24, backgroundColor: Colors.darkGreen },
   label: { fontSize: FontSize.xs, color: Colors.textSecondary, marginLeft: 4, fontWeight: '600' },
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { padding: Spacing.xl, paddingBottom: Spacing.lg },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary, lineHeight: 34, marginBottom: 8 },
-  subtitle: { fontSize: FontSize.base, color: Colors.textSecondary, lineHeight: 22, marginBottom: Spacing.xl },
+  container: { flex: 1, backgroundColor: '#ffffff' },
+  scroll: { padding: Spacing.xl, paddingBottom: 100 },
+  title: { fontSize: FontSize.xxl, fontWeight: '600', color: Colors.textPrimary, lineHeight: 34, letterSpacing: -0.5, marginBottom: 8 },
+  subtitle: { fontSize: FontSize.base, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.xl },
   section: { marginBottom: Spacing.xl },
   label: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.sm },
   hint: { fontSize: FontSize.xs, color: Colors.textLight, marginBottom: Spacing.sm },
@@ -182,11 +185,10 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
     alignItems: 'center',
-    ...Shadow.card,
   },
   optionCardActive: { borderColor: Colors.darkGreen, backgroundColor: Colors.paleGreen },
   optionValue: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary },
-  optionValueActive: { color: Colors.darkGreen },
+  optionValueActive: { color: Colors.darkGreen, fontWeight: '600' },
   optionSub: { fontSize: FontSize.xs, color: Colors.textLight },
   facilitiesGrid: { gap: Spacing.sm },
   facilityChip: {
@@ -199,11 +201,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
-    ...Shadow.card,
   },
   facilityChipActive: { borderColor: Colors.darkGreen, backgroundColor: Colors.paleGreen },
   facilityEmoji: { fontSize: 20 },
-  facilityLabel: { flex: 1, fontSize: FontSize.base, fontWeight: '500', color: Colors.textPrimary },
+  facilityLabel: { flex: 1, fontSize: FontSize.base, fontWeight: '500', color: Colors.textSecondary },
   facilityLabelActive: { color: Colors.darkGreen, fontWeight: '600' },
   facilityCheck: { fontSize: FontSize.base, color: Colors.darkGreen, fontWeight: '700' },
   summaryCard: {
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.lightGreen,
+    borderColor: Colors.darkGreen,
     marginBottom: Spacing.lg,
   },
   summaryTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.darkGreen, marginBottom: 4 },
@@ -223,12 +224,12 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
     paddingTop: Spacing.md,
     gap: Spacing.sm,
-    backgroundColor: Colors.background,
-    borderTopWidth: 1,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 0.5,
     borderTopColor: Colors.border,
   },
   backBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: Radius.circle, borderWidth: 1.5, borderColor: Colors.border },
   backText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textSecondary },
   nextBtn: { flex: 2, backgroundColor: Colors.darkGreen, paddingVertical: 16, alignItems: 'center', borderRadius: Radius.circle },
-  nextText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  nextText: { fontSize: FontSize.base, fontWeight: '700', color: '#ffffff' },
 });

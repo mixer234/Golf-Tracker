@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
@@ -67,6 +68,10 @@ export default function SetupScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -145,6 +150,16 @@ export default function SetupScreen() {
             <HandicapDial value={targetHandicap} onChange={setTargetHandicap} />
           </View>
         </View>
+
+        {/* SG tip — shown only for sub-20 handicap players */}
+        {!noHandicap && handicap < 20 && (
+          <View style={styles.sgTip}>
+            <Text style={styles.sgTipIcon}>✦</Text>
+            <Text style={styles.sgTipText}>
+              For players under 20 handicap: enter shot distances during rounds to unlock Strokes Gained analysis.
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -155,6 +170,7 @@ export default function SetupScreen() {
           <Text style={styles.nextText}>Next →</Text>
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -179,22 +195,22 @@ function ProgressDots({ current, total }: { current: number; total: number }) {
 
 const dotStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.lg },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.border },
-  dotActive: { backgroundColor: Colors.lightGreen },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.1)' },
+  dotActive: { backgroundColor: Colors.darkGreen },
   dotCurrent: { width: 24, backgroundColor: Colors.darkGreen },
   label: { fontSize: FontSize.xs, color: Colors.textSecondary, marginLeft: 4, fontWeight: '600' },
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { padding: Spacing.xl, paddingBottom: Spacing.lg },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary, lineHeight: 34, marginBottom: 8 },
-  subtitle: { fontSize: FontSize.base, color: Colors.textSecondary, lineHeight: 22, marginBottom: Spacing.xl },
+  container: { flex: 1, backgroundColor: '#ffffff' },
+  scroll: { padding: Spacing.xl, paddingBottom: 100 },
+  title: { fontSize: FontSize.xxl, fontWeight: '600', color: Colors.textPrimary, lineHeight: 34, letterSpacing: -0.5, marginBottom: 8 },
+  subtitle: { fontSize: FontSize.base, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.xl },
   field: { marginBottom: Spacing.lg, gap: 6 },
   label: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textPrimary },
   hint: { fontSize: FontSize.xs, color: Colors.textLight },
   input: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceAlt,
     borderWidth: 1.5,
     borderColor: Colors.border,
     borderRadius: Radius.md,
@@ -202,7 +218,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: FontSize.base,
     color: Colors.textPrimary,
-    ...Shadow.card,
   },
   inputError: { borderColor: Colors.error },
   error: { fontSize: FontSize.xs, color: Colors.error },
@@ -216,12 +231,11 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     padding: Spacing.md,
     gap: Spacing.sm,
-    ...Shadow.card,
   },
   expCardActive: { borderColor: Colors.darkGreen, backgroundColor: Colors.paleGreen },
   expEmoji: { fontSize: 22, width: 30 },
-  expLabel: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary, flex: 1 },
-  expLabelActive: { color: Colors.darkGreen },
+  expLabel: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textSecondary, flex: 1 },
+  expLabelActive: { color: Colors.darkGreen, fontWeight: '600' },
   expSub: { fontSize: FontSize.xs, color: Colors.textSecondary, flex: 2, textAlign: 'right' },
   noHcpToggle: {
     flexDirection: 'row',
@@ -239,17 +253,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxActive: { backgroundColor: Colors.darkGreen, borderColor: Colors.darkGreen },
-  checkmark: { color: Colors.background, fontSize: 12, fontWeight: '800' },
+  checkmark: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
   noHcpText: { fontSize: FontSize.sm, color: Colors.textSecondary, flex: 1 },
   dialWrap: { alignItems: 'center', marginTop: Spacing.xs },
+  sgTip: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    backgroundColor: Colors.paleGreen,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.darkGreen,
+    marginBottom: Spacing.sm,
+  },
+  sgTipIcon: { fontSize: 12, color: Colors.darkGreen, fontWeight: '700', marginTop: 2 },
+  sgTipText: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 18, flex: 1 },
   footer: {
     flexDirection: 'row',
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.xl,
     paddingTop: Spacing.md,
     gap: Spacing.sm,
-    backgroundColor: Colors.background,
-    borderTopWidth: 1,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 0.5,
     borderTopColor: Colors.border,
   },
   backBtn: {
@@ -268,5 +295,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: Radius.circle,
   },
-  nextText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  nextText: { fontSize: FontSize.base, fontWeight: '700', color: '#ffffff' },
 });

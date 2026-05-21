@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Round, HoleScore, RoundType } from '../types';
+import { Round, HoleScore, RoundType, TeeColor } from '../types';
 import { calcScoreDifferential } from '../utils/whs';
 import { calcRoundSG } from '../utils/strokesGained';
 
@@ -9,7 +9,18 @@ interface RoundState {
   rounds: Round[];
   currentRound: Round | null;
   lastCompletedRound: Round | null;
-  startRound: (courseName: string, courseRating?: number, slopeRating?: number, roundType?: RoundType) => void;
+  startRound: (
+    courseName: string,
+    courseRating?: number,
+    slopeRating?: number,
+    roundType?: RoundType,
+    courseId?: string,
+    teeColor?: TeeColor,
+    holePars?: { holeNumber: number; par: 3 | 4 | 5 }[],
+    holeDistances?: { holeNumber: number; distanceYards: number }[],
+    holeCount?: 9 | 18,
+    date?: string,
+  ) => void;
   updateRound: (id: string, updates: Partial<Round>) => void;
   updateHole: (holeNumber: number, data: Partial<HoleScore>) => void;
   completeRound: () => void;
@@ -17,15 +28,15 @@ interface RoundState {
   deleteRound: (id: string) => void;
   clearLastCompleted: () => void;
   updateRoundNotes: (id: string, notes: string) => void;
-  verifySave: (roundId: string) => Promise<boolean>;
+  recalcAndSaveRound: (id: string, holes: HoleScore[]) => void;
 }
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-function buildEmptyHoles(): HoleScore[] {
-  return Array.from({ length: 18 }, (_, i) => ({
+function buildEmptyHoles(count: 9 | 18 = 18): HoleScore[] {
+  return Array.from({ length: count }, (_, i) => ({
     holeNumber: i + 1,
     par: 4 as const,
     strokes: 0,
@@ -70,15 +81,27 @@ export const useRoundStore = create<RoundState>()(
       rounds: [],
       currentRound: null,
       lastCompletedRound: null,
-      startRound: (courseName, courseRating, slopeRating, roundType) => {
+      startRound: (courseName, courseRating, slopeRating, roundType, courseId, teeColor, holePars, holeDistances, holeCount, date) => {
+        const baseHoles = buildEmptyHoles(holeCount ?? 18);
+        const holes = baseHoles.map((h) => {
+          const parMatch = holePars?.find((p) => p.holeNumber === h.holeNumber);
+          const distMatch = holeDistances?.find((d) => d.holeNumber === h.holeNumber);
+          return {
+            ...h,
+            ...(parMatch ? { par: parMatch.par } : {}),
+            ...(distMatch ? { holeDistanceYards: distMatch.distanceYards } : {}),
+          };
+        });
         const round: Round = {
           id: generateId(),
-          date: new Date().toISOString(),
+          date: date && !isNaN(Date.parse(date)) ? new Date(date).toISOString() : new Date().toISOString(),
           courseName,
           courseRating,
           slopeRating,
           roundType,
-          holes: buildEmptyHoles(),
+          courseId,
+          teeColor,
+          holes,
           totalScore: 0,
           scoreToPar: 0,
           totalPutts: 0,
@@ -121,15 +144,17 @@ export const useRoundStore = create<RoundState>()(
           );
         }
         const sg = calcRoundSG(current.holes);
+        // Only persist a category value if at least one hole contributed to it,
+        // so the UI can show "—" instead of a misleading 0.00 for missing data.
         const completed: Round = {
           ...current,
           ...stats,
           scoreDifferential,
-          sgPutting: sg?.sgPutting,
-          sgApproach: sg?.sgApproach,
-          sgAroundGreen: sg?.sgAroundGreen,
-          sgOffTee: sg?.sgOffTee,
-          sgTotal: sg?.sgTotal,
+          sgPutting: sg && sg.holesWithPutting > 0 ? sg.sgPutting : undefined,
+          sgApproach: sg && sg.holesWithApproach > 0 ? sg.sgApproach : undefined,
+          sgAroundGreen: sg && sg.holesWithAroundGreen > 0 ? sg.sgAroundGreen : undefined,
+          sgOffTee: sg && sg.holesWithOffTee > 0 ? sg.sgOffTee : undefined,
+          sgTotal: sg ? sg.sgTotal : undefined,
           isComplete: true,
         };
         set((state) => ({
@@ -150,18 +175,30 @@ export const useRoundStore = create<RoundState>()(
               ? { ...state.lastCompletedRound, notes }
               : state.lastCompletedRound,
         })),
-
-      verifySave: async (roundId: string): Promise<boolean> => {
-        try {
-          const raw = await AsyncStorage.getItem('round-store');
-          if (!raw) return false;
-          const parsed = JSON.parse(raw);
-          const rounds: Round[] = parsed?.state?.rounds ?? [];
-          return rounds.some((r) => r.id === roundId);
-        } catch (err) {
-          console.error('[useRoundStore] verifySave failed:', err);
-          return false;
+      recalcAndSaveRound: (id, holes) => {
+        const round = get().rounds.find((r) => r.id === id);
+        if (!round) return;
+        const stats = calcRoundStats(holes);
+        let scoreDifferential: number | undefined;
+        if (round.courseRating && round.slopeRating && stats.totalScore > 0) {
+          scoreDifferential = calcScoreDifferential(stats.totalScore, round.courseRating, round.slopeRating);
         }
+        const sg = calcRoundSG(holes);
+        const updated: Round = {
+          ...round,
+          holes,
+          ...stats,
+          scoreDifferential,
+          sgPutting: sg && sg.holesWithPutting > 0 ? sg.sgPutting : undefined,
+          sgApproach: sg && sg.holesWithApproach > 0 ? sg.sgApproach : undefined,
+          sgAroundGreen: sg && sg.holesWithAroundGreen > 0 ? sg.sgAroundGreen : undefined,
+          sgOffTee: sg && sg.holesWithOffTee > 0 ? sg.sgOffTee : undefined,
+          sgTotal: sg ? sg.sgTotal : undefined,
+        };
+        set((state) => ({
+          rounds: state.rounds.map((r) => r.id === id ? updated : r),
+          lastCompletedRound: state.lastCompletedRound?.id === id ? updated : state.lastCompletedRound,
+        }));
       },
     }),
     {

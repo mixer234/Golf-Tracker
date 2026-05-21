@@ -50,6 +50,8 @@ export type MissDirection =
 
 export type RoundType = 'casual' | 'competitive' | 'tournament';
 
+export type TeeColor = 'black' | 'blue' | 'white' | 'red' | 'gold';
+
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export type DayOfWeek =
@@ -88,6 +90,7 @@ export interface UserProfile {
   hasCompletedOnboarding: boolean;
   apiKey: string;
   createdAt: string;
+  advancedStatsMode?: boolean;
 }
 
 export interface HoleScore {
@@ -101,6 +104,7 @@ export interface HoleScore {
   upAndDown?: boolean;
   sandSave?: boolean;
   // Strokes Gained inputs
+  holeDistanceYards?: number;
   approachDistanceYards?: number;
   approachLie?: 'fairway' | 'rough' | 'sand' | 'recovery';
   firstPuttDistanceFeet?: number;
@@ -127,6 +131,8 @@ export interface Round {
   scoreDifferential?: number;
   notes?: string;
   roundType?: RoundType;
+  courseId?: string;
+  teeColor?: TeeColor;
   mentalCommitment?: number;
   mentalControl?: number;
   mentalDecisions?: number;
@@ -147,6 +153,7 @@ export interface Drill {
   duration: number;
   category: WeaknessArea;
   difficulty: DifficultyLevel;
+  facility?: string;
   equipment: string[];
   instructions: string[];
   focusPoints: string[];
@@ -188,4 +195,48 @@ export interface GoalOption {
   key: GoalType;
   label: string;
   description: string;
+}
+
+export interface CourseHole {
+  holeNumber: number;
+  par: 3 | 4 | 5;
+  strokeIndex: number; // 1–18, handicap allocation order
+  yardages: Partial<Record<TeeColor, number>>;
+  name?: string;
+}
+
+export interface Course {
+  id: string;
+  name: string;
+  city?: string;
+  courseRating?: number;
+  slopeRating?: number;
+  defaultTee: TeeColor;
+  holes: CourseHole[];
+  createdAt: string;
+}
+
+// ─── Swing Vault ─────────────────────────────────────────────────────────────
+
+export type SwingClub =
+  | 'driver'
+  | 'fairway_wood'
+  | 'hybrid'
+  | 'long_iron'
+  | 'mid_iron'
+  | 'short_iron'
+  | 'wedge'
+  | 'chipper'
+  | 'putter';
+
+export interface SwingVideo {
+  id: string;
+  title: string;
+  uri: string;
+  thumbnailUri?: string;
+  durationSeconds: number;
+  club: SwingClub;
+  date: string;
+  notes?: string;
+  slowMo: boolean;
 }

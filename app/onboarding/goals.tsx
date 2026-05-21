@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Alert, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
@@ -10,8 +10,7 @@ import { useRoundStore } from '../../store/useRoundStore';
 import { GOAL_OPTIONS } from '../../constants/data';
 import { GoalType, TargetTimeline } from '../../types';
 import { generatePracticePlan } from '../../services/ai';
-import { useToast } from '../../hooks/useToast';
-import { checkConnectivity } from '../../hooks/useNetworkStatus';
+import { checkConnection } from '../../utils/network';
 
 const TIMELINE_OPTIONS: { key: TargetTimeline; label: string; sub: string }[] = [
   { key: '3_months', label: '3 months', sub: 'Aggressive' },
@@ -30,10 +29,8 @@ export default function GoalsScreen() {
   const setGenerating = usePracticeStore((s) => s.setGenerating);
   const setGenerationError = usePracticeStore((s) => s.setGenerationError);
 
-  const { showToast } = useToast();
   const [selectedGoals, setSelectedGoals] = useState<GoalType[]>(profile?.goals ?? []);
   const [timeline, setTimeline] = useState<TargetTimeline>(profile?.targetTimeline ?? '6_months');
-  const [loading, setLoading] = useState(false);
 
   function toggleGoal(key: GoalType) {
     setSelectedGoals((prev) =>
@@ -54,39 +51,29 @@ export default function GoalsScreen() {
     const finalProfile = { ...profile, goals: selectedGoals, targetTimeline: timeline, hasCompletedOnboarding: true };
 
     if (profile.apiKey) {
-      setLoading(true);
-      setGenerating(true);
-
-      const connected = await checkConnectivity();
-      if (!connected) {
-        showToast({
-          type: 'warning',
-          title: 'No internet connection',
-          message: "Your profile is saved. Generate your plan from the Practice tab when you're back online.",
-        });
-        setLoading(false);
-        setGenerating(false);
-        router.replace('/(tabs)');
-        return;
-      }
-
-      try {
-        const plan = await generatePracticePlan(finalProfile, rounds, profile.apiKey);
-        setPlan(plan);
-      } catch (err: any) {
-        console.error('[Onboarding] AI generation failed:', err);
-        showToast({
-          type: 'error',
-          title: "Couldn't generate your plan",
-          message: "No worries — you can generate it from the Practice tab.",
-        });
-      } finally {
-        setLoading(false);
-        setGenerating(false);
-      }
+      checkConnection().then(async (connected) => {
+        if (!connected) {
+          setGenerationError("We'll generate your plan when you're connected");
+          return;
+        }
+        setGenerating(true);
+        try {
+          const plan = await generatePracticePlan(finalProfile, rounds, profile.apiKey);
+          setPlan(plan);
+        } catch (err: any) {
+          const isNetwork = err instanceof TypeError;
+          setGenerationError(
+            isNetwork
+              ? "We'll generate your plan when you're connected"
+              : (err.message ?? 'Could not generate plan'),
+          );
+        } finally {
+          setGenerating(false);
+        }
+      });
     }
 
-    router.replace('/(tabs)');
+    router.replace('/diagnostic');
   }
 
   return (
@@ -152,20 +139,11 @@ export default function GoalsScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7} disabled={loading}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.doneBtn, loading && styles.doneBtnDisabled]}
-          onPress={handleFinish}
-          activeOpacity={0.85}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={Colors.background} />
-          ) : (
-            <Text style={styles.doneText}>Let's Go 🏌️</Text>
-          )}
+        <TouchableOpacity style={styles.doneBtn} onPress={handleFinish} activeOpacity={0.85}>
+          <Text style={styles.doneText}>Let's Go 🏌️</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -185,17 +163,17 @@ function ProgressDots({ current, total }: { current: number; total: number }) {
 
 const dotStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.lg },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.border },
-  dotActive: { backgroundColor: Colors.lightGreen },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.1)' },
+  dotActive: { backgroundColor: Colors.darkGreen },
   dotCurrent: { width: 24, backgroundColor: Colors.darkGreen },
   label: { fontSize: FontSize.xs, color: Colors.textSecondary, marginLeft: 4, fontWeight: '600' },
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { padding: Spacing.xl, paddingBottom: Spacing.lg },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary, lineHeight: 34, marginBottom: 8 },
-  subtitle: { fontSize: FontSize.base, color: Colors.textSecondary, lineHeight: 22, marginBottom: Spacing.xl },
+  container: { flex: 1, backgroundColor: '#ffffff' },
+  scroll: { padding: Spacing.xl, paddingBottom: 100 },
+  title: { fontSize: FontSize.xxl, fontWeight: '600', color: Colors.textPrimary, lineHeight: 34, letterSpacing: -0.5, marginBottom: 8 },
+  subtitle: { fontSize: FontSize.base, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.xl },
   section: { marginBottom: Spacing.xl },
   sectionLabel: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.sm },
   goalList: { gap: Spacing.sm },
@@ -206,9 +184,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     padding: Spacing.md,
-    ...Shadow.card,
   },
   goalCardActive: { borderColor: Colors.darkGreen, backgroundColor: Colors.paleGreen },
   radio: {
@@ -231,7 +208,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
     alignItems: 'center',
-    ...Shadow.card,
   },
   timelineCardActive: { borderColor: Colors.darkGreen, backgroundColor: Colors.paleGreen },
   timelineLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary },
@@ -242,7 +218,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.midGreen,
+    borderColor: Colors.darkGreen,
     marginBottom: Spacing.lg,
   },
   aiNoteTitle: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
@@ -253,13 +229,13 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
     paddingTop: Spacing.md,
     gap: Spacing.sm,
-    backgroundColor: Colors.background,
-    borderTopWidth: 1,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 0.5,
     borderTopColor: Colors.border,
   },
   backBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: Radius.circle, borderWidth: 1.5, borderColor: Colors.border },
   backText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textSecondary },
   doneBtn: { flex: 2, backgroundColor: Colors.darkGreen, paddingVertical: 16, alignItems: 'center', borderRadius: Radius.circle },
   doneBtnDisabled: { backgroundColor: Colors.textLight },
-  doneText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
+  doneText: { fontSize: FontSize.base, fontWeight: '700', color: '#ffffff' },
 });

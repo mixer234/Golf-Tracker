@@ -1,29 +1,24 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native';
-import ErrorBoundary from '../components/feedback/ErrorBoundary';
-import { ToastProvider } from '../components/feedback/Toast';
-import OfflineBanner from '../components/feedback/OfflineBanner';
 
 export default function RootLayout() {
   return (
-    <ErrorBoundary>
-      <SafeAreaProvider>
-        <ToastProvider>
-          <GestureHandlerRootView style={styles.root}>
-            <StatusBar style="light" />
-            <OfflineBanner />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="onboarding" />
-              <Stack.Screen name="(tabs)" />
-            </Stack>
-          </GestureHandlerRootView>
-        </ToastProvider>
-      </SafeAreaProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={styles.root}>
+      <StatusBar style="light" />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="sg" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="courses" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="course-editor" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="coach" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="vault" options={{ animation: 'slide_from_bottom', headerShown: false }} />
+        <Stack.Screen name="diagnostic" options={{ animation: 'slide_from_right' }} />
+      </Stack>
+    </GestureHandlerRootView>
   );
 }
 
