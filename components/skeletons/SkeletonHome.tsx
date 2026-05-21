@@ -51,17 +51,17 @@ export default function SkeletonHome() {
           </View>
         </Row>
         {/* Progress bar */}
-        <SkeletonBlock width="100%" height={4} borderRadius={Radius.full} style={{ opacity: 0.4 }} />
+        <SkeletonBlock width="100%" height={4} borderRadius={Radius.circle} style={{ opacity: 0.4 }} />
       </View>
 
       {/* Quick action buttons */}
       <Row style={{ gap: Spacing.sm, marginBottom: Spacing.md }}>
         <View style={[s.actionBtn, { marginRight: 0 }]}>
-          <SkeletonBlock width={26} height={26} borderRadius={Radius.full} />
+          <SkeletonBlock width={26} height={26} borderRadius={Radius.circle} />
           <SkeletonBlock width="60%" height={14} borderRadius={6} style={{ marginTop: 6 }} />
         </View>
         <View style={s.actionBtn}>
-          <SkeletonBlock width={26} height={26} borderRadius={Radius.full} />
+          <SkeletonBlock width={26} height={26} borderRadius={Radius.circle} />
           <SkeletonBlock width="60%" height={14} borderRadius={6} style={{ marginTop: 6 }} />
         </View>
       </Row>
@@ -80,7 +80,7 @@ export default function SkeletonHome() {
               <SkeletonBlock width={28} height={11} borderRadius={4} />
             </View>
           </Row>
-          <SkeletonBlock width="100%" height={5} borderRadius={Radius.full} style={{ opacity: 0.4 }} />
+          <SkeletonBlock width="100%" height={5} borderRadius={Radius.circle} style={{ opacity: 0.4 }} />
         </View>
       </View>
 
@@ -108,7 +108,7 @@ const s = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   handicapCard: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     borderRadius: Radius.xl,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
@@ -131,7 +131,7 @@ const s = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   practiceCard: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     opacity: 0.6,

@@ -29,7 +29,7 @@ function avgScore(rounds: Round[]): string {
   return (done.reduce((s, r) => s + r.totalScore, 0) / done.length).toFixed(1);
 }
 
-function HandicapCard({ profile, rounds }: { profile: UserProfile; rounds: Round[] }) {
+function HandicapCard({ profile }: { profile: UserProfile }) {
   const gap = profile.handicap - profile.targetHandicap;
   const achieved = gap <= 0;
   const absGap = Math.abs(Math.round(gap));
@@ -41,36 +41,25 @@ function HandicapCard({ profile, rounds }: { profile: UserProfile; rounds: Round
     <View style={hStyles.card}>
       <View style={hStyles.row}>
         <View style={hStyles.col}>
-          <Text style={hStyles.label}>CURRENT</Text>
+          <Text style={hStyles.label}>HANDICAP</Text>
           <Text style={hStyles.num} numberOfLines={1} adjustsFontSizeToFit>
             {formatHandicap(profile.handicap)}
           </Text>
         </View>
-
-        <View style={hStyles.mid}>
-          {achieved ? (
-            <Text style={hStyles.achieved}>Goal{'\n'}reached!</Text>
-          ) : (
-            <>
-              <Text style={hStyles.gap}>{absGap}</Text>
-              <Text style={hStyles.gapSub}>to go</Text>
-            </>
-          )}
-        </View>
-
         <View style={[hStyles.col, { alignItems: 'flex-end' }]}>
           <Text style={hStyles.label}>TARGET</Text>
-          <Text style={[hStyles.num, { color: Colors.primaryLight }]} numberOfLines={1} adjustsFontSizeToFit>
+          <Text style={[hStyles.num, { color: Colors.lightGreen }]} numberOfLines={1} adjustsFontSizeToFit>
             {formatHandicap(profile.targetHandicap)}
           </Text>
         </View>
       </View>
 
-      {!achieved && (
-        <View style={hStyles.barTrack}>
-          <View style={[hStyles.barFill, { width: `${progress * 100}%` }]} />
-        </View>
-      )}
+      <View style={hStyles.barTrack}>
+        <View style={[hStyles.barFill, { width: `${progress * 100}%` }]} />
+      </View>
+      <Text style={hStyles.gapText}>
+        {achieved ? 'Goal reached!' : `${absGap} strokes to go`}
+      </Text>
     </View>
   );
 }
@@ -79,8 +68,9 @@ function RoundRow({ round }: { round: Round }) {
   const date = new Date(round.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const stp = round.scoreToPar;
   const parLabel = stp === 0 ? 'E' : stp > 0 ? `+${stp}` : String(stp);
+  const barColor = stp < 0 ? Colors.success : stp > 0 ? Colors.error : Colors.textMuted;
   return (
-    <View style={rStyles.row}>
+    <View style={[rStyles.row, { borderLeftColor: barColor }]}>
       <View style={rStyles.left}>
         <Text style={rStyles.course} numberOfLines={1}>{round.courseName}</Text>
         <Text style={rStyles.date}>{date}</Text>
@@ -172,7 +162,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* Handicap */}
-        <HandicapCard profile={profile} rounds={rounds} />
+        <HandicapCard profile={profile} />
 
         {/* Quick actions */}
         <View style={s.actions}>
@@ -199,7 +189,7 @@ export default function DashboardScreen() {
           <Text style={s.sectionTitle}>Today's Practice</Text>
           {isGenerating ? (
             <View style={s.card}>
-              <ActivityIndicator color={Colors.primary} />
+              <ActivityIndicator color={Colors.darkGreen} />
               <Text style={s.loadingText}>Building your plan…</Text>
             </View>
           ) : todayPlan ? (
@@ -272,22 +262,19 @@ export default function DashboardScreen() {
 
 const hStyles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     borderRadius: Radius.xl,
-    padding: Spacing.lg,
+    padding: Spacing.xl,
     marginBottom: Spacing.md,
-    ...Shadow.md,
+    ...Shadow.card,
   },
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md },
+  row: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: Spacing.md },
   col: { flex: 1 },
-  label: { fontSize: FontSize.xs, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.8, marginBottom: 2 },
-  num: { fontSize: FontSize.xxxl, fontWeight: '800', color: Colors.background, letterSpacing: -1 },
-  mid: { flex: 1, alignItems: 'center' },
-  gap: { fontSize: FontSize.xxl, fontWeight: '800', color: 'rgba(255,255,255,0.9)' },
-  gapSub: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.55)', textAlign: 'center' },
-  achieved: { fontSize: FontSize.sm, color: Colors.primaryLight, fontWeight: '700', textAlign: 'center' },
-  barTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.full, overflow: 'hidden' },
-  barFill: { height: '100%', backgroundColor: Colors.primaryLight, borderRadius: Radius.full },
+  label: { fontSize: FontSize.xs, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.8, marginBottom: 2, textTransform: 'uppercase' },
+  num: { fontSize: FontSize.hero, fontWeight: '800', color: '#fff', letterSpacing: -1 },
+  barTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.circle, overflow: 'hidden', marginBottom: 6 },
+  barFill: { height: '100%', backgroundColor: Colors.lightGreen, borderRadius: Radius.circle },
+  gapText: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
 });
 
 const rStyles = StyleSheet.create({
@@ -298,15 +285,16 @@ const rStyles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: Colors.border,
-    ...Shadow.sm,
+    borderLeftWidth: 3,
+    ...Shadow.card,
   },
   left: { flex: 1, marginRight: Spacing.sm },
-  course: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text },
+  course: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textPrimary },
   date: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
   right: { alignItems: 'flex-end' },
-  score: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
+  score: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.textPrimary },
   par: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
   under: { color: Colors.success },
   over: { color: Colors.error },
@@ -317,7 +305,7 @@ const s = StyleSheet.create({
   scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 100 },
 
   header: { marginBottom: Spacing.md },
-  greeting: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.text },
+  greeting: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.textPrimary },
   name: { fontWeight: '800' },
   avg: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
 
@@ -328,17 +316,17 @@ const s = StyleSheet.create({
     paddingVertical: Spacing.md,
     alignItems: 'center',
     gap: 4,
-    ...Shadow.sm,
+    ...Shadow.card,
   },
-  actionPrimary: { backgroundColor: Colors.primary },
-  actionSecondary: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  actionPrimary: { backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: Colors.midGreen },
+  actionSecondary: { backgroundColor: Colors.surfaceAlt },
   actionIcon: { fontSize: 22 },
-  actionLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
+  actionLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.darkGreen },
 
   section: { marginBottom: Spacing.md },
   sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
-  sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, marginBottom: Spacing.sm },
-  link: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600', marginBottom: Spacing.sm },
+  sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.sm },
+  link: { fontSize: FontSize.sm, color: Colors.darkGreen, fontWeight: '600', marginBottom: Spacing.sm },
 
   card: {
     backgroundColor: Colors.surface,
@@ -346,22 +334,22 @@ const s = StyleSheet.create({
     padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.border,
-    ...Shadow.sm,
+    ...Shadow.card,
   },
-  practiceCard: { backgroundColor: Colors.primary, borderWidth: 0 },
+  practiceCard: { backgroundColor: Colors.darkGreen, borderWidth: 0 },
   practiceRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: Spacing.md },
   practiceTheme: { fontSize: FontSize.md, fontWeight: '700', color: Colors.background, marginBottom: 4 },
   practiceDur: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.7)' },
   progressBox: { alignItems: 'center', marginLeft: Spacing.sm },
   progressNum: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.background },
   progressSub: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.7)' },
-  bar: { height: 5, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: Radius.full, overflow: 'hidden' },
-  barFill: { height: '100%', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: Radius.full },
+  bar: { height: 5, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: Radius.circle, overflow: 'hidden' },
+  barFill: { height: '100%', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: Radius.circle },
 
   loadingText: { textAlign: 'center', color: Colors.textSecondary, marginTop: Spacing.sm },
-  emptyTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, textAlign: 'center', marginBottom: Spacing.xs },
+  emptyTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center', marginBottom: Spacing.xs },
   emptyText: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: Spacing.md },
-  genBtn: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 12, paddingHorizontal: Spacing.xl, alignSelf: 'center' },
+  genBtn: { backgroundColor: Colors.darkGreen, borderRadius: Radius.circle, paddingVertical: 12, paddingHorizontal: Spacing.xl, alignSelf: 'center' },
   genBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
   errorText: { color: Colors.error, textAlign: 'center', marginBottom: Spacing.md, fontSize: FontSize.sm },
 });

@@ -131,7 +131,7 @@ export function HandicapDial({ value, onChange, label, disabled }: HandicapDialP
                     top: 0,
                     width: tickW,
                     height: tickH,
-                    backgroundColor: active ? Colors.primary : Colors.border,
+                    backgroundColor: active ? Colors.darkGreen : Colors.border,
                     borderRadius: 1,
                   }}
                 />
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: FontSize.sm,
     fontWeight: '700',
-    color: Colors.text,
+    color: Colors.textPrimary,
     alignSelf: 'flex-start',
     marginBottom: -Spacing.xs,
   },
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     left: CENTER - INNER_R,
     top: CENTER - INNER_R,
-    ...Shadow.md,
+    ...Shadow.card,
   },
   valueWrap: {
     position: 'absolute',
@@ -223,10 +223,10 @@ const styles = StyleSheet.create({
   valueNum: {
     fontSize: 48,
     fontWeight: '800',
-    color: Colors.text,
+    color: Colors.textPrimary,
     letterSpacing: -1,
   },
-  valuePlus: { color: Colors.accent },
+  valuePlus: { color: Colors.midGreen },
   valueSub: {
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
@@ -238,12 +238,12 @@ const styles = StyleSheet.create({
     width: THUMB_SIZE,
     height: THUMB_SIZE,
     borderRadius: THUMB_SIZE / 2,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     borderWidth: 3,
     borderColor: Colors.surface,
-    ...Shadow.md,
+    ...Shadow.card,
   },
-  thumbGold: { backgroundColor: Colors.accent },
+  thumbGold: { backgroundColor: Colors.midGreen },
   nudgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   nudgeTxt: {
     fontSize: 22,
     fontWeight: '300',
-    color: Colors.text,
+    color: Colors.textPrimary,
     lineHeight: 26,
     marginTop: -2,
   },

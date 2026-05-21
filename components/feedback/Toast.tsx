@@ -70,17 +70,17 @@ export function ToastProvider({ children }: ProviderProps) {
 const TYPE_CONFIG = {
   error: {
     accent: Colors.error,
-    bg: '#2a0f0f',
+    bg: Colors.errorBg,
     icon: '✕',
   },
   warning: {
     accent: Colors.warning,
-    bg: '#2a1f0a',
+    bg: Colors.warningBg,
     icon: '!',
   },
   success: {
     accent: Colors.success,
-    bg: '#0a2a12',
+    bg: Colors.successBg,
     icon: '✓',
   },
 };
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 28,
     height: 28,
-    borderRadius: Radius.full,
+    borderRadius: Radius.circle,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FontSize.base,
     fontWeight: '700',
-    color: Colors.text,
+    color: Colors.textPrimary,
   },
   message: {
     fontSize: FontSize.sm,

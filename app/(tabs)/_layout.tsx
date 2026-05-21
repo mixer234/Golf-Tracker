@@ -68,9 +68,9 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.surface,
+    backgroundColor: 'rgba(248,249,246,0.95)',
     borderTopColor: Colors.border,
-    borderTopWidth: 1,
+    borderTopWidth: 0.5,
     height: 80,
     paddingBottom: 16,
     paddingTop: 8,
@@ -83,12 +83,14 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
   label: {
-    fontSize: 10,
+    fontSize: 9,
     color: Colors.textLight,
     fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   labelActive: {
-    color: Colors.primary,
+    color: Colors.darkGreen,
     fontWeight: '700',
   },
 });

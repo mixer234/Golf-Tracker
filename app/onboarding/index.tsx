@@ -47,7 +47,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
   },
   content: {
     flex: 1,
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   logoContainer: {
     width: 100,
     height: 100,
-    borderRadius: Radius.full,
+    borderRadius: Radius.circle,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     fontSize: 52,
   },
   appName: {
-    fontSize: FontSize.xxxl,
+    fontSize: FontSize.hero,
     fontWeight: '800',
     color: Colors.background,
     letterSpacing: -1,
@@ -110,14 +110,14 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: Colors.surface,
-    borderRadius: Radius.full,
+    borderRadius: Radius.circle,
     paddingVertical: 18,
     alignItems: 'center',
   },
   buttonText: {
     fontSize: FontSize.md,
     fontWeight: '700',
-    color: Colors.primary,
+    color: Colors.darkGreen,
   },
   disclaimer: {
     textAlign: 'center',

@@ -38,7 +38,7 @@ export default function SkeletonBlock({ width, height, borderRadius = 8, style }
           width,
           height,
           borderRadius,
-          backgroundColor: Colors.surfaceElevated,
+          backgroundColor: Colors.surfaceAlt,
           opacity,
         },
         style,

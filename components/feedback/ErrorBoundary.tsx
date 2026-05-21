@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: FontSize.xxl,
     fontWeight: '800',
-    color: Colors.text,
+    color: Colors.textPrimary,
     textAlign: 'center',
   },
   subtext: {
@@ -77,8 +77,8 @@ const styles = StyleSheet.create({
   },
   btn: {
     marginTop: Spacing.sm,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.darkGreen,
+    borderRadius: Radius.circle,
     paddingVertical: 14,
     paddingHorizontal: Spacing.xl,
   },

@@ -21,7 +21,7 @@ function SGRowSkeleton() {
     <Row style={{ alignItems: 'center', paddingVertical: 8, gap: Spacing.sm }}>
       <SkeletonBlock width={110} height={13} borderRadius={5} />
       <View style={{ flex: 1 }}>
-        <SkeletonBlock width="100%" height={8} borderRadius={Radius.full} />
+        <SkeletonBlock width="100%" height={8} borderRadius={Radius.circle} />
       </View>
       <SkeletonBlock width={44} height={13} borderRadius={5} />
     </Row>
@@ -37,7 +37,7 @@ export default function SkeletonProgress() {
 
       {/* Trend alert card */}
       <Row style={[s.card, { alignItems: 'center', gap: Spacing.sm }]}>
-        <SkeletonBlock width={24} height={24} borderRadius={Radius.full} />
+        <SkeletonBlock width={24} height={24} borderRadius={Radius.circle} />
         <View style={{ flex: 1, gap: 6 }}>
           <SkeletonBlock width="25%" height={10} borderRadius={4} />
           <SkeletonBlock width="90%" height={13} borderRadius={5} />

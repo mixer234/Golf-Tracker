@@ -115,14 +115,14 @@ function WeekCalendar({ profile, plan }: { profile: UserProfile; plan: PracticeP
               </View>
               {hasDone ? <View style={[calStyles.dot, { backgroundColor: Colors.success }]} />
                 : isMissed ? <View style={[calStyles.dot, { backgroundColor: Colors.warning }]} />
-                : isPractice ? <View style={[calStyles.dot, { backgroundColor: Colors.primary }]} />
+                : isPractice ? <View style={[calStyles.dot, { backgroundColor: Colors.darkGreen }]} />
                 : <View style={calStyles.dot} />}
             </View>
           );
         })}
       </View>
       <View style={calStyles.legend}>
-        {[{ color: Colors.primary, label: 'Practice' }, { color: Colors.success, label: 'Done' }, { color: Colors.warning, label: 'Missed' }].map(({ color, label }) => (
+        {[{ color: Colors.darkGreen, label: 'Practice' }, { color: Colors.success, label: 'Done' }, { color: Colors.warning, label: 'Missed' }].map(({ color, label }) => (
           <View key={label} style={calStyles.legendItem}>
             <View style={[calStyles.legendDot, { backgroundColor: color }]} />
             <Text style={calStyles.legendText}>{label}</Text>
@@ -141,7 +141,7 @@ function WeeklyFocusCard({ profile, plan }: { profile: UserProfile; plan: Practi
     <View style={focusStyles.card}>
       <View style={focusStyles.headerRow}>
         <Text style={focusStyles.overline} numberOfLines={1}>WEEKLY FOCUS</Text>
-        <View style={calStyles.pill}><Text style={calStyles.pillText}>Week {weekNum}</Text></View>
+        <View style={focusStyles.pill}><Text style={focusStyles.pillText}>Week {weekNum}</Text></View>
       </View>
       <View style={focusStyles.titleRow}>
         <Text style={focusStyles.emoji}>{focus.emoji}</Text>
@@ -418,7 +418,7 @@ export default function PracticeScreen() {
         <EmptyPracticePlan onPress={handleGenerate} />
       ) : isGenerating ? (
         <View style={styles.loadingState}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={Colors.darkGreen} />
           <Text style={styles.loadingTitle}>Building your plan…</Text>
           <Text style={styles.loadingText}>
             Our AI coach is analyzing your game and creating personalized drills.
@@ -671,39 +671,41 @@ function DrillCard({
 }
 
 const calStyles = StyleSheet.create({
-  card: { backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border, ...Shadow.sm },
+  card: { backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border, ...Shadow.card },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
-  title: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
-  pill: { backgroundColor: Colors.primaryPale, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 3 },
-  pillText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  title: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
+  pill: { backgroundColor: Colors.paleGreen, borderRadius: Radius.circle, paddingHorizontal: 10, paddingVertical: 3 },
+  pillText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.darkGreen },
   days: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm },
   dayCol: { flex: 1, alignItems: 'center', gap: 4 },
   letter: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary },
   faded: { opacity: 0.35 },
   circle: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  todayCircle: { backgroundColor: Colors.primary },
-  practiceCircle: { borderWidth: 1.5, borderColor: Colors.primaryLight },
-  dateNum: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text },
+  todayCircle: { backgroundColor: Colors.darkGreen },
+  practiceCircle: { borderWidth: 1.5, borderColor: Colors.lightGreen },
+  dateNum: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
   todayNum: { color: Colors.background, fontWeight: '800' },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'transparent' },
-  legend: { flexDirection: 'row', gap: Spacing.md, paddingTop: Spacing.xs, borderTopWidth: 1, borderTopColor: Colors.borderLight },
+  legend: { flexDirection: 'row', gap: Spacing.md, paddingTop: Spacing.xs, borderTopWidth: 1, borderTopColor: Colors.border },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 7, height: 7, borderRadius: 4 },
   legendText: { fontSize: FontSize.xs, color: Colors.textLight },
 });
 
 const focusStyles = StyleSheet.create({
-  card: { backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 4, borderLeftColor: Colors.primary, ...Shadow.sm },
+  card: { backgroundColor: Colors.darkGreen, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.md, ...Shadow.card },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
-  overline: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 0.8 },
+  overline: { fontSize: FontSize.xs, fontWeight: '700', color: 'rgba(255,255,255,0.65)', letterSpacing: 0.8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
   emoji: { fontSize: 24 },
-  title: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text, flex: 1 },
-  desc: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.sm },
+  title: { fontSize: FontSize.lg, fontWeight: '800', color: '#fff', flex: 1 },
+  desc: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.75)', lineHeight: 20, marginBottom: Spacing.sm },
   tips: { gap: 6 },
   tipRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
-  bullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.primary, marginTop: 6, flexShrink: 0 },
-  tipText: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 19, flex: 1 },
+  bullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.lightGreen, marginTop: 6, flexShrink: 0 },
+  tipText: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.85)', lineHeight: 19, flex: 1 },
+  pill: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: Radius.circle, paddingHorizontal: 10, paddingVertical: 3 },
+  pillText: { fontSize: FontSize.xs, fontWeight: '700', color: 'rgba(255,255,255,0.8)' },
 });
 
 const drillStyles = StyleSheet.create({
@@ -712,7 +714,7 @@ const drillStyles = StyleSheet.create({
     borderRadius: Radius.lg,
     marginBottom: Spacing.sm,
     overflow: 'hidden',
-    ...Shadow.sm,
+    ...Shadow.card,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -735,51 +737,51 @@ const drillStyles = StyleSheet.create({
     flexShrink: 0,
   },
   checkboxDone: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
+    borderColor: Colors.darkGreen,
   },
   checkmark: { color: Colors.background, fontSize: 14, fontWeight: '700' },
   info: { flex: 1 },
-  name: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, marginBottom: 2 },
+  name: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
   nameCompleted: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   description: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.xs, flexShrink: 1 },
   meta: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   duration: { fontSize: FontSize.xs, color: Colors.textLight, fontWeight: '600' },
-  diffBadge: { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2 },
+  diffBadge: { borderRadius: Radius.circle, paddingHorizontal: 8, paddingVertical: 2 },
   diffText: { fontSize: FontSize.xs, fontWeight: '700', textTransform: 'capitalize' },
   chevron: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 4 },
   expandedContent: {
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: Colors.border,
     gap: Spacing.md,
   },
   section: { gap: 4 },
   sectionTitle: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
-  sectionText: { fontSize: FontSize.sm, color: Colors.text },
-  step: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
-  focusPoint: { fontSize: FontSize.sm, color: Colors.primary, lineHeight: 20 },
+  sectionText: { fontSize: FontSize.sm, color: Colors.textPrimary },
+  step: { fontSize: FontSize.sm, color: Colors.textPrimary, lineHeight: 20 },
+  focusPoint: { fontSize: FontSize.sm, color: Colors.darkGreen, lineHeight: 20 },
 });
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, marginBottom: Spacing.sm },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text },
+  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
   dayScroll: { maxHeight: 60 },
   dayScrollContent: { paddingHorizontal: Spacing.lg, gap: Spacing.sm, alignItems: 'center' },
   dayChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: Radius.full,
+    borderRadius: Radius.circle,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     alignItems: 'center',
     minWidth: 56,
   },
-  dayChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dayChipActive: { backgroundColor: Colors.darkGreen, borderColor: Colors.darkGreen },
   dayChipEmpty: { opacity: 0.5 },
   dayChipText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
   dayChipTextActive: { color: Colors.background },
@@ -787,7 +789,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.midGreen,
     marginTop: 2,
   },
   scroll: { padding: Spacing.lg, paddingBottom: 100 },
@@ -797,27 +799,27 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: Spacing.md,
   },
-  dayTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
+  dayTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary },
   dayTheme: { fontSize: FontSize.base, color: Colors.textSecondary, marginTop: 2 },
   durationBadge: {
-    backgroundColor: Colors.primaryPale,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.paleGreen,
+    borderRadius: Radius.circle,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  durationText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  durationText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.darkGreen },
   progressRow: { marginBottom: Spacing.md, gap: 6 },
   progressLabel: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600' },
   progressTrack: {
     height: 6,
-    backgroundColor: Colors.borderLight,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.border,
+    borderRadius: Radius.circle,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.darkGreen,
+    borderRadius: Radius.circle,
   },
   emptyState: {
     flex: 1,
@@ -827,12 +829,12 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   emptyEmoji: { fontSize: 64 },
-  emptyTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text, textAlign: 'center' },
+  emptyTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
   emptyText: { fontSize: FontSize.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 24 },
   errorText: { fontSize: FontSize.sm, color: Colors.error, textAlign: 'center' },
   generateButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.darkGreen,
+    borderRadius: Radius.circle,
     paddingVertical: 14,
     paddingHorizontal: Spacing.xl,
     marginTop: Spacing.sm,
@@ -845,21 +847,21 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.xxl,
   },
-  loadingTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
+  loadingTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary },
   loadingText: { fontSize: FontSize.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 24 },
   restDay: { alignItems: 'center', paddingVertical: Spacing.xxl, gap: Spacing.sm },
   restEmoji: { fontSize: 48 },
-  restTitle: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.text },
+  restTitle: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.textPrimary },
   restText: { fontSize: FontSize.base, color: Colors.textSecondary, textAlign: 'center' },
   regenerateButton: {
     marginTop: Spacing.lg,
     paddingVertical: 14,
-    borderRadius: Radius.full,
+    borderRadius: Radius.circle,
     borderWidth: 1.5,
-    borderColor: Colors.primary,
+    borderColor: Colors.darkGreen,
     alignItems: 'center',
   },
-  regenerateText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.primary },
+  regenerateText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.darkGreen },
   bagHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -869,7 +871,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
-  bagTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
+  bagTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
   bagChevron: { fontSize: FontSize.xs, color: Colors.textLight },
   bagCard: {
     backgroundColor: Colors.surface,
@@ -892,22 +894,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: Colors.border,
   },
-  bagClub: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text, flex: 1 },
+  bagClub: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textPrimary, flex: 1 },
   bagCounter: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   bagBtn: {
     width: 32,
     height: 32,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: Radius.circle,
+    backgroundColor: Colors.surfaceAlt,
     borderWidth: 1,
     borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bagBtnText: { fontSize: FontSize.lg, color: Colors.text, fontWeight: '300', lineHeight: 22 },
-  bagYards: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text, minWidth: 72, textAlign: 'center' },
+  bagBtnText: { fontSize: FontSize.lg, color: Colors.textPrimary, fontWeight: '300', lineHeight: 22 },
+  bagYards: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary, minWidth: 72, textAlign: 'center' },
   bagUnit: { fontSize: FontSize.xs, fontWeight: '400', color: Colors.textSecondary },
 
   // ── Session mode ────────────────────────────────────────────────────────────
@@ -926,7 +928,7 @@ const styles = StyleSheet.create({
   sessionDay: {
     fontSize: FontSize.xl,
     fontWeight: '800',
-    color: Colors.text,
+    color: Colors.textPrimary,
   },
   sessionProgress: {
     fontSize: FontSize.sm,
@@ -934,31 +936,31 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   timerBadge: {
-    backgroundColor: Colors.primaryPale,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.paleGreen,
+    borderRadius: Radius.circle,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.primary + '40',
+    borderColor: Colors.darkGreen + '40',
   },
   timerText: {
     fontSize: FontSize.lg,
     fontWeight: '700',
-    color: Colors.primary,
+    color: Colors.darkGreen,
     fontVariant: ['tabular-nums'],
   },
   sessionProgressBar: {
     height: 4,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: Colors.border,
     marginHorizontal: Spacing.lg,
-    borderRadius: Radius.full,
+    borderRadius: Radius.circle,
     overflow: 'hidden',
     marginBottom: Spacing.md,
   },
   sessionProgressFill: {
     height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.darkGreen,
+    borderRadius: Radius.circle,
   },
   sessionCard: {
     backgroundColor: Colors.surface,
@@ -967,7 +969,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.border,
-    ...Shadow.md,
+    ...Shadow.card,
   },
   sessionDrillHeader: {
     flexDirection: 'row',
@@ -984,7 +986,7 @@ const styles = StyleSheet.create({
   sessionDrillName: {
     fontSize: FontSize.xl,
     fontWeight: '800',
-    color: Colors.text,
+    color: Colors.textPrimary,
     flex: 1,
   },
   sessionDrillDesc: {
@@ -1000,8 +1002,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   sessionMetaChip: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: Radius.circle,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,
@@ -1014,7 +1016,7 @@ const styles = StyleSheet.create({
   },
   sessionSection: {
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: Colors.border,
     paddingTop: Spacing.md,
     marginBottom: Spacing.md,
     gap: Spacing.sm,
@@ -1036,13 +1038,13 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     marginTop: 7,
     flexShrink: 0,
   },
   sessionBulletText: {
     fontSize: FontSize.sm,
-    color: Colors.text,
+    color: Colors.textPrimary,
     lineHeight: 22,
     flex: 1,
   },
@@ -1055,9 +1057,9 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.primaryPale,
+    backgroundColor: Colors.paleGreen,
     borderWidth: 1,
-    borderColor: Colors.primary + '40',
+    borderColor: Colors.darkGreen + '40',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -1066,11 +1068,11 @@ const styles = StyleSheet.create({
   sessionStepNumText: {
     fontSize: FontSize.xs,
     fontWeight: '700',
-    color: Colors.primary,
+    color: Colors.darkGreen,
   },
   sessionStepText: {
     fontSize: FontSize.sm,
-    color: Colors.text,
+    color: Colors.textPrimary,
     lineHeight: 22,
     flex: 1,
   },
@@ -1083,7 +1085,7 @@ const styles = StyleSheet.create({
   sessionSkipBtn: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: Radius.full,
+    borderRadius: Radius.circle,
     borderWidth: 1.5,
     borderColor: Colors.border,
     alignItems: 'center',
@@ -1096,8 +1098,8 @@ const styles = StyleSheet.create({
   sessionDoneBtn: {
     flex: 2,
     paddingVertical: 14,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.primary,
+    borderRadius: Radius.circle,
+    backgroundColor: Colors.darkGreen,
     alignItems: 'center',
   },
   sessionDoneText: {
@@ -1116,8 +1118,8 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   startSessionBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.darkGreen,
+    borderRadius: Radius.circle,
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: Spacing.md,

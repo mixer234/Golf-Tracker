@@ -19,9 +19,9 @@ function DrillCardSkeleton() {
           <SkeletonBlock width="60%" height={12} borderRadius={6} />
           {/* Meta tags row */}
           <Row style={{ gap: 8, marginTop: 2 }}>
-            <SkeletonBlock width={48} height={20} borderRadius={Radius.full} />
-            <SkeletonBlock width={64} height={20} borderRadius={Radius.full} />
-            <SkeletonBlock width={52} height={20} borderRadius={Radius.full} />
+            <SkeletonBlock width={48} height={20} borderRadius={Radius.circle} />
+            <SkeletonBlock width={64} height={20} borderRadius={Radius.circle} />
+            <SkeletonBlock width={52} height={20} borderRadius={Radius.circle} />
           </Row>
         </View>
       </Row>
@@ -48,7 +48,7 @@ export default function SkeletonPractice() {
         scrollEnabled={false}
       >
         {Array.from({ length: 7 }).map((_, i) => (
-          <SkeletonBlock key={i} width={56} height={36} borderRadius={Radius.full} />
+          <SkeletonBlock key={i} width={56} height={36} borderRadius={Radius.circle} />
         ))}
       </ScrollView>
 
@@ -58,20 +58,20 @@ export default function SkeletonPractice() {
         <View style={s.card}>
           <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md }}>
             <SkeletonBlock width="30%" height={16} borderRadius={6} />
-            <SkeletonBlock width={52} height={22} borderRadius={Radius.full} />
+            <SkeletonBlock width={52} height={22} borderRadius={Radius.circle} />
           </Row>
           {/* 7 day circles */}
           <Row style={{ justifyContent: 'space-between', marginBottom: Spacing.sm }}>
             {Array.from({ length: 7 }).map((_, i) => (
               <View key={i} style={{ alignItems: 'center', gap: 4 }}>
-                <SkeletonBlock width={10} height={10} borderRadius={Radius.full} />
+                <SkeletonBlock width={10} height={10} borderRadius={Radius.circle} />
                 <SkeletonBlock width={30} height={30} borderRadius={15} />
-                <SkeletonBlock width={6} height={6} borderRadius={Radius.full} />
+                <SkeletonBlock width={6} height={6} borderRadius={Radius.circle} />
               </View>
             ))}
           </Row>
           {/* Legend */}
-          <Row style={{ gap: Spacing.md, paddingTop: Spacing.xs, borderTopWidth: 1, borderTopColor: Colors.borderLight }}>
+          <Row style={{ gap: Spacing.md, paddingTop: Spacing.xs, borderTopWidth: 1, borderTopColor: Colors.border }}>
             {['Practice', 'Done', 'Missed'].map((l) => (
               <Row key={l} style={{ alignItems: 'center', gap: 5 }}>
                 <SkeletonBlock width={7} height={7} borderRadius={4} />
@@ -85,10 +85,10 @@ export default function SkeletonPractice() {
         <View style={[s.card, s.focusCard]}>
           <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm }}>
             <SkeletonBlock width="35%" height={10} borderRadius={4} />
-            <SkeletonBlock width={60} height={22} borderRadius={Radius.full} />
+            <SkeletonBlock width={60} height={22} borderRadius={Radius.circle} />
           </Row>
           <Row style={{ alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm }}>
-            <SkeletonBlock width={28} height={28} borderRadius={Radius.full} />
+            <SkeletonBlock width={28} height={28} borderRadius={Radius.circle} />
             <SkeletonBlock width="55%" height={20} borderRadius={6} />
           </Row>
           <SkeletonBlock width="100%" height={13} borderRadius={6} style={{ marginBottom: 6 }} />
@@ -108,17 +108,17 @@ export default function SkeletonPractice() {
             <SkeletonBlock width={110} height={22} borderRadius={8} />
             <SkeletonBlock width={150} height={14} borderRadius={6} />
           </View>
-          <SkeletonBlock width={72} height={32} borderRadius={Radius.full} />
+          <SkeletonBlock width={72} height={32} borderRadius={Radius.circle} />
         </Row>
 
         {/* Progress row */}
         <View style={{ marginBottom: Spacing.md, gap: 8 }}>
           <SkeletonBlock width="50%" height={12} borderRadius={5} />
-          <SkeletonBlock width="100%" height={6} borderRadius={Radius.full} />
+          <SkeletonBlock width="100%" height={6} borderRadius={Radius.circle} />
         </View>
 
         {/* Start session button */}
-        <SkeletonBlock width="100%" height={48} borderRadius={Radius.full} style={{ marginBottom: Spacing.md }} />
+        <SkeletonBlock width="100%" height={48} borderRadius={Radius.circle} style={{ marginBottom: Spacing.md }} />
 
         {/* Drill cards */}
         <DrillCardSkeleton />
@@ -151,7 +151,7 @@ const s = StyleSheet.create({
   focusCard: {
     padding: Spacing.lg,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
+    borderLeftColor: Colors.darkGreen,
     marginBottom: Spacing.md,
   },
   drillCard: {

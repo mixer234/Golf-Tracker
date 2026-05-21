@@ -8,7 +8,7 @@ function FlagIllustration() {
       {/* Green */}
       <Path
         d="M20 90 Q60 75 100 90"
-        stroke={Colors.primary}
+        stroke={Colors.darkGreen}
         strokeWidth={2.5}
         fill="none"
         strokeLinecap="round"
@@ -16,28 +16,28 @@ function FlagIllustration() {
       {/* Hole */}
       <Path
         d="M20 90 Q60 80 100 90 L100 100 Q60 92 20 100 Z"
-        fill={Colors.primary}
+        fill={Colors.darkGreen}
         opacity={0.15}
       />
       {/* Pin */}
       <Line
         x1="60" y1="88"
         x2="60" y2="40"
-        stroke={Colors.primary}
+        stroke={Colors.darkGreen}
         strokeWidth={2.5}
         strokeLinecap="round"
       />
       {/* Flag */}
       <Path
         d="M60 40 L88 50 L60 60 Z"
-        fill={Colors.primary}
+        fill={Colors.darkGreen}
         opacity={0.9}
       />
       {/* Cup circle */}
       <Circle
         cx="60" cy="91"
         r="5"
-        fill={Colors.primary}
+        fill={Colors.darkGreen}
         opacity={0.3}
       />
     </Svg>
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   headline: {
     fontSize: FontSize.xxl,
     fontWeight: '800',
-    color: Colors.text,
+    color: Colors.textPrimary,
     textAlign: 'center',
     marginTop: Spacing.sm,
   },
@@ -82,8 +82,8 @@ const styles = StyleSheet.create({
   },
   btn: {
     marginTop: Spacing.sm,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.darkGreen,
+    borderRadius: Radius.circle,
     paddingVertical: 14,
     paddingHorizontal: Spacing.xl,
   },

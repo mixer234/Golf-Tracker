@@ -40,7 +40,7 @@ export default function Entry() {
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator color={Colors.primaryLight} size="large" />
+      <ActivityIndicator color={Colors.lightGreen} size="large" />
     </View>
   );
 }
@@ -48,7 +48,7 @@ export default function Entry() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.darkGreen,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -104,7 +104,7 @@ const trendStyles = StyleSheet.create({
   cardCaution: { backgroundColor: Colors.warning + '15', borderColor: Colors.warning + '40' },
   emoji: { fontSize: 20, marginTop: 1 },
   label: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 0.6, marginBottom: 2 },
-  text: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
+  text: { fontSize: FontSize.sm, color: Colors.textPrimary, lineHeight: 20 },
 });
 
 export default function ProgressScreen() {
@@ -263,7 +263,7 @@ export default function ProgressScreen() {
                       <>
                         <View style={styles.hcpDivider} />
                         <View style={styles.hcpItem}>
-                          <Text style={[styles.hcpNum, { color: Colors.accent }]}>
+                          <Text style={[styles.hcpNum, { color: Colors.lightGreen }]}>
                             {formatHandicap(calculatedHcp)}
                           </Text>
                           <Text style={styles.hcpSub}>WHS Calc</Text>
@@ -272,7 +272,7 @@ export default function ProgressScreen() {
                     )}
                     <View style={styles.hcpDivider} />
                     <View style={styles.hcpItem}>
-                      <Text style={[styles.hcpNum, { color: Colors.primary }]}>
+                      <Text style={[styles.hcpNum, { color: Colors.lightGreen }]}>
                         {formatHandicap(profile.targetHandicap)}
                       </Text>
                       <Text style={styles.hcpSub}>Target</Text>
@@ -500,8 +500,8 @@ const sgStyles = StyleSheet.create({
   barWrap: { flex: 1 },
   track: {
     height: 8,
-    backgroundColor: Colors.borderLight,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.border,
+    borderRadius: Radius.circle,
     overflow: 'hidden',
     flexDirection: 'row',
     position: 'relative',
@@ -517,7 +517,7 @@ const sgStyles = StyleSheet.create({
   fill: {
     position: 'absolute',
     height: '100%',
-    borderRadius: Radius.full,
+    borderRadius: Radius.circle,
   },
   fillRight: { left: '50%' },
   fillLeft: { right: '50%' },
@@ -540,7 +540,7 @@ function ScoreChart({ rounds }: { rounds: Round[] }) {
           const barHeight = range > 0 ? ((max - round.totalScore) / range) * chartHeight : chartHeight / 2;
           const isBest = round.totalScore === best;
           const isLast = i === rounds.length - 1;
-          const barColor = isBest ? Colors.accent : isLast ? Colors.primary : Colors.primaryMid;
+          const barColor = isBest ? Colors.midGreen : isLast ? Colors.darkGreen : Colors.midGreen;
           return (
             <View key={round.id} style={chartStyles.barContainer}>
               <Text style={chartStyles.barLabel}>{round.totalScore}</Text>
@@ -588,7 +588,7 @@ function DifferentialChart({ rounds }: { rounds: Round[] }) {
                   chartStyles.bar,
                   {
                     height: Math.max(8, barHeight),
-                    backgroundColor: isBest ? Colors.accent : isBelowAvg ? Colors.primaryMid : Colors.surfaceElevated,
+                    backgroundColor: isBest ? Colors.midGreen : isBelowAvg ? Colors.midGreen : Colors.surfaceAlt,
                   },
                 ]} />
                 <Text style={chartStyles.barDate}>
@@ -607,7 +607,7 @@ const chartStyles = StyleSheet.create({
   chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 160, paddingHorizontal: Spacing.sm },
   barContainer: { flex: 1, alignItems: 'center', gap: 4, justifyContent: 'flex-end' },
   bar: { width: '100%', borderRadius: 4 },
-  barLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text },
+  barLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textPrimary },
   barDate: { fontSize: 9, color: Colors.textLight, textAlign: 'center' },
   chartHint: { fontSize: FontSize.xs, color: Colors.textLight, textAlign: 'center', marginTop: 6 },
 });
@@ -616,14 +616,13 @@ const cardStyles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: Colors.border,
-    ...Shadow.sm,
   },
-  value: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text },
+  value: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary },
   label: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary, marginTop: 2 },
   sub: { fontSize: FontSize.xs, color: Colors.textLight },
   trend: { fontSize: FontSize.xs, fontWeight: '700', marginTop: 4 },
@@ -637,30 +636,30 @@ const rowStyles = StyleSheet.create({
   },
   rowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: Colors.border,
   },
   label: { fontSize: FontSize.base, color: Colors.textSecondary },
-  value: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text },
+  value: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary },
 });
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scroll: { padding: Spacing.lg, paddingBottom: 100 },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text, marginBottom: Spacing.lg },
+  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary, marginBottom: Spacing.lg },
   empty: { alignItems: 'center', paddingTop: Spacing.xxl, gap: Spacing.md },
   emptyEmoji: { fontSize: 64 },
-  emptyTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
+  emptyTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary },
   emptyText: { fontSize: FontSize.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 24 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.lg },
   section: { marginBottom: Spacing.lg },
-  sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, marginBottom: Spacing.sm },
+  sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.sm },
   chartCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    ...Shadow.sm,
+    ...Shadow.card,
   },
   sgCard: {
     backgroundColor: Colors.surface,
@@ -668,7 +667,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    ...Shadow.sm,
+    ...Shadow.card,
   },
   sgEmpty: { alignItems: 'center', paddingVertical: Spacing.lg },
   sgEmptyTitle: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textSecondary, marginBottom: 6 },
@@ -692,37 +691,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   hcpCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.darkGreen,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow.sm,
+    ...Shadow.card,
   },
   hcpRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md },
   hcpItem: { flex: 1, alignItems: 'center' },
-  hcpNum: { fontSize: FontSize.xxxl, fontWeight: '800', color: Colors.text },
-  hcpSub: { fontSize: FontSize.sm, color: Colors.textSecondary },
-  hcpDivider: { width: 1, height: 50, backgroundColor: Colors.border },
+  hcpNum: { fontSize: FontSize.hero, fontWeight: '800', color: '#fff' },
+  hcpSub: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.65)' },
+  hcpDivider: { width: 1, height: 50, backgroundColor: 'rgba(255,255,255,0.2)' },
   hcpBar: { gap: 6 },
   hcpTrack: {
     height: 8,
-    backgroundColor: Colors.borderLight,
-    borderRadius: Radius.full,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: Radius.circle,
     overflow: 'hidden',
   },
   hcpFill: {
     height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.lightGreen,
+    borderRadius: Radius.circle,
   },
-  hcpGap: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center' },
+  hcpGap: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.65)', textAlign: 'center' },
   statsTable: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    ...Shadow.sm,
+    ...Shadow.card,
   },
 });
