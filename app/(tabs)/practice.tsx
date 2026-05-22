@@ -174,6 +174,7 @@ function formatTime(seconds: number): string {
 
 export default function PracticeScreen() {
   const profile = useUserStore((s) => s.profile);
+  const fingerprint = useUserStore((s) => s.fingerprint);
   const updateClub = useUserStore((s) => s.updateClub);
   const rounds = useRoundStore((s) => s.rounds);
   const {
@@ -288,7 +289,7 @@ export default function PracticeScreen() {
     setGenerating(true);
     setGenerationError(null);
     try {
-      const plan = await generatePracticePlan(profile, rounds);
+      const plan = await generatePracticePlan(profile, rounds, undefined, fingerprint);
       setPlan(plan);
     } catch (err: any) {
       console.error('[Practice] AI generation failed:', err);

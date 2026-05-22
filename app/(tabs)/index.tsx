@@ -83,6 +83,7 @@ function RoundRow({ round }: { round: Round }) {
 export default function DashboardScreen() {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
+  const fingerprint = useUserStore((s) => s.fingerprint);
   const rounds = useRoundStore((s) => s.rounds);
   const { currentPlan, isGenerating, setPlan, setGenerating, setGenerationError } = usePracticeStore();
 
@@ -112,7 +113,7 @@ export default function DashboardScreen() {
     setGenerating(true);
     setGenerationError(null);
     try {
-      const plan = await generatePracticePlan(profile, rounds);
+      const plan = await generatePracticePlan(profile, rounds, undefined, fingerprint);
       haptics.success();
       setPlan(plan);
     } catch (err: any) {
