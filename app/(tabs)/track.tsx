@@ -11,13 +11,15 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useRoundStore } from '../../store/useRoundStore';
 import { HoleScore, Round, RoundType, MissDirection } from '../../types';
 import EmptyRounds from '../../components/empty-states/EmptyRounds';
 import { useToast } from '../../hooks/useToast';
-import { Linking } from 'react-native';
 import { haptics } from '../../utils/haptics';
 
 function buildRoundSummary(r: Round): { headline: string; highlights: string[] } {
@@ -48,6 +50,7 @@ function buildRoundSummary(r: Round): { headline: string; highlights: string[] }
 }
 
 export default function TrackScreen() {
+  const router = useRouter();
   const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted, updateRoundNotes, updateRound, verifySave } =
     useRoundStore();
   const { showToast } = useToast();
@@ -286,6 +289,15 @@ export default function TrackScreen() {
         </>
       ) : (
         <ScrollView contentContainerStyle={styles.noRoundContent} showsVerticalScrollIndicator={false}>
+          {/* Header with back button */}
+          <View style={styles.noRoundHeader}>
+            <TouchableOpacity onPress={() => router.navigate('/(tabs)/')} style={styles.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Ionicons name="arrow-back" size={20} color={Colors.darkGreen} />
+            </TouchableOpacity>
+            <Text style={styles.noRoundTitle}>Round Tracker</Text>
+            <View style={{ width: 32 }} />
+          </View>
+
           {/* Post-round summary — shown immediately after completing a round */}
           {lastCompletedRound && (() => {
             const { headline, highlights } = buildRoundSummary(lastCompletedRound);
@@ -297,7 +309,10 @@ export default function TrackScreen() {
                     <Text style={styles.summaryOverline}>ROUND COMPLETE</Text>
                     <Text style={styles.summaryCourse} numberOfLines={1}>{lastCompletedRound.courseName}</Text>
                   </View>
-                  <TouchableOpacity onPress={clearLastCompleted} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <TouchableOpacity
+                    onPress={() => { clearLastCompleted(); router.navigate('/(tabs)/'); }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
                     <Text style={styles.summaryClose}>✕</Text>
                   </TouchableOpacity>
                 </View>
@@ -980,6 +995,23 @@ const holeStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  noRoundHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noRoundTitle: {
+    fontSize: FontSize.md,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
   roundHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1045,7 +1077,7 @@ const styles = StyleSheet.create({
   even: { color: Colors.textSecondary },
   over: { color: Colors.error },
   holeInputArea: { flex: 1 },
-  noRoundContent: { padding: Spacing.lg, paddingBottom: 100 },
+  noRoundContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 100 },
   summaryCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.xl,

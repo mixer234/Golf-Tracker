@@ -1044,8 +1044,8 @@ const missStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { padding: Spacing.lg, paddingBottom: 100 },
-  title: { fontSize: FontSize.xxl, fontWeight: '500', color: Colors.textPrimary, marginBottom: Spacing.lg },
+  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 100 },
+  title: { fontSize: 26, fontWeight: '500', color: '#0d1a06', letterSpacing: -0.5, marginBottom: Spacing.lg },
   emptyWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: Spacing.xxl, gap: Spacing.md },
   emptyEmoji: { fontSize: 64 },

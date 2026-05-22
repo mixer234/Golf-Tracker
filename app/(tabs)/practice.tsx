@@ -408,9 +408,11 @@ export default function PracticeScreen() {
       {!isSessionActive && (
         <>
       <View style={styles.header}>
-        <Text style={styles.title}>Practice Plan</Text>
+        <Text style={styles.title}>Practice</Text>
         {currentPlan && (
-          <Text style={styles.subtitle} numberOfLines={1}>Week of {new Date(currentPlan.weekOf).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
+          <TouchableOpacity onPress={() => { haptics.light(); handleGenerate(); }} style={styles.headerAction} activeOpacity={0.75}>
+            <Text style={styles.headerActionText}>New plan</Text>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -768,11 +770,27 @@ const drillStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, marginBottom: Spacing.sm },
-  title: { fontSize: FontSize.xxl, fontWeight: '500', color: Colors.textPrimary },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    marginBottom: Spacing.sm,
+  },
+  title: { fontSize: 26, fontWeight: '500', color: '#0d1a06', letterSpacing: -0.5 },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
+  headerAction: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: Radius.circle,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  headerActionText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
   dayScroll: { maxHeight: 60 },
-  dayScrollContent: { paddingHorizontal: Spacing.lg, gap: Spacing.sm, alignItems: 'center' },
+  dayScrollContent: { paddingHorizontal: 16, gap: Spacing.sm, alignItems: 'center' },
   dayChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -794,7 +812,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.midGreen,
     marginTop: 2,
   },
-  scroll: { padding: Spacing.lg, paddingBottom: 100 },
+  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 100 },
   dayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

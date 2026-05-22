@@ -3,6 +3,7 @@ import {
   SafeAreaView, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { formatHandicap, formatTargetHandicap } from '../../components/HandicapDial';
 import { useUserStore } from '../../store/useUserStore';
@@ -22,12 +23,6 @@ function getGreeting(): string {
   if (h < 12) return 'Good morning';
   if (h < 17) return 'Good afternoon';
   return 'Good evening';
-}
-
-function avgScore(rounds: Round[]): string {
-  const done = rounds.filter((r) => r.isComplete && r.totalScore > 0).slice(0, 5);
-  if (!done.length) return '—';
-  return (done.reduce((s, r) => s + r.totalScore, 0) / done.length).toFixed(1);
 }
 
 function HandicapCard({ profile }: { profile: UserProfile }) {
@@ -54,7 +49,6 @@ function HandicapCard({ profile }: { profile: UserProfile }) {
           </Text>
         </View>
       </View>
-
       <View style={hStyles.barTrack}>
         <View style={[hStyles.barFill, { width: `${progress * 100}%` }]} />
       </View>
@@ -90,8 +84,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const rounds = useRoundStore((s) => s.rounds);
-  const { currentPlan, isGenerating, generationError, setPlan, setGenerating, setGenerationError } =
-    usePracticeStore();
+  const { currentPlan, isGenerating, setPlan, setGenerating, setGenerationError } = usePracticeStore();
 
   const { showToast } = useToast();
   const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek;
@@ -139,7 +132,7 @@ export default function DashboardScreen() {
   if (!hydrated) {
     return (
       <SafeAreaView style={s.container}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollLoading}>
           <SkeletonHome />
         </ScrollView>
       </SafeAreaView>
@@ -162,7 +155,7 @@ export default function DashboardScreen() {
           <Text style={s.nameLarge}>{firstName}</Text>
         </View>
 
-        {/* Handicap */}
+        {/* Handicap card */}
         <HandicapCard profile={profile} />
 
         {/* Coach Insight */}
@@ -178,23 +171,58 @@ export default function DashboardScreen() {
           </Text>
         </View>
 
-        {/* Quick actions */}
-        <View style={s.actions}>
+        {/* Quick actions — 2×2 grid */}
+        <View style={s.actionGrid}>
+          {/* Track Round — primary */}
           <TouchableOpacity
-            style={[s.actionBtn, s.actionPrimary]}
+            style={[s.actionCard, s.actionCardPrimary]}
             onPress={() => { haptics.light(); router.push('/(tabs)/track'); }}
             activeOpacity={0.85}
           >
-            <Text style={s.actionIcon}>⛳</Text>
-            <Text style={s.actionLabel} numberOfLines={1}>Track Round</Text>
+            <View style={[s.iconSquare, s.iconSquarePrimary]}>
+              <Ionicons name="flag-outline" size={20} color={Colors.midGreen} />
+            </View>
+            <Text style={s.actionTitle}>Track Round</Text>
+            <Text style={s.actionSub}>Log a round</Text>
           </TouchableOpacity>
+
+          {/* Train */}
           <TouchableOpacity
-            style={[s.actionBtn, s.actionSecondary]}
-            onPress={() => { haptics.light(); router.push('/(tabs)/practice'); }}
+            style={s.actionCard}
+            onPress={() => { haptics.light(); router.navigate('/(tabs)/practice'); }}
             activeOpacity={0.85}
           >
-            <Text style={s.actionIcon}>🎯</Text>
-            <Text style={s.actionLabel} numberOfLines={1}>Practice</Text>
+            <View style={[s.iconSquare, s.iconSquareSecondary]}>
+              <Ionicons name="barbell-outline" size={20} color={Colors.textMuted} />
+            </View>
+            <Text style={s.actionTitle}>Train</Text>
+            <Text style={s.actionSub}>Practice plan</Text>
+          </TouchableOpacity>
+
+          {/* Tournaments */}
+          <TouchableOpacity
+            style={s.actionCard}
+            onPress={() => { haptics.light(); router.push('/tournaments'); }}
+            activeOpacity={0.85}
+          >
+            <View style={[s.iconSquare, s.iconSquareSecondary]}>
+              <Ionicons name="trophy-outline" size={20} color={Colors.textMuted} />
+            </View>
+            <Text style={s.actionTitle}>Tournaments</Text>
+            <Text style={s.actionSub}>Coming soon</Text>
+          </TouchableOpacity>
+
+          {/* Coach */}
+          <TouchableOpacity
+            style={s.actionCard}
+            onPress={() => { haptics.light(); router.push('/coach'); }}
+            activeOpacity={0.85}
+          >
+            <View style={[s.iconSquare, s.iconSquareSecondary]}>
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.textMuted} />
+            </View>
+            <Text style={s.actionTitle}>Coach</Text>
+            <Text style={s.actionSub}>AI chat</Text>
           </TouchableOpacity>
         </View>
 
@@ -209,7 +237,7 @@ export default function DashboardScreen() {
           ) : todayPlan ? (
             <TouchableOpacity
               style={[s.card, s.practiceCard]}
-              onPress={() => router.push('/(tabs)/practice')}
+              onPress={() => router.navigate('/(tabs)/practice')}
               activeOpacity={0.85}
             >
               <View style={s.practiceRow}>
@@ -233,7 +261,7 @@ export default function DashboardScreen() {
               <Text style={s.emptyTitle}>Ready to train?</Text>
               <Text style={s.emptyText}>Generate your personalised weekly plan.</Text>
               <TouchableOpacity style={s.genBtn} onPress={handleGeneratePlan}>
-                <Text style={s.genBtnText}>Generate Plan 🎯</Text>
+                <Text style={s.genBtnText}>Generate Plan</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -262,6 +290,8 @@ export default function DashboardScreen() {
   );
 }
 
+// ── Handicap card styles ───────────────────────────────────────────────────────
+
 const hStyles = StyleSheet.create({
   card: {
     backgroundColor: Colors.darkGreen,
@@ -278,6 +308,8 @@ const hStyles = StyleSheet.create({
   barFill: { height: '100%', backgroundColor: Colors.lightGreen, borderRadius: Radius.circle },
   gapText: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
 });
+
+// ── Round row styles ───────────────────────────────────────────────────────────
 
 const rStyles = StyleSheet.create({
   row: {
@@ -302,13 +334,16 @@ const rStyles = StyleSheet.create({
   over: { color: Colors.error },
 });
 
+// ── Main screen styles ─────────────────────────────────────────────────────────
+
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: 100 },
+  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 100 },
+  scrollLoading: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 100 },
 
   header: { marginBottom: Spacing.md },
   greetingSmall: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textMuted, letterSpacing: 0.8, marginBottom: 2 },
-  nameLarge: { fontSize: FontSize.xxl, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.5, marginBottom: 0 },
+  nameLarge: { fontSize: FontSize.xxl, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.5 },
 
   insightCard: {
     backgroundColor: Colors.surface,
@@ -324,19 +359,38 @@ const s = StyleSheet.create({
   insightLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.midGreen, letterSpacing: 0.8 },
   insightText: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 18 },
 
-  actions: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
-  actionBtn: {
-    flex: 1,
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-    gap: 4,
+  // 2×2 quick action grid
+  actionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  actionCard: {
+    width: '48.5%',
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.08)',
+    gap: Spacing.sm,
     ...Shadow.card,
   },
-  actionPrimary: { backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: Colors.midGreen },
-  actionSecondary: { backgroundColor: Colors.surfaceAlt },
-  actionIcon: { fontSize: 22 },
-  actionLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.darkGreen },
+  actionCardPrimary: {
+    borderWidth: 1.5,
+    borderColor: Colors.midGreen,
+  },
+  iconSquare: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconSquarePrimary: { backgroundColor: Colors.paleGreen },
+  iconSquareSecondary: { backgroundColor: Colors.surfaceAlt },
+  actionTitle: { fontSize: 13, fontWeight: '500', color: Colors.darkGreen },
+  actionSub: { fontSize: 11, color: Colors.textMuted },
 
   section: { marginBottom: Spacing.md },
   sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
@@ -347,16 +401,16 @@ const s = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: Colors.border,
     ...Shadow.card,
   },
   practiceCard: { backgroundColor: Colors.darkGreen, borderWidth: 0 },
   practiceRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: Spacing.md },
-  practiceTheme: { fontSize: FontSize.md, fontWeight: '700', color: Colors.background, marginBottom: 4 },
+  practiceTheme: { fontSize: FontSize.md, fontWeight: '700', color: '#fff', marginBottom: 4 },
   practiceDur: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.7)' },
   progressBox: { alignItems: 'center', marginLeft: Spacing.sm },
-  progressNum: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.background },
+  progressNum: { fontSize: FontSize.xl, fontWeight: '800', color: '#fff' },
   progressSub: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.7)' },
   bar: { height: 5, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: Radius.circle, overflow: 'hidden' },
   barFill: { height: '100%', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: Radius.circle },
@@ -365,6 +419,5 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center', marginBottom: Spacing.xs },
   emptyText: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: Spacing.md },
   genBtn: { backgroundColor: Colors.darkGreen, borderRadius: Radius.circle, paddingVertical: 12, paddingHorizontal: Spacing.xl, alignSelf: 'center' },
-  genBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.background },
-  errorText: { color: Colors.error, textAlign: 'center', marginBottom: Spacing.md, fontSize: FontSize.sm },
+  genBtnText: { fontSize: FontSize.base, fontWeight: '700', color: '#fff' },
 });

@@ -602,7 +602,7 @@ const gpStyles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: 0,
     marginBottom: Spacing.sm,
     borderWidth: 0.5,
     borderColor: Colors.border,
@@ -673,8 +673,8 @@ const infoStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { padding: Spacing.lg, paddingBottom: 100 },
-  title: { fontSize: FontSize.xxl, fontWeight: '500', color: Colors.textPrimary, marginBottom: Spacing.lg },
+  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 100 },
+  title: { fontSize: 26, fontWeight: '500', color: '#0d1a06', letterSpacing: -0.5, marginBottom: Spacing.lg },
 
   // User card
   userCard: {

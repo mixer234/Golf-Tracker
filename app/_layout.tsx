@@ -17,6 +17,7 @@ export default function RootLayout() {
         <Stack.Screen name="coach" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="vault" options={{ animation: 'slide_from_bottom', headerShown: false }} />
         <Stack.Screen name="diagnostic" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="tournaments" options={{ animation: 'slide_from_right' }} />
       </Stack>
     </GestureHandlerRootView>
   );

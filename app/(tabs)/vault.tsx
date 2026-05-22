@@ -159,7 +159,7 @@ export default function VaultScreen() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100, paddingTop: 4 }}>
         {/* ── Filter strip ──────────────────────────────────────────────── */}
         <ScrollView
           horizontal
@@ -364,11 +364,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: Spacing.sm,
   },
-  title: { fontSize: FontSize.xxl, fontWeight: '500', color: Colors.textPrimary },
+  title: { fontSize: 26, fontWeight: '500', color: '#0d1a06', letterSpacing: -0.5 },
   headerBtns: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   compareBtn: {
     paddingHorizontal: 14,
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 16,
     paddingVertical: Spacing.sm,
   },
   filterChip: {
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: CARD_GAP,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 16,
     paddingTop: Spacing.sm,
     paddingBottom: 100,
   },
