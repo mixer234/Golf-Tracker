@@ -14,6 +14,7 @@ import { useUserStore } from '../../store/useUserStore';
 import { useRoundStore } from '../../store/useRoundStore';
 import { usePracticeStore } from '../../store/usePracticeStore';
 import { generatePracticePlan } from '../../services/ai';
+import { hasValidApiKey, logApiKeyStatus } from '../../config/ai';
 import { Drill, DayOfWeek, ClubEntry, UserProfile, PracticePlan, WeaknessArea } from '../../types';
 import { DEFAULT_BAG } from '../../store/useUserStore';
 import { WEEKLY_FOCUS_DATA } from '../../constants/data';
@@ -259,10 +260,14 @@ export default function PracticeScreen() {
   const dayPlan = planDays.find((d) => d.day === selectedDayName);
 
   async function handleGenerate() {
-    if (!profile?.apiKey) {
+    logApiKeyStatus();
+
+    if (!hasValidApiKey()) {
       Alert.alert(
-        'API Key Required',
-        'Add your Claude API key in Profile to generate personalised practice plans.',
+        'API key not configured',
+        __DEV__
+          ? 'Add EXPO_PUBLIC_CLAUDE_API_KEY to your .env file and restart the dev server.'
+          : 'AI features are not available right now.',
         [{ text: 'OK' }]
       );
       return;
@@ -283,7 +288,7 @@ export default function PracticeScreen() {
     setGenerating(true);
     setGenerationError(null);
     try {
-      const plan = await generatePracticePlan(profile, rounds, profile.apiKey);
+      const plan = await generatePracticePlan(profile, rounds);
       setPlan(plan);
     } catch (err: any) {
       console.error('[Practice] AI generation failed:', err);

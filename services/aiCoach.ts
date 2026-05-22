@@ -1,8 +1,9 @@
 import { UserProfile, Round, Course } from '../types';
 import { GolferFingerprint } from '../types/diagnostic';
+import { AI_CONFIG } from '../config/ai';
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-sonnet-4-6';
+const ANTHROPIC_API_URL = AI_CONFIG.baseUrl;
+const MODEL = AI_CONFIG.model;
 
 export interface CoachMessage {
   role: 'user' | 'assistant';
@@ -91,15 +92,17 @@ export async function sendCoachMessage(
   profile: UserProfile,
   rounds: Round[],
   courses: Course[],
-  apiKey: string,
+  apiKey?: string,
   fingerprint?: GolferFingerprint | null,
 ): Promise<string> {
+  const key = apiKey || AI_CONFIG.apiKey;
+  if (!key) throw new Error('No API key configured. Add EXPO_PUBLIC_CLAUDE_API_KEY to your .env file.');
   const systemPrompt = buildSystemPrompt(profile, rounds, courses, fingerprint);
 
   const response = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
-      'x-api-key': apiKey,
+      'x-api-key': key,
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
       'anthropic-beta': 'prompt-caching-2024-07-31',

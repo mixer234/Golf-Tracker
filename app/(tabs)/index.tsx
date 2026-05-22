@@ -16,7 +16,7 @@ import SkeletonHome from '../../components/skeletons/SkeletonHome';
 import { useToast } from '../../hooks/useToast';
 import { checkConnectivity } from '../../hooks/useNetworkStatus';
 import { haptics } from '../../utils/haptics';
-import { envApiKey } from '../../config/ai';
+import { hasValidApiKey, logApiKeyStatus } from '../../config/ai';
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -93,8 +93,9 @@ export default function DashboardScreen() {
   const doneDrills = todayPlan?.completedDrillIds.length ?? 0;
 
   async function handleGeneratePlan() {
-    const effectiveApiKey = profile.apiKey || envApiKey;
-    if (!effectiveApiKey) { router.push('/(tabs)/profile'); return; }
+    logApiKeyStatus();
+
+    if (!hasValidApiKey()) return; // silently skip on home screen if no key
 
     const connected = await checkConnectivity();
     if (!connected) {
@@ -111,7 +112,7 @@ export default function DashboardScreen() {
     setGenerating(true);
     setGenerationError(null);
     try {
-      const plan = await generatePracticePlan(profile, rounds, effectiveApiKey);
+      const plan = await generatePracticePlan(profile, rounds);
       haptics.success();
       setPlan(plan);
     } catch (err: any) {
@@ -141,7 +142,6 @@ export default function DashboardScreen() {
 
   if (!profile) return null;
 
-  const effectiveApiKey = profile.apiKey || envApiKey;
   const firstName = profile.name.split(' ')[0];
   const recentRounds = rounds.slice(0, 3);
 

@@ -10,6 +10,7 @@ import { useRoundStore } from '../../store/useRoundStore';
 import { GOAL_OPTIONS } from '../../constants/data';
 import { GoalType, TargetTimeline } from '../../types';
 import { generatePracticePlan } from '../../services/ai';
+import { hasValidApiKey } from '../../config/ai';
 import { checkConnection } from '../../utils/network';
 
 const TIMELINE_OPTIONS: { key: TargetTimeline; label: string; sub: string }[] = [
@@ -50,7 +51,7 @@ export default function GoalsScreen() {
 
     const finalProfile = { ...profile, goals: selectedGoals, targetTimeline: timeline, hasCompletedOnboarding: true };
 
-    if (profile.apiKey) {
+    if (hasValidApiKey()) {
       checkConnection().then(async (connected) => {
         if (!connected) {
           setGenerationError("We'll generate your plan when you're connected");
@@ -58,7 +59,7 @@ export default function GoalsScreen() {
         }
         setGenerating(true);
         try {
-          const plan = await generatePracticePlan(finalProfile, rounds, profile.apiKey);
+          const plan = await generatePracticePlan(finalProfile, rounds);
           setPlan(plan);
         } catch (err: any) {
           const isNetwork = err instanceof TypeError;

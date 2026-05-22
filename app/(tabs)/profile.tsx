@@ -93,9 +93,6 @@ export default function ProfileScreen() {
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(profile?.name ?? '');
 
-  // API key
-  const [apiKeyInput, setApiKeyInput] = useState(profile?.apiKey ?? '');
-  const [showApiKey, setShowApiKey] = useState(false);
 
   if (!profile) return null;
 
@@ -133,14 +130,6 @@ export default function ProfileScreen() {
     }
     updateProfile({ name: trimmed });
     setEditingName(false);
-  }
-
-  // ── API Key ───────────────────────────────────────────────────────────────
-
-  function saveApiKey() {
-    updateProfile({ apiKey: apiKeyInput.trim() });
-    clearPlan();
-    Alert.alert('API Key Saved', 'Your key has been saved. You can now generate AI practice plans.');
   }
 
   // ── Toggle helpers ────────────────────────────────────────────────────────
@@ -492,40 +481,6 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* ── Claude AI Settings ── */}
-        <SectionHeader title="Claude AI Settings" />
-        <View style={styles.card}>
-          <Text style={styles.apiNote}>
-            Enter your Anthropic API key to enable AI-generated practice plans. Your key is stored
-            locally on your device.
-          </Text>
-          <View style={styles.apiKeyRow}>
-            <TextInput
-              style={styles.apiInput}
-              value={apiKeyInput}
-              onChangeText={setApiKeyInput}
-              placeholder="sk-ant-..."
-              placeholderTextColor={Colors.textLight}
-              secureTextEntry={!showApiKey}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-          <View style={styles.apiActions}>
-            <TouchableOpacity onPress={() => setShowApiKey(!showApiKey)} style={styles.showKeyBtn}>
-              <Text style={styles.showKeyText}>{showApiKey ? 'Hide' : 'Show'} key</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.saveApiBtn} onPress={saveApiKey}>
-              <Text style={styles.saveApiBtnText}>Save Key</Text>
-            </TouchableOpacity>
-          </View>
-          {profile.apiKey ? (
-            <Text style={styles.keyStatus}>✓ API key is set</Text>
-          ) : (
-            <Text style={styles.keyStatusEmpty}>No API key — AI features disabled</Text>
-          )}
-        </View>
-
         {/* ── Account ── */}
         <SectionHeader title="Account" />
         <View style={[styles.card, { marginBottom: Spacing.xs }]}>
@@ -785,38 +740,6 @@ const styles = StyleSheet.create({
   chipText: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.textSecondary },
   chipTextSelected: { color: Colors.darkGreen, fontWeight: '600' },
   chipCheck: { fontSize: 12, color: Colors.darkGreen, fontWeight: '700' },
-
-  // API Key
-  apiNote: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.md },
-  apiKeyRow: { marginBottom: Spacing.sm },
-  apiInput: {
-    backgroundColor: Colors.background,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
-    fontSize: FontSize.sm,
-    color: Colors.textPrimary,
-    fontFamily: 'monospace',
-  },
-  apiActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  showKeyBtn: { paddingVertical: 4 },
-  showKeyText: { fontSize: FontSize.sm, color: Colors.darkGreen, fontWeight: '600' },
-  saveApiBtn: {
-    backgroundColor: Colors.darkGreen,
-    borderRadius: Radius.circle,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  saveApiBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: '#ffffff' },
-  keyStatus: { fontSize: FontSize.xs, color: Colors.success, fontWeight: '600' },
-  keyStatusEmpty: { fontSize: FontSize.xs, color: Colors.textLight },
 
   // Reset / version
   resetText: { fontSize: FontSize.base, color: Colors.error, fontWeight: '600', textAlign: 'center', paddingVertical: Spacing.xs },

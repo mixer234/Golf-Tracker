@@ -88,7 +88,7 @@ export interface UserProfile {
   sessionLengthMinutes: number;
   facilities: PracticeFacility[];
   hasCompletedOnboarding: boolean;
-  apiKey: string;
+  apiKey?: string;
   createdAt: string;
   advancedStatsMode?: boolean;
 }

@@ -1,8 +1,9 @@
 import { UserProfile, Round, PracticePlan, DayOfWeek, WeaknessArea } from '../types';
 import { GolferFingerprint } from '../types/diagnostic';
+import { AI_CONFIG } from '../config/ai';
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-sonnet-4-6';
+const ANTHROPIC_API_URL = AI_CONFIG.baseUrl;
+const MODEL = AI_CONFIG.model;
 
 const ALL_FACILITIES = ['driving_range', 'putting_green', 'chipping_area', 'full_course', 'simulator', 'home_net'] as const;
 
@@ -95,10 +96,12 @@ function formatFingerprint(fp: GolferFingerprint): string {
 export async function generatePracticePlan(
   profile: UserProfile,
   rounds: Round[],
-  apiKey: string,
+  apiKey?: string,
   fingerprint?: GolferFingerprint | null,
   sessionLengthOverride?: number,
 ): Promise<PracticePlan> {
+  const key = apiKey || AI_CONFIG.apiKey;
+  if (!key) throw new Error('No API key configured. Add EXPO_PUBLIC_CLAUDE_API_KEY to your .env file.');
   const rawDays = profile.practiceDaysPerWeek ?? 3;
   const practiceDays = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 5) : 3;
   const rawLength = sessionLengthOverride ?? profile.sessionLengthMinutes ?? 60;
@@ -184,7 +187,7 @@ Allocate practice time proportionally based on weaknesses. Each day should have 
   const response = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
-      'x-api-key': apiKey,
+      'x-api-key': key,
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
       'anthropic-beta': 'prompt-caching-2024-07-31',

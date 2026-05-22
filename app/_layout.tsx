@@ -2,6 +2,10 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native';
+import { logApiKeyStatus } from '../config/ai';
+
+// Log at startup so Expo console confirms the env var is loaded
+logApiKeyStatus();
 
 export default function RootLayout() {
   return (

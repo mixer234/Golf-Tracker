@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GolferFingerprint, GolferTier, ConversationEntry } from '../../types/diagnostic';
 import { UserProfile } from '../../types';
+import { AI_CONFIG, hasValidApiKey } from '../../config/ai';
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-sonnet-4-6';
+const ANTHROPIC_API_URL = AI_CONFIG.baseUrl;
+const MODEL = AI_CONFIG.model;
 
 export const FINGERPRINT_KEY = '@golf_golfer_fingerprint';
 export const DIAGNOSTIC_SKIPPED_KEY = '@golf_diagnostic_skipped';
@@ -112,8 +113,8 @@ export async function extractGolferFingerprint(
   tier: GolferTier,
   profile: UserProfile,
 ): Promise<GolferFingerprint> {
-  // If no API key, build basic fingerprint from answers
-  if (!profile.apiKey) {
+  // If no API key is available, build basic fingerprint from answers
+  if (!hasValidApiKey()) {
     const fp = buildBasicFingerprint(history, tier, profile);
     await AsyncStorage.setItem(FINGERPRINT_KEY, JSON.stringify(fp));
     return fp;
@@ -196,7 +197,7 @@ For coachingApproach: communication style based on seriousness and goals.`;
     const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
-        'x-api-key': profile.apiKey,
+        'x-api-key': AI_CONFIG.apiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
         'anthropic-beta': 'prompt-caching-2024-07-31',

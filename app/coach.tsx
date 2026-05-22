@@ -10,6 +10,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useRoundStore } from '../store/useRoundStore';
 import { useCourseStore } from '../store/useCourseStore';
 import { sendCoachMessage, CoachMessage } from '../services/aiCoach';
+import { hasValidApiKey } from '../config/ai';
 import { Toast, useToast } from '../components/Toast';
 import { checkConnection } from '../utils/network';
 
@@ -50,8 +51,13 @@ export default function CoachScreen() {
     const content = (text ?? input).trim();
     if (!content || loading) return;
 
-    if (!profile?.apiKey) {
-      Alert.alert('API Key Required', 'Add your Anthropic API key in Settings to use the AI Coach.');
+    if (!hasValidApiKey()) {
+      Alert.alert(
+        'AI Coach unavailable',
+        __DEV__
+          ? 'Add EXPO_PUBLIC_CLAUDE_API_KEY to your .env file and restart.'
+          : 'AI features are not available right now.',
+      );
       return;
     }
 
@@ -68,7 +74,7 @@ export default function CoachScreen() {
     setLoading(true);
 
     try {
-      const reply = await sendCoachMessage(updated, profile, rounds, courses, profile.apiKey, fingerprint);
+      const reply = await sendCoachMessage(updated, profile, rounds, courses, undefined, fingerprint);
       setMessages([...updated, { role: 'assistant', content: reply }]);
     } catch (err: any) {
       const isNetwork = err instanceof TypeError;

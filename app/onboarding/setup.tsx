@@ -60,7 +60,6 @@ export default function SetupScreen() {
       sessionLengthMinutes: existing?.sessionLengthMinutes ?? 60,
       facilities: existing?.facilities ?? [],
       hasCompletedOnboarding: false,
-      apiKey: existing?.apiKey ?? '',
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     });
     router.push('/onboarding/schedule');
