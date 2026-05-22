@@ -20,6 +20,7 @@ interface RoundState {
     holeDistances?: { holeNumber: number; distanceYards: number }[],
     holeCount?: 9 | 18,
     date?: string,
+    startingHole?: number,
   ) => void;
   updateRound: (id: string, updates: Partial<Round>) => void;
   updateHole: (holeNumber: number, data: Partial<HoleScore>) => void;
@@ -35,9 +36,9 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-function buildEmptyHoles(count: 9 | 18 = 18): HoleScore[] {
+function buildEmptyHoles(count: 9 | 18 = 18, startingHole: number = 1): HoleScore[] {
   return Array.from({ length: count }, (_, i) => ({
-    holeNumber: i + 1,
+    holeNumber: startingHole + i,
     par: 4 as const,
     strokes: 0,
     putts: 0,
@@ -81,8 +82,8 @@ export const useRoundStore = create<RoundState>()(
       rounds: [],
       currentRound: null,
       lastCompletedRound: null,
-      startRound: (courseName, courseRating, slopeRating, roundType, courseId, teeColor, holePars, holeDistances, holeCount, date) => {
-        const baseHoles = buildEmptyHoles(holeCount ?? 18);
+      startRound: (courseName, courseRating, slopeRating, roundType, courseId, teeColor, holePars, holeDistances, holeCount, date, startingHole) => {
+        const baseHoles = buildEmptyHoles(holeCount ?? 18, startingHole ?? 1);
         const holes = baseHoles.map((h) => {
           const parMatch = holePars?.find((p) => p.holeNumber === h.holeNumber);
           const distMatch = holeDistances?.find((d) => d.holeNumber === h.holeNumber);
@@ -98,6 +99,7 @@ export const useRoundStore = create<RoundState>()(
           courseName,
           courseRating,
           slopeRating,
+          holeCount: holeCount ?? 18,
           roundType,
           courseId,
           teeColor,
@@ -137,11 +139,17 @@ export const useRoundStore = create<RoundState>()(
         const stats = calcRoundStats(current.holes);
         let scoreDifferential: number | undefined;
         if (current.courseRating && current.slopeRating && stats.totalScore > 0) {
-          scoreDifferential = calcScoreDifferential(
-            stats.totalScore,
-            current.courseRating,
-            current.slopeRating
-          );
+          if (current.holeCount === 9) {
+            // WHS 9-hole differential: use half course rating, then double to get 18-hole equivalent
+            const diff9 = (113 / current.slopeRating) * (stats.totalScore - current.courseRating / 2) * 2;
+            scoreDifferential = Math.round(diff9 * 10) / 10;
+          } else {
+            scoreDifferential = calcScoreDifferential(
+              stats.totalScore,
+              current.courseRating,
+              current.slopeRating
+            );
+          }
         }
         const sg = calcRoundSG(current.holes);
         // Only persist a category value if at least one hole contributed to it,

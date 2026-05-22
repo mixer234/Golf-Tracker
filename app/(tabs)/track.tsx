@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   SafeAreaView,
   TextInput,
   Modal,
@@ -15,6 +16,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../constants/theme';
 import { useRoundStore } from '../../store/useRoundStore';
 import { HoleScore, Round, RoundType, MissDirection } from '../../types';
@@ -25,11 +27,13 @@ import { haptics } from '../../utils/haptics';
 function buildRoundSummary(r: Round): { headline: string; highlights: string[] } {
   const stp = r.scoreToPar;
   const parStr = stp === 0 ? 'Even par' : stp < 0 ? `${Math.abs(stp)} under par` : `${stp} over par`;
+  const totalHoles = r.holeCount ?? r.holes.length ?? 18;
   const headline = `${r.totalScore} — ${parStr}`;
 
   const highlights: string[] = [];
-  const girPct = Math.round((r.greensInRegulation / 18) * 100);
-  highlights.push(`${r.greensInRegulation}/18 greens in regulation (${girPct}%)`);
+  if (r.holeCount === 9) highlights.push('9-hole round');
+  const girPct = Math.round((r.greensInRegulation / totalHoles) * 100);
+  highlights.push(`${r.greensInRegulation}/${totalHoles} greens in regulation (${girPct}%)`);
   if (r.fairwaysTotal > 0) {
     const fwPct = Math.round((r.fairwaysHit / r.fairwaysTotal) * 100);
     highlights.push(`${r.fairwaysHit}/${r.fairwaysTotal} fairways hit (${fwPct}%)`);
@@ -51,7 +55,7 @@ function buildRoundSummary(r: Round): { headline: string; highlights: string[] }
 
 export default function TrackScreen() {
   const router = useRouter();
-  const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted, updateRoundNotes, updateRound, verifySave } =
+  const { rounds, currentRound, lastCompletedRound, startRound, updateHole, completeRound, discardCurrentRound, clearLastCompleted, updateRoundNotes, updateRound } =
     useRoundStore();
   const { showToast } = useToast();
   const saveAttemptsRef = useRef(0);
@@ -66,6 +70,8 @@ export default function TrackScreen() {
   const [courseRating, setCourseRating] = useState('');
   const [slopeRating, setSlopeRating] = useState('');
   const [roundType, setRoundType] = useState<RoundType>('casual');
+  const [holeCount, setHoleCount] = useState<9 | 18>(18);
+  const [nineSide, setNineSide] = useState<'front' | 'back'>('front');
   const [selectedHole, setSelectedHole] = useState(1);
 
   // Mental ratings for post-round debrief
@@ -88,54 +94,66 @@ export default function TrackScreen() {
     }
     const cr = parseFloat(courseRating);
     const sr = parseInt(slopeRating, 10);
+    const startingHole = holeCount === 9 && nineSide === 'back' ? 10 : 1;
     startRound(
       courseName.trim(),
       !isNaN(cr) && cr > 50 && cr < 90 ? cr : undefined,
       !isNaN(sr) && sr >= 55 && sr <= 155 ? sr : undefined,
-      roundType
+      roundType,
+      undefined, undefined, undefined, undefined,
+      holeCount,
+      undefined,
+      startingHole
     );
     setShowNewRound(false);
     setCourseName('');
     setCourseRating('');
     setSlopeRating('');
     setRoundType('casual');
-    setSelectedHole(1);
+    setHoleCount(18);
+    setNineSide('front');
+    setSelectedHole(startingHole);
   }
 
   async function attemptVerifySave(roundId: string, attempt: number) {
-    // Give Zustand persist a moment to flush to AsyncStorage
-    await new Promise((r) => setTimeout(r, 400));
-    const saved = await verifySave(roundId);
+    try {
+      // Give Zustand persist a moment to flush to AsyncStorage
+      await new Promise((r) => setTimeout(r, 400));
+      const raw = await AsyncStorage.getItem('round-store');
+      const persisted = raw ? JSON.parse(raw) : null;
+      const saved = persisted?.state?.rounds?.some((r: Round) => r.id === roundId);
 
-    if (saved) {
-      showToast({ type: 'success', title: 'Round saved', message: '', duration: 3000 });
-      saveAttemptsRef.current = 0;
-      return;
-    }
+      if (saved) {
+        showToast({ type: 'success', title: 'Round saved', message: '', duration: 3000 });
+        saveAttemptsRef.current = 0;
+        return;
+      }
+      throw new Error('not persisted');
+    } catch (err) {
+      console.error(`[Track] Round save verification failed (attempt ${attempt}):`, err);
 
-    console.error(`[Track] Round save verification failed (attempt ${attempt})`);
-
-    if (attempt >= 3) {
-      showToast({
-        type: 'error',
-        title: "Round didn't save",
-        message: "Still having trouble saving. Your round data is held in memory — please don't close the app.",
-        action: {
-          label: 'Contact Support',
-          onPress: () =>
-            Linking.openURL('mailto:support@golftracker.app?subject=Round%20Save%20Issue'),
-        },
-      });
-    } else {
-      showToast({
-        type: 'error',
-        title: "Round didn't save",
-        message: 'Your round data is safe. Tap to try saving again.',
-        action: {
-          label: 'Retry',
-          onPress: () => attemptVerifySave(roundId, attempt + 1),
-        },
-      });
+      if (attempt >= 3) {
+        showToast({
+          type: 'error',
+          title: "Round didn't save",
+          message: "Still having trouble. Your round data is in memory — please don't close the app.",
+          action: {
+            label: 'Contact Support',
+            onPress: () =>
+              Linking.openURL('mailto:support@golftracker.app?subject=Round%20Save%20Issue'),
+          },
+        });
+      } else {
+        showToast({
+          type: 'error',
+          title: "Round didn't save",
+          message: 'Your round data is safe. Tap to try saving again.',
+          action: {
+            label: 'Retry',
+            onPress: () => attemptVerifySave(roundId, attempt + 1),
+          },
+        });
+      }
     }
   }
 
@@ -221,7 +239,7 @@ export default function TrackScreen() {
                     <Text style={styles.scoreBoxLabel}>vs Par</Text>
                   </View>
                   <View style={styles.scoreBox}>
-                    <Text style={styles.scoreBoxVal}>{played.length}/18</Text>
+                    <Text style={styles.scoreBoxVal}>{played.length}/{currentRound.holes.length}</Text>
                     <Text style={styles.scoreBoxLabel}>Holes</Text>
                   </View>
                   <View style={styles.scoreBox}>
@@ -281,8 +299,13 @@ export default function TrackScreen() {
             <ScrollView style={styles.holeInputArea} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
               <HoleInputCard
                 hole={currentHole}
+                maxHoleNumber={Math.max(...currentRound.holes.map((h) => h.holeNumber))}
                 onUpdate={(data) => updateHole(selectedHole, data)}
-                onNext={() => { if (selectedHole < 18) setSelectedHole(selectedHole + 1); }}
+                onNext={() => {
+                  const nums = currentRound.holes.map((h) => h.holeNumber);
+                  const idx = nums.indexOf(selectedHole);
+                  if (idx < nums.length - 1) setSelectedHole(nums[idx + 1]);
+                }}
               />
             </ScrollView>
           )}
@@ -399,14 +422,21 @@ export default function TrackScreen() {
                 return (
                   <View key={round.id} style={styles.historyRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.historyCourse} numberOfLines={1}>{round.courseName}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={styles.historyCourse} numberOfLines={1}>{round.courseName}</Text>
+                        {round.holeCount === 9 && (
+                          <View style={styles.nineHoleBadge}>
+                            <Text style={styles.nineHoleBadgeText}>9 holes</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.historyDate}>
                         {new Date(round.date).toLocaleDateString('en-US', {
                           weekday: 'short', month: 'short', day: 'numeric',
                         })}
                       </Text>
                       <Text style={styles.historyStats} numberOfLines={1}>
-                        {round.greensInRegulation}/18 GIR · {round.fairwaysHit}/{round.fairwaysTotal} FW · {round.totalPutts} putts
+                        {round.greensInRegulation}/{round.holeCount ?? 18} GIR · {round.fairwaysHit}/{round.fairwaysTotal} FW · {round.totalPutts} putts
                       </Text>
                       {(udPct !== null || round.totalPenalties > 0) && (
                         <Text style={styles.historyStats} numberOfLines={1}>
@@ -468,6 +498,42 @@ export default function TrackScreen() {
                 autoFocus
                 returnKeyType="next"
               />
+
+              <Text style={[styles.inputLabel, { marginTop: Spacing.lg }]}>Holes</Text>
+              <View style={styles.roundTypeRow}>
+                {([{ key: 18, label: '18 holes' }, { key: 9, label: '9 holes' }] as { key: 9 | 18; label: string }[]).map((opt) => (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[styles.roundTypeChip, holeCount === opt.key && styles.roundTypeChipActive]}
+                    onPress={() => { haptics.light(); setHoleCount(opt.key); }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.roundTypeText, holeCount === opt.key && styles.roundTypeTextActive]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {holeCount === 9 && (
+                <>
+                  <Text style={[styles.inputLabel, { marginTop: Spacing.md }]}>Which 9?</Text>
+                  <View style={styles.roundTypeRow}>
+                    {([{ key: 'front', label: 'Front 9 (1–9)' }, { key: 'back', label: 'Back 9 (10–18)' }] as { key: 'front' | 'back'; label: string }[]).map((opt) => (
+                      <TouchableOpacity
+                        key={opt.key}
+                        style={[styles.roundTypeChip, nineSide === opt.key && styles.roundTypeChipActive]}
+                        onPress={() => { haptics.light(); setNineSide(opt.key); }}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[styles.roundTypeText, nineSide === opt.key && styles.roundTypeTextActive]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
 
               <Text style={[styles.inputLabel, { marginTop: Spacing.lg }]}>Round Type</Text>
               <View style={styles.roundTypeRow}>
@@ -660,15 +726,28 @@ function MissGrid({ value, onSelect }: { value: MissDirection | undefined; onSel
 
 function HoleInputCard({
   hole,
+  maxHoleNumber,
   onUpdate,
   onNext,
 }: {
   hole: HoleScore;
+  maxHoleNumber: number;
   onUpdate: (data: Partial<HoleScore>) => void;
   onNext: () => void;
 }) {
   const [showSG, setShowSG] = useState(false);
+  const [showStrokeInput, setShowStrokeInput] = useState(false);
+  const [strokeDraft, setStrokeDraft] = useState('');
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scoreVsPar = hole.strokes > 0 ? hole.strokes - hole.par : null;
+
+  function startRepeat(fn: () => void) {
+    fn();
+    intervalRef.current = setInterval(() => { fn(); haptics.light(); }, 333);
+  }
+  function stopRepeat() {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+  }
 
   return (
     <View style={holeStyles.card}>
@@ -705,15 +784,96 @@ function HoleInputCard({
         </View>
       </View>
 
-      {/* Strokes */}
+      {/* Quick score pills — tap to set score vs par */}
+      <View style={strokeStyles.pillsSection}>
+        <Text style={strokeStyles.pillsLabel}>Score</Text>
+        <View style={strokeStyles.pills}>
+          {([-1, 0, 1, 2, 3] as const).map((offset) => {
+            const target = hole.par + offset;
+            const isActive = hole.strokes === target;
+            const label = offset === -1 ? 'Birdie' : offset === 0 ? 'Par' : offset === 1 ? 'Bogey' : `+${offset}`;
+            return (
+              <TouchableOpacity
+                key={offset}
+                style={[strokeStyles.pill, isActive && strokeStyles.pillActive]}
+                onPress={() => {
+                  haptics.medium();
+                  onUpdate({ strokes: Math.max(1, target) });
+                }}
+                activeOpacity={0.75}
+              >
+                <Text style={[strokeStyles.pillOffset, isActive && strokeStyles.pillOffsetActive]}>
+                  {offset <= 0 ? (offset === -1 ? '−1' : 'E') : `+${offset}`}
+                </Text>
+                <Text style={[strokeStyles.pillLabel, isActive && strokeStyles.pillLabelActive]}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Strokes counter with long press and direct tap */}
       <View style={holeStyles.row}>
         <Text style={holeStyles.rowLabel}>Strokes</Text>
-        <Counter
-          value={hole.strokes}
-          onDecrement={() => { haptics.light(); onUpdate({ strokes: Math.max(0, hole.strokes - 1) }); }}
-          onIncrement={() => { haptics.light(); onUpdate({ strokes: hole.strokes + 1 }); }}
-        />
+        <View style={holeStyles.counter}>
+          <Pressable
+            style={[holeStyles.counterBtn, hole.strokes <= 0 && holeStyles.counterBtnDisabled]}
+            onPress={() => { haptics.light(); onUpdate({ strokes: Math.max(0, hole.strokes - 1) }); }}
+            onLongPress={() => startRepeat(() => onUpdate({ strokes: Math.max(0, hole.strokes - 1) }))}
+            onPressOut={stopRepeat}
+            disabled={hole.strokes <= 0}
+          >
+            <Text style={holeStyles.counterBtnText}>−</Text>
+          </Pressable>
+          <TouchableOpacity
+            onPress={() => { setStrokeDraft(hole.strokes > 0 ? String(hole.strokes) : ''); setShowStrokeInput(true); }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={holeStyles.counterVal}>{hole.strokes || '—'}</Text>
+          </TouchableOpacity>
+          <Pressable
+            style={holeStyles.counterBtn}
+            onPress={() => { haptics.light(); onUpdate({ strokes: hole.strokes + 1 }); }}
+            onLongPress={() => startRepeat(() => onUpdate({ strokes: hole.strokes + 1 }))}
+            onPressOut={stopRepeat}
+          >
+            <Text style={holeStyles.counterBtnText}>+</Text>
+          </Pressable>
+        </View>
       </View>
+
+      {/* Direct stroke input modal */}
+      <Modal visible={showStrokeInput} transparent animationType="fade" onRequestClose={() => setShowStrokeInput(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={strokeStyles.modalOverlay}>
+            <View style={strokeStyles.inputCard}>
+              <Text style={strokeStyles.inputTitle}>Strokes — Hole {hole.holeNumber}</Text>
+              <TextInput
+                style={strokeStyles.bigInput}
+                value={strokeDraft}
+                onChangeText={setStrokeDraft}
+                keyboardType="number-pad"
+                autoFocus
+                maxLength={2}
+                placeholder="—"
+                placeholderTextColor={Colors.textLight}
+                textAlign="center"
+              />
+              <TouchableOpacity
+                style={strokeStyles.confirmBtn}
+                onPress={() => {
+                  const n = parseInt(strokeDraft, 10);
+                  if (!isNaN(n) && n > 0) { haptics.medium(); onUpdate({ strokes: n }); }
+                  setShowStrokeInput(false);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="checkmark" size={28} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Putts */}
       <View style={holeStyles.row}>
@@ -832,7 +992,7 @@ function HoleInputCard({
         </View>
       )}
 
-      {hole.holeNumber < 18 && (
+      {hole.holeNumber < maxHoleNumber && (
         <TouchableOpacity style={holeStyles.nextBtn} onPress={() => { haptics.medium(); onNext(); }} activeOpacity={0.85}>
           <Text style={holeStyles.nextBtnText}>Next Hole →</Text>
         </TouchableOpacity>
@@ -1237,4 +1397,73 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   mentalDotActive: { backgroundColor: Colors.darkGreen, borderColor: Colors.darkGreen },
+  nineHoleBadge: {
+    backgroundColor: Colors.paleGreen,
+    borderRadius: Radius.circle,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  nineHoleBadgeText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.midGreen },
+});
+
+// ── Stroke counter styles ─────────────────────────────────────────────────────
+
+const strokeStyles = StyleSheet.create({
+  pillsSection: {
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    gap: Spacing.sm,
+  },
+  pillsLabel: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  pills: { flexDirection: 'row', gap: Spacing.xs },
+  pill: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    gap: 2,
+  },
+  pillActive: { backgroundColor: Colors.darkGreen, borderColor: Colors.darkGreen },
+  pillOffset: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textSecondary },
+  pillOffsetActive: { color: '#fff' },
+  pillLabel: { fontSize: 9, color: Colors.textLight },
+  pillLabelActive: { color: 'rgba(255,255,255,0.75)' },
+  // Direct number entry modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  inputCard: {
+    width: '100%',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.lg,
+    ...Shadow.card,
+  },
+  inputTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.textSecondary },
+  bigInput: {
+    fontSize: 64,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    width: '100%',
+    textAlign: 'center',
+    letterSpacing: -2,
+  },
+  confirmBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.darkGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

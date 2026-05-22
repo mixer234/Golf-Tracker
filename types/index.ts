@@ -118,6 +118,7 @@ export interface Round {
   courseName: string;
   courseRating?: number;
   slopeRating?: number;
+  holeCount?: 9 | 18;
   holes: HoleScore[];
   totalScore: number;
   scoreToPar: number;
